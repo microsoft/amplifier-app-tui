@@ -13,6 +13,7 @@ provider requirements. No check proves the bundle, network or API account will w
 | Default provider key missing | Supply ANTHROPIC_API_KEY through the environment; do not paste it into chat |
 | Custom provider still fails despite passing checks | Local checks do not resolve custom configurations or validate credentials; review the trusted overlay and provider's error |
 | First startup is slow | It may be resolving sources/installing dependencies; cached starts differ from cold starts |
+| First launch after upgrade installs modules again | Reinstallation rebuilds the isolated tool environment; allow network access and omit --no-install for that launch |
 | App says it needs a terminal | Launch from an interactive terminal, not a redirected pipe; diagnostics do work in pipes |
 | Saved conversations are missing | Check which --state-dir you selected; the installed and workspace launchers use different defaults |
 | Resume refuses changed/missing configuration | Preserve original state and recorded paths; do not edit checkpoint files to bypass validation |

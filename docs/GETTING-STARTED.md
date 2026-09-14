@@ -71,6 +71,8 @@ migrated. Interrupted work can require an explicitly acknowledged historical rec
 not exact restoration of arbitrary tool/context state.
 
 To upgrade: `uv tool install --reinstall git+https://github.com/bkrabach/amplifier-app-tui`.
+This rebuilds the tool environment, so the next normal launch may reinstall module
+dependencies; allow network access and omit `--no-install` then. Saved state is separate.
 Keep recorded local bundle/overlay paths available for older conversations. An upgrade
 does not silently add new overlays to them.
 

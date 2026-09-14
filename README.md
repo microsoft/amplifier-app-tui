@@ -55,6 +55,10 @@ Upgrade explicitly:
 uv tool install --reinstall git+https://github.com/bkrabach/amplifier-app-tui
 ```
 
+Reinstallation rebuilds the isolated tool environment. The next normal launch may
+reinstall bundle/module dependencies; allow network access and do not use `--no-install`
+for that first post-upgrade launch. Conversation state lives outside that environment.
+
 `--check` explains local prerequisites and returns exit 1 for blockers (0 may include
 warnings). It does not validate API keys, download modules or certify live readiness.
 `--support-report` emits allowlisted, path-free JSON for sharing, with the same exit codes.

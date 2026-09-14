@@ -36,11 +36,38 @@ The intermittent cancellation warning did not occur in this run; no fix is infer
 Wheel/sdist build from locked Rust sources succeeds. Initial isolated installed-wheel
 fixture and both live presets pass guidance/no-state inspection, help without submission,
 tool turns and resume; these receipts precede the final terminal-validation ordering fix.
-Final installed source fingerprints and later verification are recorded below when run.
-
 Final source regression: **326 passed in 142.84 seconds**, with two existing unawaited
 coroutine warnings during anchors-amp-dev child-question cancellation (child observation
 and module hook handler). This confirms those intermittent warnings remain unresolved.
+
+Final delivery proof at runtime source `683b3d87dcd41d8c7f50bfc6d85a3ff4ae3e502a`:
+
+- Actual private-Git installation succeeds at 0.2.1, not just an editable/workspace build.
+  [Fixture receipt](evidence/onboarding-git-fixture.json) and
+  [both-preset live receipt](evidence/onboarding-git-live.json) exercise offline guidance,
+  allowlisted diagnostics without state creation, help with zero submissions, actual
+  child read_file, completed turn, resume with no implicit submission, and marker recall
+  on a second turn. Four root/two child live turns in the final gate; the earlier wheel
+  gate also billed four root/two child turns. Captures remain private and were inspected.
+- All **27 installed Python source fingerprints** match the final source tree; version,
+  native binary and entrypoint hashes are recorded. Core 1.6.1 and the existing Foundation
+  source pin remain unchanged. Later docs/evidence commits do not amend this runtime proof.
+- The documented `uv tool install --reinstall` upgrades a separate prior 0.2.0 Git tool
+  environment to 0.2.1. It removes dynamically installed module packages while rebuilding
+  that environment, so the next ordinary launch must be allowed to reinstall dependencies.
+  An earlier test-owned anchors conversation reached ready afterward, with **zero new
+  turn submissions**. This is same-path/default-composition upgrade evidence, not general
+  migration or arbitrary-module compatibility. No user conversation or shared CLI was used.
+
+[Final renderer timing](evidence/onboarding-benchmark.json), run separately after all
+tests/builds/live probes: 30 startup pairs and all 18 stress cells complete, including
+100,000-item history and cleanup. Ratatui worst edit p95 **20.545 ms**, stream p95
+**21.109 ms**, peak RSS **135196 KiB**; first usable median **42.327 ms**, p95 **58.694 ms**.
+All 24 source fingerprints match. This is warm-cache scene/renderer evidence, not cold
+installed startup, menu-reading speed, provider latency or policy-equivalent CLI parity.
+The initial latest-1000 native replay bound still differs from the comparator's viewport.
+Workspace resources reconciled: 3,616 records, no active test-owned resources. The sole
+active entry is the intentionally retained private GitHub repository; visibility unchanged.
 
 Limitations remain explicit: no key storage/import/wizard, remote authentication check,
 automatic repair, public visibility/access changes, prebuilt-wheel distribution or new
@@ -48,7 +75,7 @@ platform claim. The default provider, bundle/module authority and retained conve
 policy are unchanged. Cross-platform/new-user field trials remain separate from developer
 captures and deterministic/runtime evidence.
 
-## Latest receipt: private Git-installed native product (2026-09-14 UTC)
+## Earlier receipt: private Git-installed native product 0.2.0 (2026-09-14 UTC)
 
 This section supersedes historical packaging, source-queue and branch statements below.
 Direction was amended before INSTALL-01, OUTCOME-01 and STARTUP-02 implementation;
