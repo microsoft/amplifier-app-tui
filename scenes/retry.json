@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "title": "parcel / retry policy",
+  "context": "parcel  /  feature/retry",
+  "bundle": "anchors-amp-dev",
+  "draft": "Also check that permanent failures are not retried.",
+  "items": [
+    {"id":"user-1","kind":"user","text":"Add retry backoff to the client. Keep the public API unchanged.","status":"","detail":""},
+    {"id":"reply-1","kind":"assistant","text":"The client already has a retry helper. I’m extending it and checking that existing callers behave the same.","status":"","detail":""},
+    {"id":"read-1","kind":"tool","text":"Read client and retry helper","status":"succeeded","detail":"read_file · 3 files\nsrc/client.py\nsrc/retry.py\ntests/test_retry.py\n\nObserved result: success = true\nThis is synthetic evidence; no files were read."},
+    {"id":"edit-1","kind":"tool","text":"Updated client and regression tests","status":"succeeded","detail":"apply_patch · 2 files\n\n--- src/client.py\n-    return self._send(payload)\n+    return retry_with_backoff(\n+        lambda: self._send(payload),\n+        policy=self.retry_policy,\n+    )\n\nThis is a simulated diff; no files were edited."},
+    {"id":"test-1","kind":"tool","text":"Focused regression tests","status":"waiting","detail":"pytest tests/test_retry.py -q\n\nWaiting for request c18. No command runs in this scene."}
+  ],
+  "approval": {"id":"c18","prompt":"Run the focused regression tests?","command":"pytest tests/test_retry.py -q","reason":"Project policy asks before shell execution.","options":["allow","deny"]},
+  "system": [
+    "Scene composition · not mounted",
+    "Bundle                  anchors-amp-dev (reference)",
+    "Provider                SIMULATED · no model calls",
+    "Approval                Request-specific fixture decision",
+    "History                 In memory · not resumable",
+    "",
+    "Supported in this comparison",
+    "Draft editing, view switching, evidence expansion",
+    "Streaming, explicit send/reject, stop and scoped approval",
+    "",
+    "Not available",
+    "Queue / steer / resume / delegated execution",
+    "No filesystem changes, shell commands or external services",
+    "The displayed diff and outcomes are synthetic."
+  ],
+  "response": "I’ll keep the public API unchanged and check the permanent-failure case explicitly. This response is a timed simulation, not an AI answer. The failed test below stays failed even when this turn ends.",
+  "failure_detail": "pytest tests/test_retry.py -q\n\nFAILED test_permanent_failure_is_not_retried\nassert attempts == 1\nE  assert 3 == 1\n\n1 failed, 3 passed · exit 1\n\nSynthetic result. No command was executed.",
+  "stream_interval_ms": 20
+}
