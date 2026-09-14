@@ -1,0 +1,43 @@
+{
+  "scope": "Live read-only tool followed by explicit process restart and context-memory turn; no CLI parity claim",
+  "runs": [
+    {
+      "preset": "anchors",
+      "completed_turns": 2,
+      "first_tool": "read_file",
+      "restored_draft": true,
+      "same_conversation": true,
+      "new_answer_recalls_prior_marker": true,
+      "replay_projection_events": [
+        "session.ready"
+      ],
+      "second_turn_tools": 0
+    },
+    {
+      "preset": "anchors-amp-dev",
+      "completed_turns": 2,
+      "first_tool": "read_file",
+      "restored_draft": true,
+      "same_conversation": true,
+      "new_answer_recalls_prior_marker": true,
+      "replay_projection_events": [
+        "session.ready"
+      ],
+      "second_turn_tools": 0
+    }
+  ],
+  "source_fingerprints": {
+    "frontends/ratatui/src/composer.rs": "c76e80bb6c560cb418c4b510efb985d94ba4263300ce460929fba16f546afba3",
+    "frontends/ratatui/src/interaction.rs": "3a87685c1fe1c2c26e88559e61d4ae27048670f57b35f7774644045a41022aff",
+    "frontends/ratatui/src/main.rs": "51d5a2df907ff5364be33ed149db44ef06fd51463854cca054450d6180b16bec",
+    "frontends/ratatui/src/markdown.rs": "183592cae1c16b9a3a3d1aaf5923d0819b45ff7be1af800dccf13e9ec455b272",
+    "frontends/ratatui/src/transcript.rs": "539fe134b81d1d8a718511c2e2396ebf1b379126cf16d6c46d0a4df151986d56",
+    "frontends/ratatui/Cargo.lock": "a03c8c5ba9260fd04f838f3b0eb684a22938586270487a2a422155e047adbb3f",
+    "scripts/run.py": "193666f3d4efdb6c70753b346a028477895cf006038693a0e04c25ab8890c81f",
+    "src/amplifier_tui/host.py": "e3813449d0149ce23d54c9898eb2ef016be10a778bfcc21674fabad21efe7aef",
+    "src/amplifier_tui/conversations.py": "1cef040332deab0cb08559edfd0077034618edf4c393da7dc78136093bf03830",
+    "src/amplifier_tui/__main__.py": "c24e0bb1da152631fcf5eb74bf925455704b526cb48a0a83d693b3d6dd0845e6",
+    "src/amplifier_tui/frontend_bridge.py": "328f09ddb4b3dbf9877e30bafc0fc2dcc2245bbe5bf27fd2b38e97adcebb9775",
+    "src/amplifier_tui/events.py": "c54d8472f95cb361edd4efda2894f7c28cf030baf52dd1ed3355a136009bceab"
+  }
+}

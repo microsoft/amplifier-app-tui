@@ -1,0 +1,16 @@
+bundle:
+  name: fixture-model-options
+  version: 0.1.0
+providers:
+  - module: provider-fixture
+    source: ../src/amplifier_tui/fixtures/provider-fixture
+    config:
+      default_model: fixture
+      priority: 100
+  - module: provider-fixture
+    instance_id: fixture-alternate
+    id: fixture-alternate
+    source: ../src/amplifier_tui/fixtures/provider-fixture
+    config:
+      default_model: fixture-alternate
+      priority: 200

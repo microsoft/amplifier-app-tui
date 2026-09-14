@@ -1,0 +1,8 @@
+bundle:
+  name: user-questions
+  version: 0.1.0
+tools:
+  - module: tool-user-input
+    source: ../src/amplifier_tui/modules/tool-user-input
+    config:
+      timeout: 600

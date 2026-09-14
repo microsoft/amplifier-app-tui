@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.state/
+dist/
+*.egg-info/
+*.zip
+node_modules/
+target/
+.evidence/
+.agent-verification-marker
+TEST_EVENTS_REPORT.md

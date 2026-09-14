@@ -1,0 +1,56 @@
+{
+  "format": "local provenance receipt; not a Converge service/import schema",
+  "snapshot": "20260909T213649Z",
+  "archive_filename": "amplifier-converge-vision-contracts-20260909T213649Z.zip",
+  "archive_sha256": "f74eb3122f4003144dc00e5590818a450a6221bfe4ccc449b88cd9dc49bb0b17",
+  "package_prefix": "amplifier-converge-vision-contracts",
+  "repository": "amplifier-converge-method",
+  "commit": "d99c2a56f5ff40a4db23099a8e2959062e39aaf5",
+  "files": [
+    {
+      "source_relative_path": "contracts/documents.v1.md",
+      "byte_length": 6336,
+      "sha256": "bffd21ee8e51f20c17420d318a2041cb3571b25383ee90a45dbcb373752ae86f"
+    },
+    {
+      "source_relative_path": "contracts/lanes.v1.md",
+      "byte_length": 3478,
+      "sha256": "76709aa27fab4dbff26c6aeda5d571f4385b1d35cdc0e4c527e3b588322506b8"
+    },
+    {
+      "source_relative_path": "contracts/ledger.v1.md",
+      "byte_length": 4261,
+      "sha256": "cda7ec5abf3b988e716a681d37b982bd3a722c93d16ce37e56df88cac0d47461"
+    },
+    {
+      "source_relative_path": "contracts/manager-mode.v1.md",
+      "byte_length": 3659,
+      "sha256": "c88b5e4ae87b67a99b458a09efa210566965033e094276e9c33011dc014b7337"
+    },
+    {
+      "source_relative_path": "contracts/operation.v1.md",
+      "byte_length": 3940,
+      "sha256": "f532fd78a56f4654080e87e6b28f53afd3d08d3bcd79bb7efe8878c058bb1301"
+    },
+    {
+      "source_relative_path": "contracts/settling.v1.md",
+      "byte_length": 4453,
+      "sha256": "d5fb49c30d022edf3961be94ddd92ec77808b5aaa70922f60eeb62bfa5c1c49b"
+    },
+    {
+      "source_relative_path": "contracts/verdicts.v1.md",
+      "byte_length": 3274,
+      "sha256": "da453c57e5b0506e90b2a186c6d1da4dbeebbb32d0a39244f8389aa0c6d1dc31"
+    },
+    {
+      "source_relative_path": "contracts/wake.v1.md",
+      "byte_length": 5498,
+      "sha256": "4b297d0976f74c6e48ebe2ce1375dbe291569d046bf7712706344f52bcfea1d6"
+    },
+    {
+      "source_relative_path": "docs/VISION.md",
+      "byte_length": 7728,
+      "sha256": "4287915ee4422f525bd289234c6563f43567f829bb130bca0b8786694981f61f"
+    }
+  ]
+}

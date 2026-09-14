@@ -1,0 +1,7 @@
+bundle:
+  name: fixture-approval
+  version: 0.1.0
+tools:
+  - module: tool-fixture
+    config:
+      approval: true

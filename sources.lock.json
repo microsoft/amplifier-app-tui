@@ -1,0 +1,441 @@
+{
+  "inspected_at": "2026-09-12",
+  "repositories": {
+    "amplifier-foundation": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9"
+    },
+    "amplifier-bundle-context-intelligence": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66"
+    },
+    "amplifier-bundle-routing-matrix": {
+      "url": "https://github.com/microsoft/amplifier-bundle-routing-matrix.git",
+      "commit": "7c620f0a2f6cf36b3bf410155e91dfb66431d1e9"
+    },
+    "amplifier-bundle-redaction": {
+      "url": "https://github.com/microsoft/amplifier-bundle-redaction.git",
+      "commit": "fade4bd21eefec0e99311dbdfbe7228bdbd14716"
+    },
+    "amplifier-module-loop-streaming": {
+      "url": "https://github.com/microsoft/amplifier-module-loop-streaming.git",
+      "commit": "2feefe4ba0c4cb50fc0c6b33648a8ef6a2908820"
+    },
+    "amplifier-module-context-simple": {
+      "url": "https://github.com/microsoft/amplifier-module-context-simple.git",
+      "commit": "2d1bdc4d9c1803491fe39820c8d503dd764d32de"
+    },
+    "amplifier-bundle-skills": {
+      "url": "https://github.com/microsoft/amplifier-bundle-skills.git",
+      "commit": "f5b1bb1f5b0e5653f7a504a95bbd9ec0134d8e39"
+    },
+    "amplifier-module-tool-filesystem": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-filesystem.git",
+      "commit": "8bd1eab4715924686c2e9c167ba9b861af1ee82d"
+    },
+    "amplifier-module-tool-bash": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-bash.git",
+      "commit": "aa363e9b0f33e1af8cfbf8affee19e06e22bcc94"
+    },
+    "amplifier-module-tool-web": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-web.git",
+      "commit": "20c29fdfaf1c1b3a36d0b19888d8d636eb0098e6"
+    },
+    "amplifier-module-tool-search": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-search.git",
+      "commit": "0c7f4a7ca825e90203e858abac9d9a3d5c3abbf1"
+    },
+    "amplifier-module-tool-todo": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-todo.git",
+      "commit": "9d7b55a4ff7dd6115171fb0b4936fdb3ab89a4d3"
+    },
+    "amplifier-bundle-filesystem": {
+      "url": "https://github.com/microsoft/amplifier-bundle-filesystem.git",
+      "commit": "e83ff2b5d7987e9bae8d470cc291e240de62148d"
+    },
+    "amplifier-bundle-modes": {
+      "url": "https://github.com/microsoft/amplifier-bundle-modes.git",
+      "commit": "8004e169e26c33d19c27ac1ac5e81ca1ca7c0220"
+    },
+    "amplifier-bundle-recipes": {
+      "url": "https://github.com/microsoft/amplifier-bundle-recipes.git",
+      "commit": "bf5f88cbd296ec73c92b2f816a04a6efa64b43e2"
+    },
+    "amplifier-module-hooks-streaming-ui": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-streaming-ui.git",
+      "commit": "d46319547edd3f1765d5d4f866683e00d65234db"
+    },
+    "amplifier-module-hooks-status-context": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-status-context.git",
+      "commit": "4ccba516d0b8d93c56f9ced588817ea8b15002ba"
+    },
+    "amplifier-module-hooks-logging": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-logging.git",
+      "commit": "a4efafc834938ea53006808313e840b1136cb296"
+    },
+    "amplifier-module-hooks-todo-reminder": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-todo-reminder.git",
+      "commit": "5bd0f4d5c3e9db521e7d954df3f869c26f0e2a80"
+    },
+    "amplifier-module-hooks-approval": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-approval.git",
+      "commit": "4ee093eafd2d60ab10692a22363e86c7b25d02ce"
+    },
+    "amplifier-bundle-amplifier-tester": {
+      "url": "https://github.com/microsoft/amplifier-bundle-amplifier-tester.git",
+      "commit": "0e3ffa2d63ebec0fd87532ff7ad57551abe1dc40"
+    },
+    "amplifier-bundle-digital-twin-universe": {
+      "url": "https://github.com/microsoft/amplifier-bundle-digital-twin-universe.git",
+      "commit": "ccbd70d09164a34c4880abdfab70ab4a4c2102f7"
+    },
+    "amplifier-bundle-gitea": {
+      "url": "https://github.com/microsoft/amplifier-bundle-gitea.git",
+      "commit": "435e16187e9c0e624e4247c3d6d4d63844fe1478"
+    },
+    "amplifier": {
+      "url": "https://github.com/microsoft/amplifier.git",
+      "commit": "28588b93886dd4b134f131294ca98e944d71cbfd"
+    },
+    "amplifier-core": {
+      "url": "https://github.com/microsoft/amplifier-core.git",
+      "commit": "6d4cd217f83bb29b671b5c9d854aaa08be14db1b"
+    },
+    "amplifier-app-cli": {
+      "url": "https://github.com/microsoft/amplifier-app-cli.git",
+      "commit": "772bdb42f135fa310e217d6634dd727039d2d840"
+    },
+    "amplifier-agent": {
+      "url": "https://github.com/microsoft/amplifier-agent.git",
+      "commit": "fa33a2099bf748c0e4553c0b74eafe1077fb9326"
+    },
+    "amplifier-module-provider-anthropic": {
+      "url": "https://github.com/microsoft/amplifier-module-provider-anthropic.git",
+      "commit": "12fffb6ad2bafb1bb7999ab02245a35e42ca8672"
+    }
+  },
+  "composition_sources": {
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=behaviors/streaming-ui.yaml": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/behaviors/streaming-ui.yaml",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=behaviors/status-context.yaml": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/behaviors/status-context.yaml",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=behaviors/redaction.yaml": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/behaviors/redaction.yaml",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=behaviors/logging.yaml": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/behaviors/logging.yaml",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=behaviors/context-intelligence-logging.yaml": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/behaviors/context-intelligence-logging.yaml",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=behaviors/context-intelligence-navigation.yaml": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/behaviors/context-intelligence-navigation.yaml",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-routing-matrix@main#subdirectory=behaviors/routing.yaml": {
+      "url": "https://github.com/microsoft/amplifier-bundle-routing-matrix.git",
+      "requested_ref": "main",
+      "commit": "7c620f0a2f6cf36b3bf410155e91dfb66431d1e9",
+      "path": "amplifier-bundle-routing-matrix/behaviors/routing.yaml",
+      "repo": "amplifier-bundle-routing-matrix"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-redaction@main#subdirectory=behaviors/redaction.yaml": {
+      "url": "https://github.com/microsoft/amplifier-bundle-redaction.git",
+      "requested_ref": "main",
+      "commit": "fade4bd21eefec0e99311dbdfbe7228bdbd14716",
+      "path": "amplifier-bundle-redaction/behaviors/redaction.yaml",
+      "repo": "amplifier-bundle-redaction"
+    },
+    "git+https://github.com/microsoft/amplifier-module-loop-streaming@main": {
+      "url": "https://github.com/microsoft/amplifier-module-loop-streaming.git",
+      "requested_ref": "main",
+      "commit": "2feefe4ba0c4cb50fc0c6b33648a8ef6a2908820",
+      "path": "amplifier-module-loop-streaming",
+      "repo": "amplifier-module-loop-streaming"
+    },
+    "git+https://github.com/microsoft/amplifier-module-context-simple@main": {
+      "url": "https://github.com/microsoft/amplifier-module-context-simple.git",
+      "requested_ref": "main",
+      "commit": "2d1bdc4d9c1803491fe39820c8d503dd764d32de",
+      "path": "amplifier-module-context-simple",
+      "repo": "amplifier-module-context-simple"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=modules/tool-context-intelligence-set-filters": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/modules/tool-context-intelligence-set-filters",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=modules/tool-delegate": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/modules/tool-delegate",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=modules/tool-skills": {
+      "url": "https://github.com/microsoft/amplifier-bundle-skills.git",
+      "requested_ref": "main",
+      "commit": "f5b1bb1f5b0e5653f7a504a95bbd9ec0134d8e39",
+      "path": "amplifier-bundle-skills/modules/tool-skills",
+      "repo": "amplifier-bundle-skills"
+    },
+    "git+https://github.com/microsoft/amplifier-module-tool-filesystem@main": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-filesystem.git",
+      "requested_ref": "main",
+      "commit": "8bd1eab4715924686c2e9c167ba9b861af1ee82d",
+      "path": "amplifier-module-tool-filesystem",
+      "repo": "amplifier-module-tool-filesystem"
+    },
+    "git+https://github.com/microsoft/amplifier-module-tool-bash@main": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-bash.git",
+      "requested_ref": "main",
+      "commit": "aa363e9b0f33e1af8cfbf8affee19e06e22bcc94",
+      "path": "amplifier-module-tool-bash",
+      "repo": "amplifier-module-tool-bash"
+    },
+    "git+https://github.com/microsoft/amplifier-module-tool-web@main": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-web.git",
+      "requested_ref": "main",
+      "commit": "20c29fdfaf1c1b3a36d0b19888d8d636eb0098e6",
+      "path": "amplifier-module-tool-web",
+      "repo": "amplifier-module-tool-web"
+    },
+    "git+https://github.com/microsoft/amplifier-module-tool-search@main": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-search.git",
+      "requested_ref": "main",
+      "commit": "0c7f4a7ca825e90203e858abac9d9a3d5c3abbf1",
+      "path": "amplifier-module-tool-search",
+      "repo": "amplifier-module-tool-search"
+    },
+    "git+https://github.com/microsoft/amplifier-module-tool-todo@main": {
+      "url": "https://github.com/microsoft/amplifier-module-tool-todo.git",
+      "requested_ref": "main",
+      "commit": "9d7b55a4ff7dd6115171fb0b4936fdb3ab89a4d3",
+      "path": "amplifier-module-tool-todo",
+      "repo": "amplifier-module-tool-todo"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-filesystem@main#subdirectory=modules/tool-apply-patch": {
+      "url": "https://github.com/microsoft/amplifier-bundle-filesystem.git",
+      "requested_ref": "main",
+      "commit": "e83ff2b5d7987e9bae8d470cc291e240de62148d",
+      "path": "amplifier-bundle-filesystem/modules/tool-apply-patch",
+      "repo": "amplifier-bundle-filesystem"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-modes@main#subdirectory=modules/tool-mode": {
+      "url": "https://github.com/microsoft/amplifier-bundle-modes.git",
+      "requested_ref": "main",
+      "commit": "8004e169e26c33d19c27ac1ac5e81ca1ca7c0220",
+      "path": "amplifier-bundle-modes/modules/tool-mode",
+      "repo": "amplifier-bundle-modes"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-recipes@main#subdirectory=modules/tool-recipes": {
+      "url": "https://github.com/microsoft/amplifier-bundle-recipes.git",
+      "requested_ref": "main",
+      "commit": "bf5f88cbd296ec73c92b2f816a04a6efa64b43e2",
+      "path": "amplifier-bundle-recipes/modules/tool-recipes",
+      "repo": "amplifier-bundle-recipes"
+    },
+    "git+https://github.com/microsoft/amplifier-module-hooks-streaming-ui@main": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-streaming-ui.git",
+      "requested_ref": "main",
+      "commit": "d46319547edd3f1765d5d4f866683e00d65234db",
+      "path": "amplifier-module-hooks-streaming-ui",
+      "repo": "amplifier-module-hooks-streaming-ui"
+    },
+    "git+https://github.com/microsoft/amplifier-module-hooks-status-context@main": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-status-context.git",
+      "requested_ref": "main",
+      "commit": "4ccba516d0b8d93c56f9ced588817ea8b15002ba",
+      "path": "amplifier-module-hooks-status-context",
+      "repo": "amplifier-module-hooks-status-context"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-redaction@main#subdirectory=modules/hook-redaction": {
+      "url": "https://github.com/microsoft/amplifier-bundle-redaction.git",
+      "requested_ref": "main",
+      "commit": "fade4bd21eefec0e99311dbdfbe7228bdbd14716",
+      "path": "amplifier-bundle-redaction/modules/hook-redaction",
+      "repo": "amplifier-bundle-redaction"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=modules/hooks-deprecation": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/modules/hooks-deprecation",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-module-hooks-logging@main": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-logging.git",
+      "requested_ref": "main",
+      "commit": "a4efafc834938ea53006808313e840b1136cb296",
+      "path": "amplifier-module-hooks-logging",
+      "repo": "amplifier-module-hooks-logging"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=modules/hook-context-intelligence": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/modules/hook-context-intelligence",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-routing-matrix@main#subdirectory=modules/hooks-routing": {
+      "url": "https://github.com/microsoft/amplifier-bundle-routing-matrix.git",
+      "requested_ref": "main",
+      "commit": "7c620f0a2f6cf36b3bf410155e91dfb66431d1e9",
+      "path": "amplifier-bundle-routing-matrix/modules/hooks-routing",
+      "repo": "amplifier-bundle-routing-matrix"
+    },
+    "git+https://github.com/microsoft/amplifier-module-hooks-todo-reminder@main": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-todo-reminder.git",
+      "requested_ref": "main",
+      "commit": "5bd0f4d5c3e9db521e7d954df3f869c26f0e2a80",
+      "path": "amplifier-module-hooks-todo-reminder",
+      "repo": "amplifier-module-hooks-todo-reminder"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=modules/hooks-todo-display": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/modules/hooks-todo-display",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=modules/hooks-session-naming": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/modules/hooks-session-naming",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-modes@main#subdirectory=modules/hooks-mode": {
+      "url": "https://github.com/microsoft/amplifier-bundle-modes.git",
+      "requested_ref": "main",
+      "commit": "8004e169e26c33d19c27ac1ac5e81ca1ca7c0220",
+      "path": "amplifier-bundle-modes/modules/hooks-mode",
+      "repo": "amplifier-bundle-modes"
+    },
+    "git+https://github.com/microsoft/amplifier-module-hooks-approval": {
+      "url": "https://github.com/microsoft/amplifier-module-hooks-approval.git",
+      "requested_ref": "HEAD",
+      "commit": "4ee093eafd2d60ab10692a22363e86c7b25d02ce",
+      "path": "amplifier-module-hooks-approval",
+      "repo": "amplifier-module-hooks-approval"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=modules/tool-context-intelligence-query": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/modules/tool-context-intelligence-query",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=modules/tool-server-data-ops": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/modules/tool-server-data-ops",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=modules/hook-server-data-ops-lockdown": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/modules/hook-server-data-ops-lockdown",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-context-intelligence@main#subdirectory=skills/context-intelligence-session-navigation": {
+      "url": "https://github.com/microsoft/amplifier-bundle-context-intelligence.git",
+      "requested_ref": "main",
+      "commit": "089b79c90b4c5b5fa89f7be0240f4bba307a8c66",
+      "path": "amplifier-bundle-context-intelligence/skills/context-intelligence-session-navigation",
+      "repo": "amplifier-bundle-context-intelligence"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=skills": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/skills",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-skills@main#subdirectory=skills": {
+      "url": "https://github.com/microsoft/amplifier-bundle-skills.git",
+      "requested_ref": "main",
+      "commit": "f5b1bb1f5b0e5653f7a504a95bbd9ec0134d8e39",
+      "path": "amplifier-bundle-skills/skills",
+      "repo": "amplifier-bundle-skills"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-amplifier-tester@main": {
+      "url": "https://github.com/microsoft/amplifier-bundle-amplifier-tester.git",
+      "requested_ref": "main",
+      "commit": "0e3ffa2d63ebec0fd87532ff7ad57551abe1dc40",
+      "path": "amplifier-bundle-amplifier-tester",
+      "repo": "amplifier-bundle-amplifier-tester"
+    },
+    "git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=bundles/anchors/bundle.md": {
+      "url": "https://github.com/microsoft/amplifier-foundation.git",
+      "requested_ref": "main",
+      "commit": "e210edabd947af82d5121a240d6934283ac540b9",
+      "path": "amplifier-foundation/bundles/anchors/bundle.md",
+      "repo": "amplifier-foundation"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-digital-twin-universe@main": {
+      "url": "https://github.com/microsoft/amplifier-bundle-digital-twin-universe.git",
+      "requested_ref": "main",
+      "commit": "ccbd70d09164a34c4880abdfab70ab4a4c2102f7",
+      "path": "amplifier-bundle-digital-twin-universe",
+      "repo": "amplifier-bundle-digital-twin-universe"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-gitea@main#subdirectory=behaviors/gitea.yaml": {
+      "url": "https://github.com/microsoft/amplifier-bundle-gitea.git",
+      "requested_ref": "main",
+      "commit": "435e16187e9c0e624e4247c3d6d4d63844fe1478",
+      "path": "amplifier-bundle-gitea/behaviors/gitea.yaml",
+      "repo": "amplifier-bundle-gitea"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-gitea@main#subdirectory=skills": {
+      "url": "https://github.com/microsoft/amplifier-bundle-gitea.git",
+      "requested_ref": "main",
+      "commit": "435e16187e9c0e624e4247c3d6d4d63844fe1478",
+      "path": "amplifier-bundle-gitea/skills",
+      "repo": "amplifier-bundle-gitea"
+    },
+    "git+https://github.com/microsoft/amplifier-bundle-digital-twin-universe@main#subdirectory=skills": {
+      "url": "https://github.com/microsoft/amplifier-bundle-digital-twin-universe.git",
+      "requested_ref": "main",
+      "commit": "ccbd70d09164a34c4880abdfab70ab4a4c2102f7",
+      "path": "amplifier-bundle-digital-twin-universe/skills",
+      "repo": "amplifier-bundle-digital-twin-universe"
+    }
+  },
+  "runtime_core": {
+    "distribution": "amplifier-core==1.6.1",
+    "release_tag": "v1.6.1",
+    "release_commit": "5a102ac53da72c1efeb6b248d9474f368e7deda6",
+    "note": "Runtime uses the PyPI wheel, not inspected HEAD. uv.lock pins package hashes."
+  },
+  "resolution": "Snapshot of current recursively hydrated presets. Use bootstrap_sources.py to verify pins; runtime local overrides are explicit and not lock-enforced."
+}

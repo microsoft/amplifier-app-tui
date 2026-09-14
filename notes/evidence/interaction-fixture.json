@@ -1,0 +1,23 @@
+{
+  "runs": [
+    {
+      "preset": null,
+      "mode": "fixture",
+      "frontend": "ratatui",
+      "turns": 2,
+      "tools_observed_succeeded": [
+        "fixture_probe",
+        "fixture_probe"
+      ],
+      "ordinary_controls": true,
+      "quit": "exit 0",
+      "scope": "Usable two-turn path, not full CLI/ecosystem parity"
+    }
+  ],
+  "source_sha256": {
+    "frontends/ratatui/src/main.rs": "c2ae99940a63f49887e450a575c4fba154c4b49c100a3dea439c838a30f2044e",
+    "frontends/ratatui/src/interaction.rs": "61617509afacecbe653432d1c5eac46107471f371ee3a3ed97492c603c0495f0",
+    "src/amplifier_tui/host.py": "9c286ca73e7e323a07ecac6aed992c62ea880ef3e4e8d7931b567051968abf65",
+    "scripts/run.py": "edeffff7a757463c6ea7785d6f8e2c794aec05605990510056f7b99cbf413c41"
+  }
+}

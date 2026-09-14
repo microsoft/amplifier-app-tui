@@ -1,0 +1,156 @@
+# Work derived from current direction
+
+Authority: [the steward's approved direction](DIRECTION-REVIEW.md), amended into
+[VISION](../docs/VISION.md) and the named contracts before this plan was derived.
+All contract details remain draft targets. This is a local work record, not a formal
+Converge verdict ledger or a claim that service-backed runs/lanes already exist.
+
+## Current wave: direction and verification scaffolding
+
+Steward-authorized overnight wave: review the latest session, deliver private Git-installable
+native packaging, then close further supported gaps. Publication under bkrabach is authorized;
+private session state and the test-drive branch must not be accidentally published.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| INSTALL-01 | ecosystem.v1:1, composition.v1:6, continuity.v1:1 | Package native binary, presets/overlays and launcher; private Git install and diagnostics | Fresh isolated uv tool install from Git, outside checkout, actual preset/tool/second turn/resume; no shared CLI mutation | Implementing |
+| OUTCOME-01 | session.v1:4, session.v1:5, presentation.v1:4 | Summarize observed tool outcomes independently of assistant confidence | Failed root/child commands remain conspicuous after completion; no invented test-coverage claim | Implementing |
+| STARTUP-02 | session.v1:8, performance.v1:4 | Close demonstrated initialization and source-event ownership gaps | Inject failure/cancellation/slow reader; cleanup and retained outcomes without unbounded delivery growth | Implement bounded 4096-event source delivery, explicit connection failure/stop on overload, journal retention. Foundation factory still withholds the handle until after initialization; preserve that unresolved limit |
+
+Latest-session findings: early missing-spawn failures precede updated-host reopening; later
+three actual child receipts completed. The assistant's production-readiness claim exceeds a
+228-pass/72-skip test run. A real git demonstration left the current test branch and first
+commit; preserve them. The old launch has no question overlay; resume must not silently add it.
+Detailed transcripts remain private, not copied into this plan.
+
+Steward-authorized daily-replacement wave (2026-09-13): work all safe independent
+gaps while the steward is away; no publication, arbitrary state migration or auto-replay.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| CHILD-02 | ecosystem.v1:6, presentation.v1:7, session.v1:3 | Inspect delegated work, progress/waiting and child-scoped source; explore durable continuation | Actual child tool/text/outcome and restored inspection without execution; live status cannot be inferred from old receipts | Implemented scoped inspection and guarded completed direct-child restart; real kernel/native tests and both-preset live memory continuation. Nested/custom/interrupted restart and automatic detail refresh remain |
+| DRAFT-02 | continuity.v1:2, interaction.v1:8 | Retain unsent answer/correction text with original scope | Save/restart/recover keeps exact text, no delivery or retarget; storage errors visible | Implemented private bounded copies and recovery inspection/copy/remove; canonical-context isolation and native disconnect/recovery tests pass. Last unflushed input and other dialogs remain |
+| INPUT-02 | interaction.v1:3, interaction.v1:4, presentation.v1:1 | Rich composer, external editor and explicit attachment semantics | Local editing never sends; missing/changed attachments cannot silently substitute content | Implemented immutable UTF-8 snapshot preview/insertion and idle external editor; native success/failure/no-submit tests pass. Images and semantic references remain |
+| EVIDENCE-02 | continuity.v1:4, presentation.v1:4, presentation.v1:7 | Consolidate observed actions and verification evidence with source identities | Exact result/call/child identity inspectable; no unsupported Git authorship or test-success inference | Implemented bounded source-identified Activity inspection; real child tool/text source and native copy exercised. Attributed Git/test causality remains |
+| CONTEXT-01 | ecosystem.v1:2, composition.v1:3 | Read-only context and local intelligence diagnostics | Observed usage/source distinguished from estimates, absent capability and remote dispatch; inspection adds no model call | Implemented observed usage/compaction and configured capture/dispatch inspection; real preset observations, isolation tests. Exact occupancy and instruction-source index remain |
+| HARDEN-01 | session.v1:8, performance.v1:4, performance.v1:5 | Shutdown, initialization/slow-reader ownership and resource checks | Cancellation drains owned work, meaningful observations survive boundary failure | Partial: regression/resource gates exercised; hook coroutine cancellation warnings, partial-init handle ownership and unbounded host source-event queue remain unresolved |
+| READY-01 | ecosystem.v1:3, ecosystem.v1:6, continuity.v1:1, performance.v1:1, performance.v1:2 | Independent swaps, matched CLI baseline and launch/migration readiness | Actual swaps and equivalent policy receipts; unsupported migration refuses effects | Partial: four loop/context combinations execute and resume; read-back guards canonical mismatch (internal resequencing allowed). All-seam policy proof, persistent per-child storage, matched CLI parity and standalone native packaging/migration remain |
+
+Current steward-authorized correction:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| INLINE-01 | presentation.v1:3, presentation.v1:5, presentation.v1:6, performance.v1:3, performance.v1:5 | Default native transcript and compact controls; preserve inspection/Amplifier seams; disclose initial 1000-item replay bound | Real tmux copy without snapshot mode, previews, exit retention, no duplicate finalization/resize/inspection output; ordinary controls and draft tests | Implemented: 276 Python/21 Rust tests, real tmux retention, both-preset keyboard live turns; 18-cell stress/cleanup gate passes, worst edit/stream p95 20.662/21.090 ms; full CLI parity remains open |
+
+One local branch: feat/first-slice. No independent worker lanes are launched.
+The current request authorizes discoverable interaction and functional ecosystem integration.
+It does not silently select a replacement framework or claim a performance win.
+Historical runtime proof is retained in [ACCEPTANCE](ACCEPTANCE.md).
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| DOC-01 | composition.v1:4, presentation.v1:8 | Amend direction and record why the prior handoff failed | Vision/contracts and this plan agree; a framework-specific law or unexplained review request fails | Amendment complete; details DRAFT; evidence in ACCEPTANCE.md |
+| DOC-02 | composition.v1:5 | Guard method shape, source pin and work-to-promise references | scripts/check_direction.py plus tests reject malformed examples; no behavioral verdict inferred | Checks pass; evidence in ACCEPTANCE.md |
+
+## Next wave: prove the experience before selecting the machinery
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| VIS-01 | presentation.v1:6, presentation.v1:8 | Turn the preserved concept into a terminal scene/capture rubric | notes/FRONTEND-EVALUATION.md scenes become replayable captures; undocumented adaptations fail | Captures and adaptations in TERMINAL-REVIEW.md; steward visual judgment pending |
+| PERF-01 | performance.v1:1, performance.v1:2, performance.v1:7 | Identify and measure the actual CLI baseline | Paired-sample receipt following notes/PERFORMANCE.md; unmatched configuration or missing samples fails | Installed revision identified; isolated runtime samples; policy-equivalent comparison unresolved |
+| UI-01 | presentation.v1:1, presentation.v1:6, presentation.v1:7 | Implement Ratatui candidate against the shared synthetic corpus | Actual terminal captures and interaction traces; a browser-only mockup fails | Runnable, captured, PTY tested; opt-in real runtime exercised |
+| UI-02 | presentation.v1:1, presentation.v1:6, presentation.v1:7 | Implement OpenTUI candidate against the same corpus | Same dimensions/actions/capture rubric as UI-01; changed fixtures invalidate comparison | Runnable, captured, PTY tested; opt-in real runtime exercised |
+| UI-03 | presentation.v1:6, presentation.v1:8 | Correct the fixed width and confusing same-design comparison handoff | Both engines fill 160/200-column terminals; resize preserves draft and full-width layout; review names one design, two engines | Implemented; four wide/resize PTY cases and both captures pass; subjective design acceptance remains separate |
+| PERF-02 | performance.v1:3, performance.v1:4, performance.v1:5 | Exercise typing, streaming, long history and slow consumers | Timing and queue/resource receipt; lost semantic events or hidden stalls fails | Streaming/history matrix measured; durable slow-reader outcomes and broader resource gates remain |
+| HOST-01 | composition.v1:6, session.v1:7, session.v1:8, performance.v1:6 | Compare viable runtime boundaries; resolve partial-init ownership | Integrated control/cleanup tests and paired timings; one-shot headless output or IPC microbench alone fails | Experimental bidirectional child implemented; normal/failure lifecycle tested; partial-init ownership unresolved |
+| ECO-01 | ecosystem.v1:1, ecosystem.v1:3, ecosystem.v1:5, ecosystem.v1:6 | Extend both-preset proof to independent swaps and exercised policy | Real module swap at each seam plus live evidence; mounting alone fails | New live evidence through both candidates/presets; independent swaps at every seam remain |
+| SELECT-01 | presentation.v1:6, presentation.v1:8, performance.v1:6 | Recommend frontend and host from the combined evidence | Captures, scores, costs and explicit review question; assumptions presented as measured wins fail | Ratatui provisionally favored; final selection waits on remaining evidence and review |
+
+VIS-01 and PERF-01 can proceed independently. UI-01/UI-02 use the same VIS-01 corpus;
+PERF-02 compares them after PERF-01. HOST-01 and ECO-01 exercise a viable prototype
+before SELECT-01 closes the architecture decision. No full port precedes that gate.
+
+## Current interaction and viability slice
+
+Source reconciliation is in INTERACTION-RECONCILIATION.md. Ratatui is the working
+integration client; OpenTUI remains the comparison baseline, not a second evolving UI.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| UX-01 | interaction.v1:1, interaction.v1:2, interaction.v1:4, interaction.v1:5 | Replace shortcut-first controls with visible actions, local search and stable focused decisions | PTY workflow needs no Ctrl chords; cancelled menu preserves selection; stale decision cannot target a replacement | Implemented in Ratatui; keyboard/mouse and stale-focus PTY checks pass; token completion and rich input remain later gaps |
+| RUN-01 | interaction.v1:6, interaction.v1:7, ecosystem.v1:1, ecosystem.v1:2 | Real-work launch and readable ecosystem discovery | Both presets execute actual tool/provider turns; second turn and evidence are usable from ordinary controls | Both presets passed live read_file then load_skill; fixture approval and two turns passed; no full parity claim |
+
+## Later capabilities
+
+Current everyday-navigation wave:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| NAV-02 | interaction.v1:1, interaction.v1:3, continuity.v1:3 | Bare resume picker and directory-scoped sent-input recall | Choice precedes opening; history excludes other directories and never imports their context | Implemented; startup cancellation byte-preserves state; actual host and native recall/return tests; both-preset live return; bounded activity-ordered legacy history |
+| COPY-03 | presentation.v1:3, presentation.v1:5 | Scrollable drag snapshot and explicit primary-screen native scrollback | Wheel/edge drag crosses first viewport; real tmux copy-mode sees old text; return retains draft and processes events | Historical: snapshot detour did not satisfy ordinary native behavior; replaced by INLINE-01. Source-inspection drag selection remains |
+| CONTROL-02 | interaction.v1:1, session.v1:6, ecosystem.v1:2 | Visible queue/steer paths and persistent mode indicator | Ordinary buttons distinguish timing; mode updates on model/native change and restore without opening a menu | Implemented; visible-button PTY tests, root/child mode routing, actual mode restore; four billed live turns verify steering, queued recall and plan badge across both presets |
+
+Current steward-session repair wave:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| COPY-02 | presentation.v1:3, interaction.v1:1 | Visible drag selection and whole-transcript export | Unicode copy stable during output, draft intact; private export available without clipboard | Implemented; Unicode snapshot/Rust and native drag-copy/export tests; COPY-03 extends selection beyond its viewport |
+| QUESTION-02 | interaction.v1:8, interaction.v1:2 | Direct width-safe question entry and simpler single-question flow | Click visible question, choose/review/submit at narrow and wide widths; no focus theft | Implemented; native 40/160-column direct answer tests; live evidence in ACCEPTANCE |
+| SPAWN-01 | ecosystem.v1:6, ecosystem.v1:5, session.v1:8 | Host-owned delegate/recipe child execution | Actual delegate and agent recipe, isolated child context/policy/IDs, cancellation and cleanup | Implemented; actual presets execute delegate/v2 recipe; CHILD-02 extends default direct-child resume beyond open root; subprocess isolation refused |
+| MODE-01 | ecosystem.v1:2, continuity.v1:1 | Visible policy-preserving modes and state restore | Warn/confirm/denial paths, native changes and resume enforce restrictions | Implemented; explicit approval/denial, mode failure signal, child inheritance, native selection and fresh-engine restore tests |
+| RECOVER-01 | continuity.v1:5, continuity.v1:3 | Inspect/export uncertain history and explicit non-destructive continuation | Original unchanged, new identity, no tool replay/queue release, malformed history refused | Implemented; actual interrupted-host and native recovery picker tests; historical context, not exact canonical repair |
+
+Current structured-reading wave:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| READ-02 | presentation.v1:3, presentation.v1:7, performance.v1:5, interaction.v1:2 | Responsive Markdown tables and identified code-block inspect/copy | Wide alignment and narrow labelled cells preserve content; copying an inspected snapshot never executes code or retargets a growing stream | Implemented; native fixture/resize/resume/bounds and simulated growing-source tests pass; both live presets render tables and copy exact code without execution. Syntax highlighting remains |
+| REVIEW-02 | presentation.v1:7, interaction.v1:2, performance.v1:5 | Colour unified diffs and navigate observed hunks locally | Hunk selection/copy keeps comparison identity and draft; no Git refresh, mutation or model call implied | Implemented; Rust bounds/style and temporary real Git PTY tests pass, including external file changes after observation. Snapshot navigation retains original hunk and draft; no attribution/patch-application claim |
+
+Current questions and workspace-review wave:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| QUESTION-01 | interaction.v1:8, session.v1:7, continuity.v1:4, ecosystem.v1:3 | Independent question tool, identified answers, native choice/free-text review and cancellation | No automatic answers, focus theft or approval crossover; normal tool policy and canonical results; stale/stop/timeout tests | Implemented; actual-loop/policy/storage and native tests; both presets answered/recalled. SPAWN-01 adds child routing; DRAFT-02 adds scoped retained answer copies |
+| REVIEW-01 | presentation.v1:7, performance.v1:5, interaction.v1:2 | Bounded read-only Git status/diff inspection from the active workspace | Names repo/base, distinguishes staged/unstaged/untracked, no mutating Git or model calls; stale/large/binary cases disclosed | Implemented; temporary real Git and native copy tests pass; both live presets inspected without execution. REVIEW-02 adds coloured hunks; attributed change/test evidence remains |
+
+Current runtime-control wave:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| STEER-01 | session.v1:6, session.v1:7, interaction.v1:1 | Correlate corrections through public steering with a separate editor and retained observations | Early/stale/unsupported corrections reject; only runtime insertion marks applied; stop/end never retries | Implemented; real-kernel and native scope/copy tests, both-preset live insertion and recalled correction pass; unknown-outcome recovery remains |
+| PROVIDER-01 | ecosystem.v1:2, continuity.v1:1, interaction.v1:1 | Discover mounted conversation-provider choices and retain explicit idle changes | Same-vendor guard exercised; fresh host restores pin without provider calls; uncertain state refuses | Implemented; root/overlay instance-key adapter, alternate-provider execution, guard/storage tests and both-preset live Haiku→Sonnet resume pass; dynamic catalogs and mode state remain |
+
+Current workflow wave:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| QUEUE-01 | session.v1:2, session.v1:6, session.v1:7, continuity.v1:2 | Durable follow-ups with explicit queue, pause/run, edit and remove controls | One active turn; stop/failure/restore hold pending input; dispatched uncertainty never retries | Implemented; actual-kernel and native approval/queue tests pass; live queued continuation in both presets; uncertain-admission recovery remains |
+| ORGANIZE-01 | interaction.v1:1, interaction.v1:2, presentation.v1:7, continuity.v1:1 | Rename, search transcript and copy Markdown replies locally | Draft unchanged; stable message identity; no model/tool invocation or altered context | Implemented; metadata/context isolation and native search/rename/copy verified; bounded search disclosed; no cross-conversation search |
+
+Current navigation wave:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| NAV-01 | continuity.v1:1, continuity.v1:2, continuity.v1:3, session.v1:7 | In-app saved-conversation picker and explicit new conversation | Save source draft; ready target replaces view; failed target preparation leaves source usable; stale requests cannot cross conversations | Implemented; real-kernel and native PTY tests cover return/new, draft/undo isolation, cancellation and target cwd; both-preset live switching passes; interrupted-context repair remains separate |
+| FILE-01 | interaction.v1:2, interaction.v1:4, performance.v1:5 | Bounded local workspace path completion | Names only, quoted spaces, no traversal outside cwd, stale replies ignored, no model/tool call | Implemented; shallow ./ completion, quoted directories/Unicode, caps, scope and delayed-reply tests pass; no attachments or recursive index |
+
+Current reading/return wave (steward's explicit continuation):
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| READ-01 | presentation.v1:3, presentation.v1:7, performance.v1:3 | Markdown projection and lazy visual-line viewport | Scroll within one long reply; streaming cannot displace a pinned item; no full-history per-token render | Implemented and PTY tested; stress matrix below 50 ms p95; READ-02 adds responsive tables. Exact source-character resize anchors remain |
+| EDIT-01 | interaction.v1:2, interaction.v1:3, interaction.v1:4 | Boundary Up/Down history and local Tab completion | Return restores original draft/cursor; completion never sends or replaces neighbors | Implemented and tested for commands/plain-text skill names; FILE-01 adds paths; attachments/semantic references remain |
+| RETURN-01 | continuity.v1:1, continuity.v1:2, continuity.v1:3 | Private single-writer conversation checkpoints and explicit launcher resume | New engine receives saved context; replay invokes zero provider/tool operations; corrupt/uncertain state refuses continuation | Completed-context and draft-text resume implemented; fresh-kernel and both-preset live memory tests pass; no uncertain-turn repair |
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| PORT-01 | composition.v1:6, presentation.v1:6 | Integrate the selected frontend/runtime and retire the legacy UI deliberately | Product launch uses the selected body with regression proof; a silent feature loss fails | After SELECT-01 |
+| CONTROL-01 | session.v1:2, session.v1:6, session.v1:7, ecosystem.v1:5 | Complete distinct queue/steer/stop and delegated work policy | Correlated admission, scoped children and stale-approval tests; lost or misrouted intent fails | QUEUE-01 and STEER-01 supply distinct queued turns, active corrections and holding on Stop; delegated work remains |
+| CONT-01 | continuity.v1:1, continuity.v1:2, continuity.v1:3 | Retain drafts/admissions and resume without effects | Close/resume/replay test counts tool operations; any repeated effect fails | RETURN-01 and QUEUE-01 supply completed-checkpoint resume and retained waiting input; crash-edge draft retention and recovery policy remain |
+| EVIDENCE-01 | continuity.v1:4, presentation.v1:4, presentation.v1:7 | Retain attributable decisions and inspectable context/change evidence | Corrected decisions, stale-edit rejection and exact change/test evidence; prose-only claims fail | Not implemented |
+
+Re-read affected direction at each phase transition. Amend it first if findings change
+the destination, then update this record; do not bend a test to hide a direction change.
+Formal lane briefs, judged-commit checks and service records are introduced only when
+their actual preconditions exist, following [Converge practice](CONVERGE.md).

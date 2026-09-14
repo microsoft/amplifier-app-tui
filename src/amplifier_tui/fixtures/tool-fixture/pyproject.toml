@@ -1,0 +1,10 @@
+[project]
+name = "amplifier-module-tool-fixture"
+version = "0.1.0"
+dependencies = ["amplifier-core>=1.6.1"]
+[project.entry-points."amplifier.modules"]
+tool-fixture = "amplifier_module_tool_fixture:mount"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+

@@ -1,0 +1,48 @@
+{
+  "runs": [
+    {
+      "preset": "anchors",
+      "mode": "live",
+      "frontend": "ratatui",
+      "turns": 2,
+      "tools_observed_succeeded": [
+        "read_file",
+        "load_skill"
+      ],
+      "ordinary_controls": true,
+      "quit": "exit 0",
+      "scope": "Usable two-turn path, not full CLI/ecosystem parity"
+    },
+    {
+      "preset": "anchors-amp-dev",
+      "mode": "live",
+      "frontend": "ratatui",
+      "turns": 2,
+      "tools_observed_succeeded": [
+        "read_file",
+        "load_skill"
+      ],
+      "ordinary_controls": true,
+      "quit": "exit 0",
+      "scope": "Usable two-turn path, not full CLI/ecosystem parity"
+    }
+  ],
+  "source_sha256": {
+    "frontends/ratatui/src/code_blocks.rs": "ab46d37b72a124ae6b53cfb8534da63f5601e4efc979b0476085f575702efe26",
+    "frontends/ratatui/src/composer.rs": "1e25a14ee241597ed1e02e83eb0b1e71b20ab68b31b8748028923838d3872f32",
+    "frontends/ratatui/src/controls.rs": "7b0da2c8ef28538be2b3015222cc85dd5760a74b903347c1cc8cf30afdab1600",
+    "frontends/ratatui/src/interaction.rs": "53919cec964ce693b4422bc9a768757c2406da76f37575300a8c9ccb164dd365",
+    "frontends/ratatui/src/main.rs": "76e77bf7bd5947b3a4da922513516b4fd9a657de97e6078da6ba66dcb7a56726",
+    "frontends/ratatui/src/markdown.rs": "88b117e2396c08ab193d095cc53eb10056f14001ef9fbe1352fb1ce9f7461a93",
+    "frontends/ratatui/src/native.rs": "b84b96d83571ca9d95a7d6514da3276a075e61b658c83cb34c67e45e7c50db25",
+    "frontends/ratatui/src/navigation.rs": "94247b44b763d29ad17e49ab6961cfd7ec0f4717209f8f035fa689a132c4fa4c",
+    "frontends/ratatui/src/questions.rs": "9d44cb48eff140c2fd7d465767ecc910fabf0401ae47796957b3364cf2e27bd3",
+    "frontends/ratatui/src/selection.rs": "afb3cbfadd59165220e40671b9905319b46ae600eae2a0921a67e2a797dbdbd3",
+    "frontends/ratatui/src/tables.rs": "978bedcb0fff3512835b715a985ae73e97f50d0b22c9530f9eb2dc55c6b09f74",
+    "frontends/ratatui/src/transcript.rs": "0c63e606aa1f5a204e72fdf1e10443b619ae2b426d7b9325ce70cd673c500274",
+    "frontends/ratatui/src/workflow.rs": "53c88ae967e606f6cbfa9494e1ecb33edcf32924826218e76e8fbc403020cd0b",
+    "frontends/ratatui/src/workspace.rs": "61a6421776204777eb1457167d94bbb256ebd813e139e96081dbb4da365b0dbd",
+    "src/amplifier_tui/host.py": "a12a9968768d85c2107a118c0958e09d87260117b53ef6b5fd5ad1d0f70a9407",
+    "scripts/run.py": "20ee116e77ef71801ba4fe9bf0ed5de8c990e6152fb1749190894c83d62c19d7"
+  }
+}

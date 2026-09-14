@@ -1,0 +1,56 @@
+{
+  "scope": "Two billed read-only turns across both presets; tables and code snapshots. Diff navigation is separately verified against temporary real Git repositories. Not full ecosystem or CLI latency parity.",
+  "results": [
+    {
+      "preset": "anchors",
+      "completed_turns": 1,
+      "read_file_succeeded": true,
+      "table_rendered": true,
+      "code_content_copied_exactly": true,
+      "copy_added_no_execution": true,
+      "main_draft_retained": true
+    },
+    {
+      "preset": "anchors-amp-dev",
+      "completed_turns": 1,
+      "read_file_succeeded": true,
+      "table_rendered": true,
+      "code_content_copied_exactly": true,
+      "copy_added_no_execution": true,
+      "main_draft_retained": true
+    }
+  ],
+  "source_fingerprints": {
+    "frontends/ratatui/src/code_blocks.rs": "ab46d37b72a124ae6b53cfb8534da63f5601e4efc979b0476085f575702efe26",
+    "frontends/ratatui/src/composer.rs": "0fdf948197fc326076f44f139e73bd78c443e58761b231e51f8996640dc73b15",
+    "frontends/ratatui/src/controls.rs": "084cf7d95c8c3a77ab1454e59ca9c9206023daf94ca8155ac9fd489f20338a25",
+    "frontends/ratatui/src/interaction.rs": "e7798db9f34e33230f90ec4cb7a96ba7b6a1bedd116dff341491cfddc63a61df",
+    "frontends/ratatui/src/main.rs": "3c2e538f0c66a3471bab35a6111d3421cf6cf0e070a3d20e4915f938d756cac9",
+    "frontends/ratatui/src/markdown.rs": "88b117e2396c08ab193d095cc53eb10056f14001ef9fbe1352fb1ce9f7461a93",
+    "frontends/ratatui/src/navigation.rs": "07ef4603d20c6a20da10a935e76dd6e2e2bc6bf50774d6ccba5412a0460f0709",
+    "frontends/ratatui/src/questions.rs": "16467af052b1d541e9660b47d25066caedfb42c76ade109f14da3dc947a0d44d",
+    "frontends/ratatui/src/tables.rs": "978bedcb0fff3512835b715a985ae73e97f50d0b22c9530f9eb2dc55c6b09f74",
+    "frontends/ratatui/src/transcript.rs": "2994c1dc004c6e3efcee5090a2cebbcd39fb6b3f9f14939ce61c470634098175",
+    "frontends/ratatui/src/workflow.rs": "53c88ae967e606f6cbfa9494e1ecb33edcf32924826218e76e8fbc403020cd0b",
+    "frontends/ratatui/src/workspace.rs": "61a6421776204777eb1457167d94bbb256ebd813e139e96081dbb4da365b0dbd",
+    "src/amplifier_tui/__init__.py": "5ae9e72601c799041a8fe77d1f2e83006f7cfa08eb9a59fe63e653507bafe404",
+    "src/amplifier_tui/__main__.py": "e4e8eb35d8d8ded66ed8f04009733065d4c2a8dc9c0d70e8d75ecca1a003b85d",
+    "src/amplifier_tui/app.py": "c378f698dac22dda4ab2dbdf04df1da14ed53b1cf407916a58a2a294ceb66f66",
+    "src/amplifier_tui/composition.py": "100907bbce0ff44f3edebf83ce1f1a2f4f191f31efb8d11c658b77f188c8055b",
+    "src/amplifier_tui/conversations.py": "85aec586878b91b5e66b6ac80bdd6757a535baf02f5fa21eae7114013ece404f",
+    "src/amplifier_tui/events.py": "9b99c3be12fd4ece6e4a4542c3b1c611c19dd9800ad1e5768992fb90cd07e5b7",
+    "src/amplifier_tui/fixtures/provider-fixture/amplifier_module_provider_fixture/__init__.py": "fd86837c075bb583025c924d6820f53e1e426eba418ef3445877ccee1fd91a67",
+    "src/amplifier_tui/fixtures/tool-fixture/amplifier_module_tool_fixture/__init__.py": "3e2e6f304b222b18ce059d2434a43bca3d286bdff55383744445600e95651fae",
+    "src/amplifier_tui/followups.py": "8a59e77698087b09e65a51a94077e2a8537009bcfe52b25d5b012327d1eda31b",
+    "src/amplifier_tui/frontend_bridge.py": "8f97c2c895a619a61976859c9406241eba4179829e7807b3b1f47d7abc38b1bb",
+    "src/amplifier_tui/host.py": "090fcfe1dbeda3992c60de9d311e746b9378b0badb2c8d118f05978245829a6c",
+    "src/amplifier_tui/modules/tool-user-input/amplifier_module_tool_user_input/__init__.py": "a65b94236a921f63d8304528e9b17ee2157a7d0b03b0becda9b853d8973cd79d",
+    "src/amplifier_tui/navigation.py": "e52614f564eef79cad89476b5d0d27dcd41cbfe73be0d6a406dd4973c393cb73",
+    "src/amplifier_tui/questions.py": "cc8c32e11db217bdbbea21fcbc50d6cff6574e3e729a6f50c4fa19aa3151c9b7",
+    "src/amplifier_tui/runtime_controls.py": "744ae812b3d4e73b2a2ac1a894f73bc288c3ae4769e55d412c3bebb3345be069",
+    "src/amplifier_tui/workspace_review.py": "b2a0b6c558f7c6fb1a7ef13e64e1b9fdbfa3fe1a99a0b7bc66e3a3217ed1cd72",
+    "scripts/run.py": "976c191527f86ef011d72f4255314b2409f000caaa54df1b47ea525709f81dc0",
+    "scripts/structured_reading_probe.py": "26c5bac8f77b0e3aa91c6ed68f992c6e100ecdff07bc171af47d287fc06dc888",
+    "frontends/ratatui/Cargo.lock": "a03c8c5ba9260fd04f838f3b0eb684a22938586270487a2a422155e047adbb3f"
+  }
+}

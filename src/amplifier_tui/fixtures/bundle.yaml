@@ -1,0 +1,20 @@
+bundle:
+  name: deterministic-fixture
+  version: 0.1.0
+session:
+  orchestrator:
+    module: loop-streaming
+    source: git+https://github.com/microsoft/amplifier-module-loop-streaming@2feefe4ba0c4cb50fc0c6b33648a8ef6a2908820
+    config:
+      extended_thinking: false
+      max_iterations: 8
+  context:
+    module: context-simple
+    source: git+https://github.com/microsoft/amplifier-module-context-simple@2d1bdc4d9c1803491fe39820c8d503dd764d32de
+providers:
+  - module: provider-fixture
+    source: ./provider-fixture
+tools:
+  - module: tool-fixture
+    source: ./tool-fixture
+

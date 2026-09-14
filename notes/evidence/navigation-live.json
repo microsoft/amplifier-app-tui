@@ -1,0 +1,28 @@
+{
+  "scope": "Both presets: live read_file plus memory turn after in-app switching; no CLI parity or all-module-state claim",
+  "presets": [
+    "anchors",
+    "anchors-amp-dev"
+  ],
+  "completed_live_turns": 4,
+  "in_app_switches": 2,
+  "draft_restores": 2,
+  "recalled_markers": 2,
+  "replay_execution_events": 0,
+  "source_fingerprints": {
+    "frontends/ratatui/src/composer.rs": "0fdf948197fc326076f44f139e73bd78c443e58761b231e51f8996640dc73b15",
+    "frontends/ratatui/src/interaction.rs": "fdae76efef15104f981bceb60a98e78e030cc9e4e84bcefcaa166aa9da03c649",
+    "frontends/ratatui/src/main.rs": "b00c3e564fed2e817f9ecda1147cd910e375ab0899bd31c43ec6fa3ecd586fa1",
+    "frontends/ratatui/src/markdown.rs": "183592cae1c16b9a3a3d1aaf5923d0819b45ff7be1af800dccf13e9ec455b272",
+    "frontends/ratatui/src/navigation.rs": "07ef4603d20c6a20da10a935e76dd6e2e2bc6bf50774d6ccba5412a0460f0709",
+    "frontends/ratatui/src/transcript.rs": "539fe134b81d1d8a718511c2e2396ebf1b379126cf16d6c46d0a4df151986d56",
+    "frontends/ratatui/Cargo.lock": "a03c8c5ba9260fd04f838f3b0eb684a22938586270487a2a422155e047adbb3f",
+    "scripts/run.py": "193666f3d4efdb6c70753b346a028477895cf006038693a0e04c25ab8890c81f",
+    "src/amplifier_tui/host.py": "2114c2c24aac0a5ab9378c01c6f7dc8a8a1430d431b4734deb964ae3b790e31a",
+    "src/amplifier_tui/conversations.py": "1c679e618695f66a092ecc353730f52b403b5b8e5d7307cdf5a688d85db907ce",
+    "src/amplifier_tui/navigation.py": "e7bbb19b182eab0e50b9f4dba0af541c204b9c98121343bf5c43efc466c91bba",
+    "src/amplifier_tui/__main__.py": "e4e8eb35d8d8ded66ed8f04009733065d4c2a8dc9c0d70e8d75ecca1a003b85d",
+    "src/amplifier_tui/frontend_bridge.py": "5a390d84ecb2aef64ebb0ee73ac81241fced355f4b0cc3f4b2020d078e6de2c2",
+    "src/amplifier_tui/events.py": "c54d8472f95cb361edd4efda2894f7c28cf030baf52dd1ed3355a136009bceab"
+  }
+}

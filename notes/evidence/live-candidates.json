@@ -1,0 +1,22 @@
+[
+  {
+    "frontend": "ratatui",
+    "bundle": "anchors",
+    "provider": "Anthropic / claude-haiku-4-5",
+    "fixture": false,
+    "read_file": "observed succeeded",
+    "ending": "completed",
+    "answer": "amplifier-app-tui",
+    "scope": "One real read-only turn; not all-module or CLI policy parity"
+  },
+  {
+    "frontend": "opentui",
+    "bundle": "anchors-amp-dev",
+    "provider": "Anthropic / claude-haiku-4-5",
+    "fixture": false,
+    "read_file": "observed succeeded",
+    "ending": "completed",
+    "answer": "amplifier-app-tui",
+    "scope": "One real read-only turn; not all-module or CLI policy parity"
+  }
+]

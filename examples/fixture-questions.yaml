@@ -1,0 +1,16 @@
+bundle:
+  name: fixture-questions
+  version: 0.1.0
+providers:
+  - module: provider-fixture
+    config:
+      questions:
+        - id: scope
+          question: Which scope should I use?
+          options:
+            - label: Small slice
+              description: Finish a narrow, testable change.
+            - label: Broad pass
+              description: Explore several related changes.
+        - id: notes
+          question: What should I keep in mind?

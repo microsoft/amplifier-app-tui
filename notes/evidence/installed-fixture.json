@@ -1,0 +1,15 @@
+{
+  "scope": "Installed native binary, no workspace source map; live calls only with --live",
+  "results": [
+    {
+      "preset": "fixture",
+      "outside_checkout": true,
+      "remote_sources": true,
+      "question_tool_mounted": true,
+      "tool_round_trip": true,
+      "resume_no_submission": true,
+      "second_turn": true
+    }
+  ],
+  "executable_sha256": "e512208632c5f7a965cc74a73db25fe4c58f6f99b0529f63d1a146d6a625a27c"
+}

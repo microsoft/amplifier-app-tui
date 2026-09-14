@@ -1,0 +1,24 @@
+bundle:
+  name: fixture-structured-reading
+  version: 0.1.0
+providers:
+  - module: provider-fixture
+    config:
+      reply: |
+        ## Structured reading fixture
+
+        | Component | State | Notes | Owner | Scope | Checks | Result | Next |
+        | :--- | :---: | :--- | :--- | :--- | ---: | :--- | :--- |
+        | Parser | Ready | Unicode 界 | Host | Local | 12 | Passed | Review |
+        | Renderer | Ready | Wrapped cells stay readable | Client | Local | 34 | Passed | Inspect |
+
+        ```python
+        def greeting():
+            return "Hello, 界"
+        ```
+
+        This is source text, not a command that was executed:
+
+        ```sh
+        printf 'example only\n'
+        ```

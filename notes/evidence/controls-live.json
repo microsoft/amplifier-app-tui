@@ -1,0 +1,50 @@
+{
+  "scope": "Live corrections and conversation-only mounted-model selection; four billed turns, not complete parity or a latency comparison",
+  "results": [
+    {
+      "preset": "anchors",
+      "completed_turns": 2,
+      "active_correction_inserted": true,
+      "same_turn_read_file": true,
+      "distinct_mounted_models": true,
+      "resumed_pin_observed_on_execution": true,
+      "correction_recalled_without_tool_replay": true
+    },
+    {
+      "preset": "anchors-amp-dev",
+      "completed_turns": 2,
+      "active_correction_inserted": true,
+      "same_turn_read_file": true,
+      "distinct_mounted_models": true,
+      "resumed_pin_observed_on_execution": true,
+      "correction_recalled_without_tool_replay": true
+    }
+  ],
+  "source_fingerprints": {
+    "frontends/ratatui/src/composer.rs": "0fdf948197fc326076f44f139e73bd78c443e58761b231e51f8996640dc73b15",
+    "frontends/ratatui/src/controls.rs": "084cf7d95c8c3a77ab1454e59ca9c9206023daf94ca8155ac9fd489f20338a25",
+    "frontends/ratatui/src/interaction.rs": "6f55cf576900765163981e45a8e959222f3b48f8980c2478b474683de9ea4601",
+    "frontends/ratatui/src/main.rs": "2b0157b1648eb98fba1442a158893107f8727a298300278b7ae3e19af5ea8217",
+    "frontends/ratatui/src/markdown.rs": "183592cae1c16b9a3a3d1aaf5923d0819b45ff7be1af800dccf13e9ec455b272",
+    "frontends/ratatui/src/navigation.rs": "07ef4603d20c6a20da10a935e76dd6e2e2bc6bf50774d6ccba5412a0460f0709",
+    "frontends/ratatui/src/transcript.rs": "2994c1dc004c6e3efcee5090a2cebbcd39fb6b3f9f14939ce61c470634098175",
+    "frontends/ratatui/src/workflow.rs": "3a7e2ff0435c6e2577fd85050c98120706d71ab5c4379884aa2dfbf010d77d88",
+    "src/amplifier_tui/__init__.py": "5ae9e72601c799041a8fe77d1f2e83006f7cfa08eb9a59fe63e653507bafe404",
+    "src/amplifier_tui/__main__.py": "e4e8eb35d8d8ded66ed8f04009733065d4c2a8dc9c0d70e8d75ecca1a003b85d",
+    "src/amplifier_tui/app.py": "c378f698dac22dda4ab2dbdf04df1da14ed53b1cf407916a58a2a294ceb66f66",
+    "src/amplifier_tui/composition.py": "100907bbce0ff44f3edebf83ce1f1a2f4f191f31efb8d11c658b77f188c8055b",
+    "src/amplifier_tui/conversations.py": "078c89a0ce5ca1881a2771bf27099d0f5b366dd35d9492b880bc58a9db3a636c",
+    "src/amplifier_tui/events.py": "bb8e04e90684cba8a85c3f5d5d6ab66ef739dbb3cd3eb3cc668a9480060d4db5",
+    "src/amplifier_tui/fixtures/provider-fixture/amplifier_module_provider_fixture/__init__.py": "eb947e2d2acecf0395bd4dbe93164e5cca98f8675831da3099e754131f9557df",
+    "src/amplifier_tui/fixtures/tool-fixture/amplifier_module_tool_fixture/__init__.py": "3e2e6f304b222b18ce059d2434a43bca3d286bdff55383744445600e95651fae",
+    "src/amplifier_tui/followups.py": "8a59e77698087b09e65a51a94077e2a8537009bcfe52b25d5b012327d1eda31b",
+    "src/amplifier_tui/frontend_bridge.py": "5a390d84ecb2aef64ebb0ee73ac81241fced355f4b0cc3f4b2020d078e6de2c2",
+    "src/amplifier_tui/host.py": "12886ca8a0fd301de55e5c0ae7351c45b798e18b630569bd0c5bbcbefa88a2c4",
+    "src/amplifier_tui/navigation.py": "1ea0756140b244d0effe262a6116f9f68e4c0cc220fb448c3dd1ab06b360a188",
+    "src/amplifier_tui/runtime_controls.py": "744ae812b3d4e73b2a2ac1a894f73bc288c3ae4769e55d412c3bebb3345be069",
+    "frontends/ratatui/Cargo.lock": "a03c8c5ba9260fd04f838f3b0eb684a22938586270487a2a422155e047adbb3f",
+    "scripts/run.py": "193666f3d4efdb6c70753b346a028477895cf006038693a0e04c25ab8890c81f",
+    "scripts/controls_probe.py": "aa0ccfc92e19b122eb89c3323434f400c7221e3569532f42c29a676d95a766eb",
+    "examples/anthropic-models.yaml": "cc1eaba8afbc3a4144498bd30e029c9960ef5dbcd3f063235a1ac2b98035769e"
+  }
+}

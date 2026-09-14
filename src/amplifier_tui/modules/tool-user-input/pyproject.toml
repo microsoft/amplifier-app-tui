@@ -1,0 +1,10 @@
+[project]
+name = "amplifier-module-tool-user-input"
+version = "0.1.0"
+description = "Structured user questions through a host-neutral capability"
+dependencies = ["amplifier-core>=1.6.1"]
+[project.entry-points."amplifier.modules"]
+tool-user-input = "amplifier_module_tool_user_input:mount"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

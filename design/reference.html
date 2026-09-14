@@ -1,0 +1,232 @@
+<div id="amplifier-tui-concept">
+  <style>
+    #amplifier-tui-concept { --at-bg:light-dark(#fbfcfd,#14191f); --at-panel:light-dark(#f0f3f6,#1d242d); --at-ink:light-dark(#243443,#e0e6ec); --at-muted:light-dark(#586c7d,#a2b0bf); --at-line:light-dark(#cbd5de,#394654); --at-green:light-dark(#176e59,#8ed5b7); --at-green-bg:light-dark(#e4f2ea,#20392f); --at-amber:light-dark(#795610,#e8c16f); --at-amber-bg:light-dark(#fcf2db,#382f1d); --at-red:light-dark(#9e3947,#f3a3ae); color:var(--at-ink); font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    #amplifier-tui-concept * { box-sizing:border-box; }
+    #amplifier-tui-concept .at-shell { background:var(--at-bg); border:1px solid var(--at-line); }
+    #amplifier-tui-concept button,#amplifier-tui-concept select,#amplifier-tui-concept textarea { font:inherit; color:inherit; }
+    #amplifier-tui-concept button { cursor:pointer; border:1px solid var(--at-line); background:var(--at-panel); padding:7px 11px; }
+    #amplifier-tui-concept button:hover { border-color:var(--at-green); }
+    #amplifier-tui-concept button:disabled { cursor:default; opacity:.55; }
+    #amplifier-tui-concept .at-header { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:15px 19px 10px; flex-wrap:wrap; }
+    #amplifier-tui-concept .at-brand { color:var(--at-green); font-weight:500; }
+    #amplifier-tui-concept .at-muted { color:var(--at-muted); }
+    #amplifier-tui-concept .at-context { padding:0 19px 14px; display:flex; gap:15px; justify-content:space-between; flex-wrap:wrap; }
+    #amplifier-tui-concept .at-tabs { display:flex; border-top:1px solid var(--at-line); border-bottom:1px solid var(--at-line); gap:0; }
+    #amplifier-tui-concept .at-tabs button { border:0; border-right:1px solid var(--at-line); padding:10px 18px; background:var(--at-bg); }
+    #amplifier-tui-concept .at-tabs button[aria-selected="true"] { color:var(--at-green); background:var(--at-green-bg); }
+    #amplifier-tui-concept .at-content { padding:20px; }
+    #amplifier-tui-concept .at-message { margin-bottom:20px; }
+    #amplifier-tui-concept .at-speaker { color:var(--at-green); margin-bottom:7px; }
+    #amplifier-tui-concept p { margin:5px 0 9px; }
+    #amplifier-tui-concept .at-user { border-left:2px solid var(--at-line); padding-left:14px; }
+    #amplifier-tui-concept .at-activity { border-top:1px solid var(--at-line); margin:14px 0; }
+    #amplifier-tui-concept .at-row { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 0; border-bottom:1px solid var(--at-line); }
+    #amplifier-tui-concept .at-row button { background:none; border:0; padding:0; text-align:left; }
+    #amplifier-tui-concept .at-ok { color:var(--at-green); }
+    #amplifier-tui-concept .at-wait { color:var(--at-amber); }
+    #amplifier-tui-concept .at-agents { padding:12px 14px; background:var(--at-panel); margin:0 0 18px; }
+    #amplifier-tui-concept .at-agent-detail { padding:11px 0 3px; color:var(--at-muted); }
+    #amplifier-tui-concept .at-decision { border:1px solid var(--at-amber); background:var(--at-amber-bg); padding:15px; margin:16px 0; }
+    #amplifier-tui-concept .at-decision-head { display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap; color:var(--at-amber); margin-bottom:9px; }
+    #amplifier-tui-concept .at-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    #amplifier-tui-concept .at-primary { background:var(--at-green-bg); color:var(--at-green); border-color:var(--at-green); }
+    #amplifier-tui-concept .at-command { overflow-wrap:anywhere; margin:10px 0; }
+    #amplifier-tui-concept .at-composer { border-top:1px solid var(--at-line); padding:14px 19px; }
+    #amplifier-tui-concept .at-composer-head { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:10px; }
+    #amplifier-tui-concept select { padding:6px; background:var(--at-panel); border:1px solid var(--at-line); max-width:100%; }
+    #amplifier-tui-concept textarea { width:100%; resize:vertical; min-height:72px; border:1px solid var(--at-line); background:var(--at-bg); padding:11px; }
+    #amplifier-tui-concept .at-composer-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:9px; flex-wrap:wrap; }
+    #amplifier-tui-concept .at-status { border-top:1px solid var(--at-line); background:var(--at-panel); padding:10px 19px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    #amplifier-tui-concept .at-feedback { color:var(--at-green); margin-top:8px; }
+    #amplifier-tui-concept .at-queue-item { padding:8px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid var(--at-line); }
+    #amplifier-tui-concept .at-queue-item span { overflow-wrap:anywhere; }
+    #amplifier-tui-concept .at-diff { background:var(--at-panel); padding:13px; margin:12px 0; overflow-wrap:anywhere; white-space:pre-wrap; }
+    #amplifier-tui-concept .at-diff .at-remove { color:var(--at-red); }
+    #amplifier-tui-concept .at-diff .at-add { color:var(--at-green); }
+    #amplifier-tui-concept .at-section { margin:0 0 18px; }
+    #amplifier-tui-concept .at-section-heading { color:var(--at-green); margin:0 0 8px; font-weight:500; }
+    #amplifier-tui-concept .at-system-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+    #amplifier-tui-concept details { padding:9px 0; }
+    #amplifier-tui-concept summary { cursor:pointer; }
+    #amplifier-tui-concept .at-diagnostic { background:var(--at-panel); padding:11px; margin-top:9px; overflow-wrap:anywhere; }
+    #amplifier-tui-concept [hidden] { display:none!important; }
+    @media(max-width:650px) { #amplifier-tui-concept .at-system-grid { grid-template-columns:1fr; gap:12px; } #amplifier-tui-concept .at-header,#amplifier-tui-concept .at-content { padding:13px; } #amplifier-tui-concept .at-tabs button { padding:10px 12px; } #amplifier-tui-concept .at-context,#amplifier-tui-concept .at-composer,#amplifier-tui-concept .at-status { padding-left:13px; padding-right:13px; } }
+    @media(pointer:coarse) { #amplifier-tui-concept button,#amplifier-tui-concept select,#amplifier-tui-concept summary { min-height:44px; } #amplifier-tui-concept textarea { font-size:16px; } }
+  </style>
+  <div class="at-shell">
+    <div class="at-header"><span class="at-brand">amplifier</span><span>parcel / retry policy</span><span class="at-muted">Concept · simulated session</span></div>
+    <div class="at-context"><span class="at-muted">~/work/parcel · feature/retry</span><span>anchors-amp-dev · OpenAI</span></div>
+    <div class="at-tabs" role="tablist" aria-label="Session views">
+      <button type="button" id="at-work-tab" role="tab" aria-selected="true" aria-controls="at-work" data-view="work">Work</button>
+      <button type="button" id="at-review-tab" role="tab" aria-selected="false" aria-controls="at-review" data-view="review">Review · 2 files</button>
+      <button type="button" id="at-system-tab" role="tab" aria-selected="false" aria-controls="at-system" data-view="system">System</button>
+    </div>
+    <div class="at-content">
+      <div id="at-work" role="tabpanel" aria-labelledby="at-work-tab">
+        <div class="at-message at-user"><div class="at-muted">you</div><p>Add retry backoff to the client. Keep the public API unchanged.</p></div>
+        <div class="at-message"><div class="at-speaker">amplifier</div><p>The client already has a retry helper. I’m extending it and checking that existing callers behave the same.</p></div>
+        <div class="at-activity">
+          <div class="at-row"><span>✓ Read client and retry helper</span><span class="at-muted">3 files</span></div>
+          <div class="at-row"><button type="button" data-open-review>✓ Updated client and regression tests ↗</button><span class="at-muted">2 files</span></div>
+        </div>
+        <div class="at-agents">
+          <div class="at-row"><button type="button" id="at-agents-toggle" aria-expanded="false">▸ Delegated work · 2 agents</button><span id="at-agents-status" class="at-wait">1 needs a decision</span></div>
+          <div id="at-agent-detail" class="at-agent-detail" hidden>
+            <div class="at-row"><span>explorer · locate retry behavior</span><span class="at-ok">Complete</span></div>
+            <div class="at-row"><span>builder · implement and test</span><span id="at-builder-status" class="at-wait">Waiting for command approval</span></div>
+            <details><summary>Builder context and tools</summary><div class="at-diagnostic">Role: anchors:builder<br>Model route: configured coding preference<br>Tools: filesystem, search, shell<br>Context: selected recent parent turns<br>Child session: child-b42</div></details>
+          </div>
+        </div>
+        <div id="at-decision" class="at-decision">
+          <div class="at-decision-head"><span>Decision needed · builder</span><span>Request c18</span></div>
+          <p>Run the focused regression tests?</p><div class="at-command">pytest tests/test_retry.py -q</div>
+          <div class="at-muted">~/work/parcel · Project policy asks before shell execution.</div>
+          <div class="at-actions"><button type="button" class="at-primary" id="at-allow">Allow this command</button><button type="button" id="at-deny">Deny</button></div>
+        </div>
+        <div id="at-outcome" class="at-message" aria-live="polite" hidden></div>
+        <div id="at-sent-messages"></div>
+      </div>
+      <div id="at-review" role="tabpanel" aria-labelledby="at-review-tab" hidden>
+        <div class="at-section-heading">Workspace changes</div>
+        <p class="at-muted">Changes attributed to this task · current working tree</p>
+        <details open><summary>src/client.py · updated</summary><div class="at-diff"><span>def request(self, payload):</span>
+<span class="at-remove">−    return self._send(payload)</span>
+<span class="at-add">+    return retry_with_backoff(</span>
+<span class="at-add">+        lambda: self._send(payload),</span>
+<span class="at-add">+        policy=self.retry_policy,</span>
+<span class="at-add">+    )</span></div></details>
+        <details><summary>tests/test_retry.py · added coverage</summary><div class="at-diff">test_retry_recovers_after_transient_failure
+test_permanent_failure_is_not_retried
+test_attempt_limit_is_respected
+test_public_request_signature_is_unchanged</div></details>
+        <div class="at-row"><span>Focused regression tests</span><span id="at-test-status" class="at-wait">Waiting for approval</span></div>
+        <div class="at-row"><span>Integration tests</span><span class="at-muted">Not run</span></div>
+        <div class="at-row"><span>Git commit</span><span class="at-muted">Not created</span></div>
+        <div class="at-actions"><button type="button" data-back-work>Back to work</button></div>
+      </div>
+      <div id="at-system" role="tabpanel" aria-labelledby="at-system-tab" hidden>
+        <div class="at-system-grid">
+          <div>
+            <div class="at-section-heading">This session</div>
+            <div class="at-row"><span>Bundle</span><span>anchors-amp-dev</span></div>
+            <div class="at-row"><span>Main provider</span><span>OpenAI</span></div>
+            <div class="at-row"><span>Mode</span><span>None</span></div>
+            <div class="at-row"><span>Shell approval</span><span>Project rule</span></div>
+            <div class="at-row"><span>Conversation store</span><span>Local</span></div>
+            <details><summary>Why this configuration?</summary><div class="at-diagnostic">Root: anchors-amp-dev → anchors<br>CLI additions: modes, CLI expertise, skills, routing, wayfinder<br>Project override: ask before shell execution<br>Provider: workspace configuration</div></details>
+            <details><summary>Effective access</summary><div class="at-diagnostic">File writes: session workspace<br>Shell: configured command policy + approval hook<br>OS sandbox: not provided by this profile<br>Changing role text does not change tool authority.</div></details>
+          </div>
+          <div>
+            <div class="at-section-heading">Available capabilities</div>
+            <div class="at-row"><span>Files, patches, search</span><span class="at-ok">Ready</span></div>
+            <div class="at-row"><span>Delegate to agents</span><span class="at-ok">Ready</span></div>
+            <div class="at-row"><span>Skills</span><span>On demand</span></div>
+            <div class="at-row"><span>Modes and recipes</span><span>Available</span></div>
+            <div class="at-row"><span>Digital twin CLI</span><span class="at-wait">Setup needed</span></div>
+            <details><summary>Digital twin prerequisites</summary><div class="at-diagnostic">Guidance: included through amp-dev<br>Standalone CLI: not installed in this example<br>Incus and Docker: setup required<br>No environment has been launched.</div></details>
+            <details><summary>Source and diagnostics</summary><div class="at-diagnostic">Session: root-r7a3<br>Child: child-b42<br>Pending command: c18<br>Bundle and module origins: recorded per session<br>Audit events and resumable transcript: separate records</div></details>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="at-composer">
+      <div id="at-queue" hidden><div class="at-section-heading">Next turn</div><div id="at-queue-items"></div></div>
+      <div class="at-composer-head"><label for="at-intent">Send to</label><select id="at-intent"><option value="next">Next turn</option><option value="steer">Steer active turn</option></select><span class="at-muted" id="at-input-hint">Draft stays editable while a decision waits.</span></div>
+      <textarea id="at-draft" aria-label="Message draft" placeholder="Ask, steer, or queue the next task…">Also check that permanent failures are not retried.</textarea>
+      <div class="at-composer-foot"><span class="at-muted">Shift+Enter newline · Enter send</span><div class="at-actions"><button type="button" id="at-stop">Stop turn</button><button type="button" id="at-send" class="at-primary">Queue next turn</button></div></div>
+      <div id="at-feedback" class="at-feedback" aria-live="polite"></div>
+    </div>
+    <div class="at-status"><span id="at-run-state" class="at-wait">Waiting for your decision</span><span class="at-muted">Session r7a3 · local history</span></div>
+  </div>
+  <script>
+    (() => {
+      const root = document.getElementById('amplifier-tui-concept');
+      const get = id => root.querySelector('#' + id);
+      let active = true;
+      let queued = [];
+      function view(name) {
+        root.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.view === name)));
+        ['work', 'review', 'system'].forEach(key => { get('at-' + key).hidden = key !== name; });
+      }
+      root.querySelectorAll('[data-view]').forEach(button => button.addEventListener('click', () => view(button.dataset.view)));
+      root.querySelectorAll('[data-open-review]').forEach(button => button.addEventListener('click', () => view('review')));
+      root.querySelectorAll('[data-back-work]').forEach(button => button.addEventListener('click', () => view('work')));
+      get('at-agents-toggle').addEventListener('click', () => {
+        const detail = get('at-agent-detail'); detail.hidden = !detail.hidden;
+        get('at-agents-toggle').setAttribute('aria-expanded', String(!detail.hidden));
+        get('at-agents-toggle').textContent = (detail.hidden ? '▸' : '▾') + ' Delegated work · 2 agents';
+      });
+      function intentLabel() {
+        get('at-send').textContent = get('at-intent').value === 'steer' ? 'Send steering' : active ? 'Queue next turn' : 'Send message';
+      }
+      function decision(allowed) {
+        get('at-decision').hidden = true;
+        active = !allowed;
+        get('at-stop').disabled = !active;
+        get('at-run-state').textContent = allowed ? 'Task complete · review available' : 'Working · test command denied';
+        get('at-run-state').className = allowed ? 'at-ok' : 'at-wait';
+        get('at-agents-status').textContent = allowed ? '2 complete' : '1 complete · 1 working';
+        get('at-agents-status').className = allowed ? 'at-ok' : 'at-wait';
+        get('at-builder-status').textContent = allowed ? 'Complete' : 'Continuing without the test command';
+        get('at-test-status').textContent = allowed ? '4 passed · exit 0' : 'Not run · command denied';
+        get('at-test-status').className = allowed ? 'at-ok' : 'at-wait';
+        const outcome = get('at-outcome'); outcome.hidden = false;
+        outcome.innerHTML = allowed ? '<div class="at-speaker">amplifier</div><p>Retry backoff is in place. The four focused tests passed. Integration tests have not been run; the changes are uncommitted.</p>' : '<div class="at-speaker">amplifier</div><p>The command was denied. The two file changes remain in the workspace, and the tests have not been run.</p>';
+        get('at-input-hint').textContent = queued.length ? 'Queued drafts are retained; start one when ready.' : 'Your draft is preserved.';
+        intentLabel(); renderQueue();
+      }
+      get('at-allow').addEventListener('click', () => decision(true));
+      get('at-deny').addEventListener('click', () => decision(false));
+      function renderQueue() {
+        get('at-queue').hidden = !queued.length;
+        const items = get('at-queue-items'); items.replaceChildren();
+        queued.forEach((text, index) => {
+          const row = document.createElement('div'); row.className = 'at-queue-item';
+          const label = document.createElement('span'); label.textContent = text;
+          const button = document.createElement('button'); button.type = 'button'; button.textContent = 'Edit draft';
+          button.addEventListener('click', () => {
+            if (get('at-draft').value.trim()) { get('at-feedback').textContent = 'Your current draft is still here. Clear or send it before editing the queued draft.'; return; }
+            get('at-draft').value = queued[index]; queued.splice(index, 1); renderQueue(); get('at-draft').focus();
+          });
+          row.append(label, button); items.append(row);
+          if (!active && index === 0) {
+            const start = document.createElement('button'); start.type = 'button'; start.textContent = 'Start queued turn';
+            start.addEventListener('click', () => {
+              const message = document.createElement('div'); message.className = 'at-message at-user'; message.textContent = 'you · queued message: ' + queued.shift(); get('at-sent-messages').append(message);
+              active = true; get('at-stop').disabled = false; get('at-run-state').textContent = 'Next turn running'; get('at-run-state').className = 'at-ok';
+              get('at-feedback').textContent = 'Queued message accepted. Your separate draft is preserved.'; intentLabel(); renderQueue(); view('work');
+            });
+            items.append(start);
+          }
+        });
+      }
+      function send() {
+        const text = get('at-draft').value;
+        if (!text.trim()) { get('at-feedback').textContent = 'Write a message first.'; return; }
+        if (get('at-intent').value === 'steer') {
+          if (!active) { get('at-feedback').textContent = 'That turn has ended. Your draft is preserved; choose Next turn to send it.'; return; }
+          get('at-feedback').textContent = 'Steering accepted for the next model-request boundary.';
+        } else if (active) {
+          queued.push(text); renderQueue(); get('at-feedback').textContent = 'Queued locally. Not sent to the agent yet.';
+        } else {
+          const message = document.createElement('div'); message.className = 'at-message at-user';
+          const label = document.createElement('div'); label.className = 'at-muted'; label.textContent = 'you · next message';
+          const body = document.createElement('p'); body.textContent = text; message.append(label, body); get('at-sent-messages').append(message);
+          get('at-feedback').textContent = 'Message accepted in this simulated session.'; view('work');
+        }
+        get('at-draft').value = '';
+      }
+      get('at-intent').addEventListener('change', intentLabel);
+      get('at-stop').addEventListener('click', () => {
+        active = false; get('at-stop').disabled = true; get('at-decision').hidden = true;
+        get('at-run-state').textContent = 'Interrupted · inspect partial work'; get('at-run-state').className = 'at-wait';
+        get('at-builder-status').textContent = 'Interrupted · partial work retained'; get('at-agents-status').textContent = '1 complete · 1 interrupted';
+        get('at-test-status').textContent = 'Not completed in this turn';
+        get('at-feedback').textContent = 'Turn stopped. Your draft, queued messages, and workspace changes are retained.';
+        intentLabel(); renderQueue();
+      });
+      get('at-send').addEventListener('click', send);
+      get('at-draft').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); } });
+    })();
+  </script>
+</div>

@@ -1,0 +1,11 @@
+bundle:
+  name: anthropic-provider
+  version: 0.1.0
+providers:
+  - module: provider-anthropic
+    source: git+https://github.com/microsoft/amplifier-module-provider-anthropic@12fffb6ad2bafb1bb7999ab02245a35e42ca8672
+    config:
+      default_model: claude-haiku-4-5
+      max_tokens: 1024
+      max_retries: 1
+      raw: false

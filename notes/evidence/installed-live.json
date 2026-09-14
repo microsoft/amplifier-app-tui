@@ -1,0 +1,24 @@
+{
+  "scope": "Installed native binary, no workspace source map; live calls only with --live",
+  "results": [
+    {
+      "preset": "anchors",
+      "outside_checkout": true,
+      "remote_sources": true,
+      "question_tool_mounted": true,
+      "tool_round_trip": true,
+      "resume_no_submission": true,
+      "second_turn": true
+    },
+    {
+      "preset": "anchors-amp-dev",
+      "outside_checkout": true,
+      "remote_sources": true,
+      "question_tool_mounted": true,
+      "tool_round_trip": true,
+      "resume_no_submission": true,
+      "second_turn": true
+    }
+  ],
+  "executable_sha256": "afe30345f8c38681f2c135c05c9dc203a934fe1917641d231149cbd3ae2cb8bd"
+}
