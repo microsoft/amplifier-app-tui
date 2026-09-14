@@ -7,6 +7,7 @@ and contracts; verified scope belongs to [ACCEPTANCE](ACCEPTANCE.md).
 
 | Workflow | Working path | Remaining gap |
 |---|---|---|
+| Learn and troubleshoot | Offline first-conversation guide, task-based local Help, actionable --check, allowlisted --support-report | No automatic provider wizard, credential validation or cross-platform readiness claim |
 | Read and inspect | Default inline terminal/tmux scrollback, retained transcript after exit, responsive Markdown tables, exact tool/code copy, fullscreen inspection | Syntax highlighting, character-exact resize anchors; inspection temporarily owns the alternate screen |
 | Compose | Multiline/paste safety, same-directory cross-session recall, command/skill/path Tab completion, immutable UTF-8 snapshots, idle external editor | Globally timestamped recall, semantic attachments, images |
 | Keep working during a turn | Follow-up queue; pause/run/edit/remove; scoped steering with observed insertion; Stop holds pending work | Interrupted-tool replacement; uncertain correction recovery |

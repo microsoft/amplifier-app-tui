@@ -1,5 +1,53 @@
 # First vertical slice — acceptance evidence
 
+## Newcomer approachability — 0.2.1 (2026-09-14)
+
+WELCOME-01 / SETUP-01 move toward interaction P1/P6 and ecosystem P1. Vision/contracts
+were clarified first and remain DRAFT. This is guidance and local diagnostics, not new
+execution policy, provider onboarding automation or a claim of complete CLI parity.
+
+Implemented:
+
+- `--getting-started` explains a first live conversation versus the labelled fixture,
+  costs/trusted module loading, ordinary controls, returning and safe troubleshooting.
+  It works without a key, native binary or existing state. README links a short
+  [first-conversation guide](../docs/GETTING-STARTED.md) and [support guide](../docs/SUPPORT.md).
+- `--check` names local blockers and next steps for the binary, cwd, state location,
+  default key, Git and terminal. Custom provider requirements remain unknown. It creates
+  no probe files, loads no runtime, makes no network request and validates no credential.
+  Access checks do not prove a subsequent write, filesystem quota or remote readiness.
+- `--support-report` emits an allowlisted JSON shape, with no paths/environment values,
+  usernames/hostnames/configuration files/transcripts. It is separate from path-bearing
+  doctor output; users review before sharing and nothing is uploaded. Error checks exit
+  1; warnings alone exit 0. Doctor now also fails for a non-executable binary.
+- Actions starts with Getting started. Seven Help topics explain ordinary tasks rather
+  than only shortcut hints. Topics are local, scrollable, preserve drafts and never send
+  their examples. Initial captures exposed squeezed text; topic layout now allocates
+  reading room with width-safe scroll hints. Real 40/160-column captures were inspected.
+- Non-terminal native launches give a clear error before resume/recovery can touch saved
+  state. Informational commands, export/list and the separate headless entrypoint remain
+  usable without a terminal. No shared CLI state, credential or user conversation changed.
+
+Early verification: full native/preset/swap suite **324 passed** in 146.73 seconds;
+after moving terminal validation before recovery, **16 focused onboarding tests** pass
+(including two added cases). Rust **21**, Clippy with warnings denied, Ruff/format and
+direction/archive checks pass: 563 contract lines, 46 production files, 51 work items.
+The intermittent cancellation warning did not occur in this run; no fix is inferred.
+Wheel/sdist build from locked Rust sources succeeds. Initial isolated installed-wheel
+fixture and both live presets pass guidance/no-state inspection, help without submission,
+tool turns and resume; these receipts precede the final terminal-validation ordering fix.
+Final installed source fingerprints and later verification are recorded below when run.
+
+Final source regression: **326 passed in 142.84 seconds**, with two existing unawaited
+coroutine warnings during anchors-amp-dev child-question cancellation (child observation
+and module hook handler). This confirms those intermittent warnings remain unresolved.
+
+Limitations remain explicit: no key storage/import/wizard, remote authentication check,
+automatic repair, public visibility/access changes, prebuilt-wheel distribution or new
+platform claim. The default provider, bundle/module authority and retained conversation
+policy are unchanged. Cross-platform/new-user field trials remain separate from developer
+captures and deterministic/runtime evidence.
+
 ## Latest receipt: private Git-installed native product (2026-09-14 UTC)
 
 This section supersedes historical packaging, source-queue and branch statements below.

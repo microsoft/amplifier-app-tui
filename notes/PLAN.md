@@ -7,6 +7,14 @@ Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
 ## Current wave: direction and verification scaffolding
 
+Steward-authorized newcomer wave (2026-09-14): make first installation and everyday
+controls understandable without a developer workspace or implicit execution.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| WELCOME-01 | interaction.v1:1, interaction.v1:6 | Offline first-run guidance and task-oriented in-app help | Help survives narrow resize, preserves draft and adds zero submissions; instructions distinguish queue/steer/questions and native selection | Implemented: offline guide, seven task topics, native 40/160-column draft/no-submit tests and installed live help; new-user field review remains |
+| SETUP-01 | ecosystem.v1:1, interaction.v1:6 | Actionable local checks and allowlisted support report | Missing binary/key/cwd/state blockers explained without writes/network; no paths, credentials or session data in shareable output | Implemented: local-only checks and fixed-schema report, 16 focused tests and installed diagnostics. No remote credential validation or automatic setup |
+
 Steward-authorized overnight wave: review the latest session, deliver private Git-installable
 native packaging, then close further supported gaps. Publication under bkrabach is authorized;
 private session state and the test-drive branch must not be accidentally published.

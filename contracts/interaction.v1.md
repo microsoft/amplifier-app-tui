@@ -46,6 +46,7 @@ This describes the destination, not a claim that every interaction is implemente
    Affected: the person granting permission and modules waiting for an answer.
 
 6. **Explain usable capabilities.** Actions and catalogs distinguish available controls, mounted tools and authored definitions; unsupported intentions have reasons, never simulated success.
+   Getting-started guidance and task-oriented help are local, dismissible and preserve the draft; opening instructions never executes their examples.
    Broken: A menu advertises working delegation from agent definitions alone, or a demo scene is the unexplained default for real work.
    Affected: people choosing bundles, tools, skills and modes.
 
@@ -79,6 +80,7 @@ Which CLI discovery and provider-selection policies should be adopted for ordina
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Clarify P6's local newcomer guidance. | Steward requested approachability beyond the development workspace; terse shortcut hints do not explain ordinary tasks. |
 | 2026-09-13 | Define P3's explicit text snapshots and external editing. | Steward authorized composer work; the current string-only runtime seam does not establish image attachment support. |
 | 2026-09-13 | Clarify P1/P3's picker, mode indicator, queue/steer distinction and directory recall. | Steward's ordinary workflow exposed hidden controls and session-only recall. |
 | 2026-09-13 | Clarify P8's discoverable entry point. | The steward saw a question but could not find how to answer; known-label tests missed this. |

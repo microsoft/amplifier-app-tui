@@ -70,6 +70,15 @@ The prompt constrains this action, not the preset's permissions. Do not mistake 
 
 ## Interactive checks
 
+Newcomer guidance: run `test_onboarding.py` and `test_onboarding_terminal.py` with the
+native candidate enabled. Verify missing key/binary/cwd/state errors, no state writes or
+runtime imports, custom-provider uncertainty, path-free allowlisted support output, and
+non-executable doctor exit codes. Native help must preserve Unicode drafts, allow reading
+the final paragraph at 40/160 columns and add zero submissions before an explicit send.
+Inspect `onboarding-help-*` captures; a title-only assertion misses unreadable instructions.
+Repeat guide/check/support commands and fixture execution from the installed wheel outside
+the checkout. Full regression and isolated renderer timing still apply after native edits.
+
 Daily replacement adds `test_daily_replacement.py` and `test_daily_terminal.py`: real child
 execution/observations, waiting scope, completed direct-child restart, incompatible/uncertain
 receipt rejection, isolated local draft recovery, bounded UTF-8 snapshots, symlink refusal,

@@ -75,7 +75,7 @@ pub(super) enum Action {
     LocalDraft(Value),
     RemoveDraft(String),
     Help,
-    Unavailable(String),
+    HelpTopic(String, String),
     Quit,
 }
 
@@ -170,6 +170,7 @@ impl App {
             Action::Menu => self.menu(
                 "Actions · type to search",
                 vec![
+                    choice("Getting started — Help for everyday tasks", Action::Help),
                     choice("Work — conversation", Action::View(0)),
                     choice("Latest — follow new output", Action::Latest),
                     choice("Find in conversation — search retained message text", Action::Find),
@@ -218,7 +219,6 @@ impl App {
                         "Composition details — diagnostic record",
                         Action::Diagnostics,
                     ),
-                    choice("Help — editing and available controls", Action::Help),
                     choice(
                         "Correct active turn — steer (not a queued follow-up)",
                         Action::CorrectActive,
@@ -473,37 +473,25 @@ impl App {
                 self.local_drafts();
             }
             Action::Help => self.menu(
-                "Help · Esc returns to your unchanged draft",
-                vec![
-                    choice(
-                        "Enter sends only from the composer; Alt+Enter inserts newline",
-                        Action::Unavailable(
-                            "Enter send · Alt+Enter newline · bracketed paste stays text".into(),
-                        ),
-                    ),
-                    choice(
-                        "Tab completes ./paths, @skills or /commands; otherwise focuses actions",
-                        Action::Unavailable("Visible actions also accept mouse clicks".into()),
-                    ),
-                    choice(
-                        "Actions or / in an empty draft opens local search; Esc closes",
-                        Action::Unavailable("Searching actions does not invoke a model".into()),
-                    ),
-                    choice(
-                        "PageUp / PageDown scroll evidence or the current view",
-                        Action::Unavailable(
-                            "Exact tool evidence remains separate from assistant claims".into(),
-                        ),
-                    ),
-                    choice(
-                        "Up/Down at first/last line recalls history; Down restores the draft",
-                        Action::Unavailable(
-                            "Actions → Pending follow-ups manages queued turns; Correct active turn steers supported work; Modes controls mode policy; delegated agents appear in the transcript".into(),
-                        ),
-                    ),
-                ],
+                "Help · choose a topic · Esc keeps your draft",
+                [
+                    ("First conversation", "Describe one task, then Enter sends it. Alt+Enter adds a newline; paste stays text. No example here is sent automatically.\n\nLive presets can use file/shell tools and incur model charges; this is not a sandbox. A FIXTURE RUNTIME is a scripted demonstration, not an AI assistant.\n\nSystem shows mounted tools and authored definitions. An available definition is not proof that an external service is running."),
+                    ("Editing and finding actions", "Tab completes ./paths, @skills and /commands; otherwise it focuses visible controls. Enter activates the focused control. Actions opens local search; Escape returns to your unchanged draft.\n\nUp/Down recalls sent messages at editor line boundaries. Returning past the newest recalled entry restores your draft. Insert text file previews captured bytes before insertion; Edit in external editor never sends them."),
+                    ("Queue or steer?", "Queue stores a follow-up for a later turn. Pending follow-ups lets you pause, edit, remove or explicitly run queued work.\n\nSteer opens a separate correction for the active turn when supported. Accepted is not yet inserted: inspect Corrections for the observed status.\n\nStop requests cancellation, holds pending follow-ups, and does not undo file or command effects."),
+                    ("When the assistant waits", "Review decision opens an actual permission request and its offered options. Answer question opens a clarification, where you choose or write information and explicitly submit after review. These are different controls.\n\nLook for the waiting card beside the composer. Escape preserves local intent; it does not answer or grant permission. Modes changes session policy; the mode badge stays visible."),
+                    ("Copy and return later", "The normal conversation uses terminal selection and native history. In tmux, enter copy mode (normally prefix then [) and scroll. Menus and inspection temporarily own the mouse.\n\nTranscript offers reflowed source inspection; Export conversation writes private Markdown. Quit saves supported state; Resume offers a picker and never repeats old tool operations. Interrupted work may require an explicitly acknowledged historical recovery, not exact context repair."),
+                    ("Understand what happened", "Delegated work shows child progress and historical receipts. Activity evidence and Review show source tool results; a completed turn does not prove every tool succeeded or tests passed.\n\nWorkspace changes is read-only Git inspection, not attribution. Context intelligence distinguishes observed usage, configured local capture and remote dispatch; unavailable is not zero."),
+                    ("Setup and reporting a problem", "Outside the app, run amplifier-tui --check for local setup blockers or --getting-started for the first-run guide. Checks do not validate a key, contact a provider or load bundles.\n\nUse --support-report for path-free local diagnostic JSON. Review before sharing. --doctor, exports, screenshots and raw logs may contain private paths or conversation content. Never share keys. Include steps to reproduce and expected versus actual behavior.")
+                ].into_iter().map(|(title, body)| Choice {
+                    label: title.into(),
+                    action: Action::HelpTopic(title.into(), body.into()),
+                    detail: "Enter opens instructions only; no example is submitted.".into(),
+                }).collect(),
             ),
-            Action::Unavailable(reason) => self.status = reason,
+            Action::HelpTopic(title, body) => {
+                self.menu(format!("Help · {title}"), vec![choice("Back to help topics", Action::Help)]);
+                self.ui.menu.as_mut().unwrap().detail = body;
+            }
             Action::Quit => return false,
         }
         true
@@ -828,7 +816,9 @@ impl App {
         } else {
             outer.height.saturating_sub(7)
         };
-        let roomy = menu.title.starts_with("Questions · review")
+        let help_topic = menu.title.starts_with("Help ·") && !menu.detail.is_empty();
+        let roomy = help_topic
+            || menu.title.starts_with("Questions · review")
             || menu.title.starts_with("Observed evidence")
             || menu.title.starts_with("Context intelligence")
             || menu.title.starts_with("Text file snapshot")
@@ -865,12 +855,6 @@ impl App {
         let x = area.x + 2;
         let w = area.width.saturating_sub(4);
         text(f, Rect::new(x, area.y + 1, w, 1), safe(&menu.title), INK);
-        text(
-            f,
-            Rect::new(x, area.y + 2, w, 1),
-            format!("Search: {}", menu.query),
-            GREEN,
-        );
         let detail_h = if !has_detail {
             0
         } else if roomy {
@@ -878,6 +862,16 @@ impl App {
         } else {
             (area.height / 3).max(1)
         };
+        text(
+            f,
+            Rect::new(x, area.y + 2, w, 1),
+            if help_topic {
+                format!("Read · {} lines · PgUp/PgDn", lines.len())
+            } else {
+                format!("Search: {}", menu.query)
+            },
+            GREEN,
+        );
         if detail_h > 0 {
             menu.detail_scroll = menu
                 .detail_scroll
@@ -916,7 +910,11 @@ impl App {
         text(
             f,
             Rect::new(x, area.bottom() - 2, w, 1),
-            if detail_h > 0 && menu.title.starts_with("Decision ·") {
+            if help_topic && w < 50 {
+                "PgUp/PgDn scroll · Esc back"
+            } else if help_topic {
+                "PgUp/PgDn scroll · Enter topics · Esc back"
+            } else if detail_h > 0 && menu.title.starts_with("Decision ·") {
                 "↑↓ choose · Enter answer · PgUp/PgDn question · Esc back"
             } else if detail_h > 0 {
                 "↑↓ choose · Enter open · PgUp/PgDn details · Esc back"

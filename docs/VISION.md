@@ -27,7 +27,7 @@ The current mode stays visible; mode changes retain module enforcement and retur
 Interrupted work remains readable and can seed an explicitly acknowledged new conversation without replay.
 Markdown and code stay readable; history, file snapshots and external editing preserve the unsent draft.
 Bundles bring instructions, tools, providers and behaviors without owning the interface.
-Installation delivers an identifiable native client without a development workspace or silent conversation-policy migration.
+Installation delivers an identifiable native client without a development workspace or silent policy migration; newcomers learn and diagnose setup without executing work or exposing private conversation data.
 The [composition contract](../contracts/composition.v1.md) names the replaceable seams.
 [Session](../contracts/session.v1.md), [presentation](../contracts/presentation.v1.md),
 [continuity](../contracts/continuity.v1.md), [ecosystem](../contracts/ecosystem.v1.md) and
@@ -122,6 +122,7 @@ Rendering and transport do not monopolize input or cancellation; process and lan
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Make newcomer guidance and privacy-conscious setup inspection explicit. | Steward requested approachability for others; launch help assumes developer knowledge and diagnostics provide paths without actionable checks. |
 | 2026-09-13 | Specify installable native delivery and identifiable runtime. | Steward requested uv tool installation from a private Git repository; development-only launch obscures which capabilities are running. |
 | 2026-09-13 | Clarify child visibility, retained local editors and context diagnostics. | Steward authorized the next daily-replacement wave; child receipts and local logging lacked an ordinary inspection path. |
 | 2026-09-13 | Require ordinary native history and exit retention for the Amplifier CLI replacement, informed by Codex. | Steward rejected snapshot-only scrollback; isolated 150-line test produced zero tmux history rows and exit erased the visible transcript. |

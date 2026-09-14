@@ -23,7 +23,7 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
 ## The promises
 
 1. **Keep both presets meaningful.** anchors and anchors-amp-dev resolve their recursive definitions and expose the capabilities the host actually supports.
-   Installed launch resolves supported presets without workspace checkouts, names its version and storage, and never silently substitutes the historical UI or imports shared CLI state.
+   Installed launch resolves supported presets without workspace checkouts, names version/storage, and never silently substitutes the historical UI or imports shared CLI state. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
    Broken: A preset name loads a hard-coded lookalike, or agent instructions imply a running external service.
    Affected: people selecting bundles and authors composing them.
 
@@ -70,6 +70,7 @@ Which authored CLI policies need explicit TUI equivalents rather than configurat
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Clarify P1's actionable, privacy-conscious setup checks. | Steward requested newcomer approachability; local diagnosis should not require sharing machine paths or trial model calls. |
 | 2026-09-13 | Extend P1 to installable native launch and identifiable storage/runtime. | Steward requested uv tool install from private Git; current launcher depends on sibling checkouts and a separately built binary. |
 | 2026-09-13 | Clarify P2/P6's context diagnostics and child visibility. | Steward authorized replacement-readiness work; generic child rows hide progress and waiting scope. |
 | 2026-09-13 | Extend P2/P6 to mode continuity, logging scope and exercised children. | Real preset delegation and recipe execution failed at missing app-owned session.spawn. |

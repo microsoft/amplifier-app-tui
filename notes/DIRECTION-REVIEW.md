@@ -1,5 +1,15 @@
 # Direction review: experience first, measured responsiveness
 
+## Newcomer approachability amendment — 2026-09-14
+
+The steward requests the next batch to make the application approachable by others.
+This moves toward interaction P6 and ecosystem P1: local first-run instructions,
+task-oriented help and actionable setup checks, plus an allowlisted support report.
+No automatic setup, credential persistence/import, conversation mutation or model call
+is authorized by opening guidance. Checks characterize local prerequisites, not bundle
+resolution or remote provider health. Existing doctor JSON remains a local path-bearing
+inspection tool; a separate report is explicitly designed for sharing. Details stay DRAFT.
+
 ## Installed delivery and evidence amendment — 2026-09-13
 
 The steward authorized reviewing their session, further overnight implementation and

@@ -1,5 +1,16 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Local newcomer guidance
+
+The launcher offers offline guidance and local prerequisite checks before saved-state
+lookup or module loading. Checks never create a probe file, validate a key, fetch sources
+or mount a bundle. A custom composition's provider requirements stay unknown; a default
+key's presence is not authentication evidence. State writability is an access precheck,
+not a successful write, quota guarantee or race-free admission decision. Support JSON is
+constructed from allowlisted fixed messages/statuses, not a redacted environment/config
+dump; doctor remains a separate path-bearing private diagnostic. Neither reads transcripts.
+Native Help is client-local text, preserving the composer and requiring no host operation.
+
 ## Installed product and overload ownership
 
 The installed entrypoint launches the packaged Ratatui binary with the same Python bridge.

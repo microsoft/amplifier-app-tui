@@ -1,5 +1,11 @@
 # Amplifier TUI
 
+New here? Start with the [first-conversation guide](docs/GETTING-STARTED.md).
+Already installed? `amplifier-tui --getting-started` works offline, and `--check`
+explains local setup blockers without opening a session. In the app, **Actions →
+Getting started** opens task-based help without sending anything.
+For a problem report, see [safe troubleshooting](docs/SUPPORT.md).
+
 **Current status:** Ratatui is the working integration client: discoverable actions,
 focused decisions, structured questions, read-only Git review, active corrections, scoped model selection, Markdown, line scrollback, editor history/completion and saved
 Amplifier conversations. OpenTUI remains the earlier comparison
@@ -49,6 +55,10 @@ Upgrade explicitly:
 uv tool install --reinstall git+https://github.com/bkrabach/amplifier-app-tui
 ```
 
+`--check` explains local prerequisites and returns exit 1 for blockers (0 may include
+warnings). It does not validate API keys, download modules or certify live readiness.
+`--support-report` emits allowlisted, path-free JSON for sharing, with the same exit codes.
+It does not read configuration files or conversations; review it before sharing.
 `--doctor` is a local, read-only installation report: app/interpreter/native binary,
 state path and source policy, with no credential values or model calls. System in the
 TUI also names the running app version. `amplifier-tui-host` retains the diagnostic

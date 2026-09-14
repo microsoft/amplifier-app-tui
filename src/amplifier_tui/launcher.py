@@ -33,7 +33,7 @@ def executable(workspace=None):
     )
 
 
-def arguments(argv=None, workspace=None):
+def arguments(argv=None, workspace=None, require_terminal=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--version",
@@ -44,6 +44,19 @@ def arguments(argv=None, workspace=None):
         "--doctor",
         action="store_true",
         help="Print local install diagnostics without opening a session",
+    )
+    parser.add_argument(
+        "--getting-started", action="store_true", help="Show the offline first-conversation guide"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Explain local setup blockers without opening a session",
+    )
+    parser.add_argument(
+        "--support-report",
+        action="store_true",
+        help="Print path-free local diagnostics for sharing; no session reads",
     )
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument("--preset", choices=["anchors", "anchors-amp-dev"])
@@ -94,6 +107,29 @@ def arguments(argv=None, workspace=None):
         help="Create a new conversation from historical context; original unchanged, no replay",
     )
     args = parser.parse_args(argv)
+    if args.getting_started:
+        from .onboarding import GETTING_STARTED
+
+        print(GETTING_STARTED)
+        parser.exit()
+    if args.check or args.support_report:
+        from .onboarding import local_checks, support_report
+
+        if args.resume or args.recover or args.export or args.list_sessions:
+            parser.error(
+                "Setup checks inspect a new launch only; omit saved-conversation operations"
+            )
+        checks = local_checks(args, executable(workspace))
+        if args.support_report:
+            print(json.dumps(support_report(checks), indent=2))
+        else:
+            print("Amplifier TUI — local setup checks (no network or session opened)")
+            for check in checks:
+                print(f"[{check['status'].upper()}] {check['check']}: {check['message']}")
+            print(
+                "\nNext: amplifier-tui --getting-started. These checks do not prove live readiness."
+            )
+        parser.exit(1 if any(c["status"] == "error" for c in checks) else 0)
     if args.doctor:
         binary = executable(workspace)
         print(
@@ -115,7 +151,15 @@ def arguments(argv=None, workspace=None):
                 indent=2,
             )
         )
-        parser.exit(0 if binary.is_file() else 1)
+        parser.exit(0 if binary.is_file() and os.access(binary, os.X_OK) else 1)
+    if (
+        require_terminal
+        and not (args.export or args.list_sessions)
+        and not (sys.stdin.isatty() and sys.stdout.isatty())
+    ):
+        parser.error(
+            "The native app needs an interactive terminal. Use --getting-started or --check without one; amplifier-tui-host provides headless diagnostics."
+        )
     if args.resume and args.recover:
         parser.error("Choose --resume or --recover")
     if (args.resume or args.recover) and (
@@ -199,7 +243,7 @@ def arguments(argv=None, workspace=None):
             parser.error("Preset source is missing; follow README source bootstrap first")
         host += ["--bundle", bundle]
         if not args.bundle and not args.overlay:
-            if not os.environ.get("ANTHROPIC_API_KEY"):
+            if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
                 parser.error(
                     "Set ANTHROPIC_API_KEY for the default live provider, supply --overlay for your provider, or use --fixture (no AI). No CLI credentials are imported."
                 )
@@ -233,11 +277,11 @@ def main(workspace=None):
         from .__main__ import main as host_main
 
         return host_main()
-    parser, host = arguments(workspace=workspace)
+    parser, host = arguments(workspace=workspace, require_terminal=True)
     binary = executable(workspace)
-    if not binary.is_file():
+    if not binary.is_file() or not os.access(binary, os.X_OK):
         parser.error(
-            "Native binary missing. Reinstall the package with Rust/Cargo available, or build the workspace Ratatui frontend."
+            "Native binary missing or not executable. Run --check for local setup guidance. Reinstall with Rust/Cargo available, or build the workspace Ratatui frontend."
         )
     os.execv(str(binary), [str(binary), "--host-json", json.dumps(host)])
 

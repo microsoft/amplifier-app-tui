@@ -31,6 +31,23 @@ def main():
     marker = "violet-" + uuid.uuid4().hex[:10]
     (work / "note.txt").write_text(marker)
     state = ROOT / ".state/installed-probe" / identity
+    guide = subprocess.check_output(
+        [str(args.executable.resolve()), "--getting-started"], cwd=work, text=True
+    )
+    assert "first conversation" in guide and "NOT an AI assistant" in guide
+    report = subprocess.check_output(
+        [
+            str(args.executable.resolve()),
+            "--support-report",
+            "--fixture",
+            "--state-dir",
+            str(state / "check-only"),
+        ],
+        cwd=work,
+        text=True,
+    )
+    assert json.loads(report)["schema"] == 1
+    assert str(work) not in report and str(state) not in report and not state.exists()
     results = []
     for preset in ("anchors", "anchors-amp-dev") if args.live else ("fixture",):
         directory = state / preset
@@ -52,7 +69,16 @@ def main():
                 if args.live
                 else "Compute a digest"
             )
-            probe.send(prompt.encode() + b"\r")
+            probe.send(prompt.encode())
+            action(probe, "Getting started", "Help · choose a topic")
+            probe.send(b"Queue or steer\r")
+            probe.wait("Help · Queue or steer?")
+            probe.wait("does not undo")
+            capture(probe, f"installed-{preset}-help")
+            probe.send(b"\x1b")
+            probe.wait("Actions / choices", absent=True)
+            assert not any(e["kind"] == "turn.accepted" for e in read_events(path))
+            probe.send(b"\r")
             assert (
                 observed(probe, path, "turn.ended", timeout=180)[-1]["payload"]["status"]
                 == "completed"
@@ -98,6 +124,8 @@ def main():
                 "tool_round_trip": True,
                 "resume_no_submission": True,
                 "second_turn": True,
+                "local_guidance_no_state": True,
+                "help_no_submission": True,
             }
         )
         print(json.dumps(results[-1]), flush=True)
