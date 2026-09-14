@@ -1,5 +1,93 @@
 # First vertical slice — acceptance evidence
 
+## Latest receipt: private Git-installed native product (2026-09-14 UTC)
+
+This section supersedes historical packaging, source-queue and branch statements below.
+Direction was amended before INSTALL-01, OUTCOME-01 and STARTUP-02 implementation;
+all vision/contracts remain DRAFT, not formally ratified.
+
+Session review found early missing-spawn failures before an updated-host restart, followed
+by three successful actual delegated children. The assistant's production-readiness claim
+exceeded its 228-pass/72-skip test evidence. Its Git demonstration made real local changes;
+the original test-drive branch, report, marker and modified test bytes were preserved.
+The earlier saved composition lacks the question overlay; resume deliberately does not
+silently retrofit it. No real user conversation was resumed, executed or migrated by this wave.
+
+Implemented:
+
+- `amplifier-tui` now launches packaged Ratatui, version 0.2.0; `amplifier-tui-host`
+  retains the diagnostic/historical entrypoint. Wheel build compiles locked Rust sources;
+  sdist includes native source, Cargo lock and build hook. Editable development remains
+  separate. No kernel/upstream production edits and no silent Textual fallback.
+- Installed launch resolves pinned remote Foundation presets, packaged provider/question
+  overlays and independent modules without sibling checkouts/source maps. State is separate
+  XDG user data; explicit overrides and guarded existing-state access remain. Version/doctor
+  and System expose running identity without printing credentials or calling a model.
+- Turn-end summaries count observed root/child tool outcomes independently of assistant
+  confidence and loop completion. Child pre/post events count as one call; failed commands
+  remain failed even when the parent loop completes. This is not test-coverage attribution.
+- Host pending event delivery is capped at 4096 records / 8 MiB serialized payload.
+  Journal writes precede delivery; overload closes the connection, stops admission/work,
+  retains uncertain state and never retries automatically. Consumption releases byte budget.
+  This does not bound all Python heap, canonical context or arbitrary module tasks.
+
+Private publication: [bkrabach/amplifier-app-tui](https://github.com/bkrabach/amplifier-app-tui),
+runtime source tested at `66cac722e7b1bde2236c5218e704c1de05b5c548`. The clean `main`
+snapshot excludes the earlier git-demo history, private session artifacts, machine paths,
+archives and caches. The original local branch was not pushed. Later documentation/evidence
+commits do not change this runtime proof. The repository is intentionally retained under
+the steward's account and recorded in the workspace resource manifest.
+
+Installed execution evidence:
+
+- Actual `uv tool install git+https://github.com/bkrabach/amplifier-app-tui` succeeded
+  in isolated tool/bin directories, using scoped GitHub authentication, with no shared
+  CLI/tool-environment mutation. Linux ARM64, core 1.6.1, Foundation source
+  `e210edabd947af82d5121a240d6934283ac540b9` (distribution version 1.0.0).
+- [Git-installed fixture receipt](evidence/git-installed-fixture.json) and
+  [Git-installed live receipt](evidence/git-installed-live.json): outside the source
+  checkout, no source map; both live presets delegated an actual child read_file, completed,
+  reopened with zero implicit submissions, then recalled the marker in a new tool-free
+  turn. Four root/two child live turns in this final gate. The installed question tool was
+  mounted; interactive answering remains separately exercised by earlier question gates.
+- All 26 installed Python source fingerprints match the tested source tree. Receipts
+  also identify package version and native/entrypoint hashes. Live captures were inspected:
+  inline transcript and resume work, Activity shows identified bounded JSON observations,
+  not a polished narrative; historical pre/post rows are not separate active agents.
+- Earlier local-wheel gates also passed both presets. Those receipts precede the final
+  source-delivery guard and are not substituted for the final Git-installed evidence.
+
+Regression verification: `TUI_TEST_SWAPS=1 TUI_TEST_PRESETS=1 TUI_TEST_CANDIDATES=1
+PYTHONDONTWRITEBYTECODE=1 uv run --no-sync pytest -q --tb=short`: **308 passed** in
+144.48 seconds, one unawaited `Children.execute` observer-coroutine warning during the
+anchors-amp-dev child-question cancellation test. The warning is recorded, not waived as
+fixed. Rust **21** tests and Clippy with warnings denied passed; Ruff check and format
+check passed without excluding the steward's reformatted event test. Direction structure
+checks pass: 560 contract lines, 45 production source files, 49 work items, all DRAFT.
+New fault coverage includes journal retention, count/byte limits, released byte budget,
+no initial execution on overload, and connection exit with stdin still open.
+
+[Final synthetic performance receipt](evidence/installed-benchmark.json): 30 alternating
+startup pairs and all 18 stress cells completed, including cleanup. Ratatui worst edit
+p95 **20.550 ms**, stream p95 **21.064 ms**, peak RSS **135200 KiB**; first usable median
+**42.456 ms**, p95 **59.822 ms**. Run separately after builds/tests/live calls; all 24
+source fingerprints match. This measures the scene/renderer, not the new host delivery
+serialization cost, installed cold startup, provider latency or equivalent-policy CLI speed.
+Initial native replay remains disclosed/latest-1000 versus the comparator's virtual viewport.
+Resource reconciliation: 3,379 records; no active test-owned resources. The sole active
+entry is the intentionally retained private repository, not a leaked test process.
+
+Remaining limits: source installation needs uv, Git, Rust/Cargo and a C linker (Rust 1.93
+tested). macOS builds are not exercised; Windows uses WSL2. First uncached preset launch
+downloads/installs trusted executable modules and is slower than cached startup. No automatic
+CLI credential/settings/history migration or arbitrary recorded-path relocation. Foundation
+still withholds a session handle until initialization returns, and cancellation-time hook
+coroutine warnings remain. Image input, instruction-source context inspection, attributed
+Git/test evidence, broader child/private-context migration, all policy seams and matched
+end-to-end CLI performance remain work—not production-readiness claims.
+
+## Historical first-slice receipt
+
 Recorded 2026-09-12. This is an implementation receipt, not a formal Converge ledger.
 All new vision/contracts remain DRAFT; the user separately authorized implementation.
 The decisive multi-session scenario in the handoff is **not yet complete**.

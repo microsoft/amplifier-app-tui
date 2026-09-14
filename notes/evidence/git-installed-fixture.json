@@ -1,0 +1,45 @@
+{
+  "scope": "Installed native binary, no workspace source map; live calls only with --live",
+  "results": [
+    {
+      "preset": "fixture",
+      "outside_checkout": true,
+      "remote_sources": true,
+      "question_tool_mounted": true,
+      "tool_round_trip": true,
+      "resume_no_submission": true,
+      "second_turn": true
+    }
+  ],
+  "executable_sha256": "6c89cf09ef5930f6a964efd5fac09e77bc2156151b1cd8871f91420b53b1c2ec",
+  "app_version": "0.2.0",
+  "native_sha256": "0c3024f990230e2487cf08a4b1e8f110c6c4386e8012e151273a33f1ac1b4fb0",
+  "installed_source_fingerprints": {
+    "__init__.py": "5ae9e72601c799041a8fe77d1f2e83006f7cfa08eb9a59fe63e653507bafe404",
+    "__main__.py": "be234bf633e344662b761018bac9a082bb71e53433fe9537ad5f5f034bc0bc5d",
+    "app.py": "40099b930c4ec32fcac8a839dc8eb80659db9c76f7f0f6bded141bb2a53c2751",
+    "children.py": "2d4a484c57e0b8866beb8a76b5c0425eac79e6f3bafe775bed657c8cb2bbf08b",
+    "composition.py": "100907bbce0ff44f3edebf83ce1f1a2f4f191f31efb8d11c658b77f188c8055b",
+    "conversations.py": "6ebc839427c6d9615d18cf028913b506261b3d3bcb44dd40fe12758736acb5c1",
+    "delivery.py": "bb983ef7b40e2f3545147afb399e03607f66c07919ca101d00eaf0e5d17d16fd",
+    "events.py": "9b99c3be12fd4ece6e4a4542c3b1c611c19dd9800ad1e5768992fb90cd07e5b7",
+    "file_input.py": "af0b32a981086eeee9d44a1ef4a60b134b35e6b466e2a085c12911accd4e2b60",
+    "fixtures/provider-fixture/amplifier_module_provider_fixture/__init__.py": "e8f7d045cc70747d0954a064d690a7e5c2f6055d88094388018539f2dc9c90bd",
+    "fixtures/tool-fixture/amplifier_module_tool_fixture/__init__.py": "3e2e6f304b222b18ce059d2434a43bca3d286bdff55383744445600e95651fae",
+    "followups.py": "8a59e77698087b09e65a51a94077e2a8537009bcfe52b25d5b012327d1eda31b",
+    "frontend_bridge.py": "99297af74465a5dc91048f6607a8742d9a76edb549fb40160472bf5d6799a1fe",
+    "host.py": "45e39d7f822f8736c871b29ea9a6e47d3fece1bdac951614df1f6e1790d5b9b6",
+    "input_history.py": "d7b878779c02b1a6de3b95a9c8fb206252166cada5b409ff016828cb66e47c21",
+    "inspection.py": "557c29e1fce180c55cb9e7ee4fa68b78e506e18b35ef13aabed0c8d4c5775714",
+    "launcher.py": "9d60c5bda00996e9682011de55148eb8bd1ac075abb93cced17822afd326721d",
+    "local_drafts.py": "bad5eaf157d5544d9274e1d919572030a6b6b78d79593f9db744c6ff9126f2dd",
+    "modes.py": "b431d49355c996ce175344f692bcfa7be4ce736d122bec050a67da780a74ecaf",
+    "modules/tool-user-input/amplifier_module_tool_user_input/__init__.py": "a65b94236a921f63d8304528e9b17ee2157a7d0b03b0becda9b853d8973cd79d",
+    "navigation.py": "38385e4873da70dd1a311d80a961fc97caf49bf6eeec80d86559057f8c53875a",
+    "questions.py": "d1b79661a4d57dd7ac8fdc726fd8c6abe81da7514e31460276d31d730d5e40c0",
+    "recovery.py": "290563b3058f8f1e7f24980b635d663052275a75a534d581ecbac9106eb61e7d",
+    "resume_picker.py": "73dc37b198ecc816d4abe324dbf695cca492a4fc92ae9c00956f4c97221c8a71",
+    "runtime_controls.py": "744ae812b3d4e73b2a2ac1a894f73bc288c3ae4769e55d412c3bebb3345be069",
+    "workspace_review.py": "b2a0b6c558f7c6fb1a7ef13e64e1b9fdbfa3fe1a99a0b7bc66e3a3217ed1cd72"
+  }
+}

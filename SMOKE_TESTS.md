@@ -331,6 +331,15 @@ before execution, during a tool and during an approval. Windows/macOS and real I
 
 ## Lessons that own future checks
 
+- Git installation must be exercised from the actual private URL, outside the checkout,
+  with no sibling source map. A local editable install or successful wheel build is not
+  that proof. Fingerprint the installed Python/native files, not just workspace sources.
+- Review existing Git history before first publication: a user test-drive commit can hold
+  private receipts even when the working tree looks like a new project. Preserve the local
+  branch and file bytes; publish only the explicitly reviewed application snapshot.
+- Bound source delivery before the transport queue. On overflow, keep journal-first
+  observations, refuse new work and test connection shutdown while stdin remains open.
+  Record-count bounds alone do not constrain a single huge serialized event.
 - Session repairs: `TUI_TEST_PRESETS=1 TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q`
   includes actual delegate/v2 agent recipes, mode denial/approval/restore/child inheritance,
   native mode controls, drag-copy, direct questions at 40/160 columns and historical

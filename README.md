@@ -99,7 +99,8 @@ Conversation-provider selection and steering use supported public module capabil
 UTF-8 text snapshots are supported through **Insert text file**; images and other binary
 attachments are not supported by the current string-prompt integration.
 Full presets retain authored shell/file tools and permissions: **this is not a sandbox**.
-State stays under this project's `.state/work` unless `--state-dir` overrides it.
+The workspace launcher stores state in this project's `.state/work`; the installed
+launcher uses the separate user-data directory described above.
 
 ### Reading, editing and returning
 
