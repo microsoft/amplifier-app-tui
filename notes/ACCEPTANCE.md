@@ -1,5 +1,39 @@
 # First vertical slice — acceptance evidence
 
+## rc4 continuity, evidence and delivery (2026-09-15)
+
+Current candidate version: 0.3.0rc4; release verification is in progress, not a published
+artifact claim. Existing rc3 assets remain unchanged. Direction remains DRAFT.
+
+- Supported interrupted direct-child adoption now includes persistent context into a
+  fresh isolated transcript. Same-root and historical-root cases use the real module,
+  preserve original receipt/transcript bytes and perform exact message readback before
+  the newly authorized execution. Older persistent receipts without a relocation-policy
+  fingerprint remain unsupported; no private-state or crash-uncertain recipe replay.
+- Commands link matching unchanged captured source digests to earlier agent/tool
+  observations (last 256 paths in the open session). Changed versions do not match.
+  Command return code is separate from test coverage; external writers remain possible.
+  Missing final tool callbacks now retain pre-effect evidence with an unknown outcome.
+- Context intelligence adds an allowlisted configuration row, not a current occupancy
+  gauge. The native detail path retains the unsent draft and sends no turn. Invalid,
+  non-finite and oversized numeric settings are omitted rather than breaking inspection.
+- Structural resize can retain a unique complete table-cell match, explicitly approximate.
+  Ambiguous/repeated/wrapped matches retain the existing disclosed fallback. This is
+  additional reading stability, not general source-character mapping.
+- Actual isolated CLI/TUI preparation confirms six extra CLI fixture-policy modules;
+  raw private policy receipts remain uncommitted. Matched end-to-end latency is unresolved.
+
+The first full run reported 475 passes and one old test assumption: it treated the new
+configuration row as a runtime observation. The corrected test separately checks both
+row types; the focused native/configuration/observation tests pass. The corrected full
+run passes **476 tests in 211.24 seconds**, with candidates/presets/swaps enabled and no
+warnings. Native tests: 36 normal/NO_COLOR, all-target Clippy; Bun: 3. A subsequent native
+label-only correction removes inapplicable event sequence fields from the configuration
+detail; final integrated/live/performance/release receipts follow after their actual runs.
+
+The active table at the top of PLAN owns remaining work; preceding delivery tables are
+explicitly historical. New behavior does not reopen already completed basic TUI features.
+
 ## AFK seven-group continuation (2026-09-15; source after rc3)
 
 Direction was amended before implementation; this is progress against draft promises,

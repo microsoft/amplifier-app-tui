@@ -24,6 +24,39 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def test_context_policy_is_visible_without_sending_the_draft(tmp_path):
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--cwd",
+            str(tmp_path),
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=160,
+    )
+    try:
+        wait_ready(probe)
+        probe.send(b"Unsent budget question")
+        action(probe, "Context intelligence", "Context budget policy")
+        probe.wait("configuration, not occupancy")
+        probe.send(b"\x1b[B\r")
+        probe.wait("Explicit configuration only")
+        assert "Observed sequences" not in probe.text
+        assert "configuration snapshot" in probe.text
+        capture(probe, "rc4-context-policy")
+        probe.send(b"\x1b")
+        probe.wait("Actions / choices", absent=True)
+        draft_is(probe, "Unsent budget question")
+        events = next((tmp_path / "state/conversations").glob("*/events.jsonl")).read_text()
+        assert '"kind": "user.message"' not in events
+    finally:
+        probe.close()
+
+
 def test_image_attachment_and_saved_content_search_are_explicit(tmp_path):
     path = tmp_path / "image.png"
     Image.new("RGB", (32, 32), "red").save(path)

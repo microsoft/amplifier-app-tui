@@ -11,6 +11,21 @@ ROOT = Path(__file__).resolve().parents[1]
 CHECK = runpy.run_path(str(ROOT / "scripts/check_direction.py"))
 
 
+def test_prepared_policy_capture_redacts_credentials_and_detects_changes():
+    capture = runpy.run_path(str(ROOT / "scripts/capture_runtime_policy.py"))["policy"]
+    plan = {
+        "providers": [
+            {"module": "provider-fixture", "config": {"api_key": "secret-one", "model": "first"}}
+        ]
+    }
+    first = capture(plan, "synthetic instruction")
+    plan["providers"][0]["config"]["api_key"] = "secret-two"
+    assert capture(plan, "synthetic instruction") == first
+    plan["providers"][0]["config"]["model"] = "second"
+    assert capture(plan, "synthetic instruction") != first
+    assert "secret" not in json.dumps(first) and "synthetic instruction" not in json.dumps(first)
+
+
 def test_current_direction_and_work_references():
     report = CHECK["check_repository"](ROOT)
     assert report["formal_verdicts_generated"] is False

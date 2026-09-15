@@ -28,6 +28,7 @@ class ToolEvidence:
     def __init__(self, cwd):
         self.cwd = Path(cwd).resolve()
         self.pending = {}
+        self.versions = {}
 
     async def snapshot(self, name, arguments):
         from .file_input import snapshot
@@ -106,10 +107,36 @@ class ToolEvidence:
         if row is None:
             return None
         after = await self.snapshot(name, row["arguments"])
-        before = row["before"]
+        before = row["before"] or {"files": {}, "partial": True, "scope": "Capture interrupted"}
         result = data.get("result")
         if hasattr(result, "model_dump"):
             result = result.model_dump()
+        changed = sorted(
+            p
+            for p in before["files"].keys() | after["files"].keys()
+            if before["files"].get(p) != after["files"].get(p)
+        )
+        matched = []
+        if name == "bash":
+            for path, digest in before["files"].items():
+                previous = self.versions.get(path)
+                if previous and previous["sha256"] == digest and after["files"].get(path) == digest:
+                    matched.append({"path": path, **previous})
+        for path in changed:
+            digest = after["files"].get(path)
+            self.versions.pop(path, None)
+            if isinstance(digest, str) and len(digest) == 64:
+                self.versions[path] = {
+                    "sha256": digest,
+                    "agent": agent,
+                    "source_session": session,
+                    "tool_call_id": call,
+                    "turn": turn,
+                    "overlapping_tools": row["overlap"],
+                }
+        while len(self.versions) > 256:
+            self.versions.pop(next(iter(self.versions)))
+        output = result.get("output") if isinstance(result, dict) else None
         return {
             "name": f"{agent} · {name} · source evidence",
             "source_session": session,
@@ -118,16 +145,41 @@ class ToolEvidence:
             "status": "tool-correlated observation; external writers not excluded",
             "before": before,
             "after": after,
-            "changed": sorted(
-                p
-                for p in before["files"].keys() | after["files"].keys()
-                if before["files"].get(p) != after["files"].get(p)
-            ),
+            "changed": changed,
+            "matching_prior_changes": matched,
+            "source_stability": "changed during command"
+            if changed
+            else "partial observation"
+            if before["partial"] or after["partial"]
+            else "captured files unchanged at command boundaries",
+            "returncode": output.get("returncode") if isinstance(output, dict) else None,
             "overlapping_tools": row["overlap"],
             "tool_success": result.get("success") if isinstance(result, dict) else None,
             "command": row["arguments"].get("command") if name == "bash" else None,
             "scope": "Observed source versions bracket this identified tool. Command success is not a test-coverage or task-acceptance verdict; concurrent external edits cannot be causally attributed.",
         }
+
+    def interrupted(self):
+        """Retain pre-effect observations when no post-tool callback arrives."""
+        rows = []
+        for (turn, session, call), row in self.pending.items():
+            rows.append(
+                {
+                    "name": f"{row['agent']} · {row['name']} · unresolved source evidence",
+                    "source_session": session,
+                    "tool_call_id": call,
+                    "agent": row["agent"],
+                    "status": "No terminal tool observation; effects unknown",
+                    "before": row["before"],
+                    "after": None,
+                    "tool_success": None,
+                    "overlapping_tools": row["overlap"],
+                    "command": row["arguments"].get("command"),
+                    "scope": "Pre-tool capture only. No result or rollback inferred; no command repeated.",
+                }
+            )
+        self.pending.clear()
+        return rows
 
 
 class GitReview:

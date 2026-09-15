@@ -7,6 +7,32 @@ from amplifier_core import ChatResponse, TextBlock
 from test_navigation import bridge_for
 
 
+async def test_budget_inspection_is_allowlisted_configuration_not_a_request(host):
+    section = host.session.config.setdefault("session", {}).setdefault("context", {})
+    section["config"] = {
+        "max_tokens": 12345,
+        "compact_threshold": 0.8,
+        "token_meter": "actual",
+        "private": "secret-sentinel",
+        "target_usage": float("nan"),
+    }
+    before = copy.deepcopy(await host.session.coordinator.get("context").get_messages())
+    result = host.inspection.catalog(host, "context")
+    policy = json.loads(result["rows"][0]["detail"])
+    assert policy["configured"] == {
+        "max_tokens": 12345,
+        "compact_threshold": 0.8,
+        "token_meter": "actual",
+    }
+    assert "secret-sentinel" not in str(result)
+    assert "not current" in policy["notice"]
+    section["config"]["max_tokens"] = 10**400
+    huge = json.loads(host.inspection.catalog(host, "context")["rows"][0]["detail"])
+    assert "max_tokens" not in huge["configured"]
+    assert before == await host.session.coordinator.get("context").get_messages()
+    assert not host.session.coordinator.get("providers")["fixture"].calls
+
+
 async def test_startup_history_gate_never_advertises_ready_or_auto_submits(
     prepared, tmp_path, monkeypatch
 ):

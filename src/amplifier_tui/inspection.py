@@ -199,6 +199,37 @@ class Inspection:
             rows = [r for r in rows if r["id"].startswith("child:") and r["kind"] == "tool.updated"]
         elif category == "context":
             rows = [r for r in rows if r["kind"] == "context.observed"]
+            # Public configuration is not runtime occupancy. Never invoke context
+            # preparation/compaction or read a module's private meter to paint this.
+            section = (host.session.config or {}).get("session", {}).get("context", {})
+            config = section.get("config", {})
+            policy = {"module": section.get("module"), "configured": {}}
+            for key in ("max_tokens", "compact_threshold", "target_usage", "token_meter"):
+                value = config.get(key)
+                if key == "token_meter":
+                    if value in ("actual", "estimate"):
+                        policy["configured"][key] = value
+                elif type(value) in (int, float) and 0 <= value <= 2**63 - 1:
+                    policy["configured"][key] = value
+            policy["notice"] = (
+                "Explicit configuration only; omitted values use module-owned defaults. "
+                "max_tokens is a configured fallback, not the selected model's effective "
+                "request budget. Completed-request usage below is historical, not current "
+                "occupancy or remaining capacity. No request built or private state read."
+            )
+            rows.insert(
+                0,
+                {
+                    "id": "context-policy",
+                    "label": "Context budget policy · configured limits",
+                    "kind": "context.observed",
+                    "child": None,
+                    "source": host.session_id,
+                    "status": "configuration, not occupancy",
+                    "detail": json.dumps(policy, indent=2),
+                    "partial": False,
+                },
+            )
         elif category == "changes":
             rows = [r for r in rows if r["kind"] == "change.observed"]
         elif category == "instructions":

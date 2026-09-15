@@ -79,3 +79,44 @@ async def test_missing_unsafe_large_and_unpaired_sources_are_explicit(tmp_path):
     for name in ("../outside", "large"):
         row = await observer.snapshot("edit_file", {"path": name})
         assert row["partial"] and row["files"][name] == "unavailable"
+
+
+async def test_command_links_only_matching_prior_agent_versions(tmp_path):
+    git(tmp_path, "init")
+    file = tmp_path / "source.py"
+    file.write_text("old")
+    observer = ToolEvidence(tmp_path)
+    edit = {"tool_name": "edit_file", "tool_call_id": "edit", "tool_input": {"path": "source.py"}}
+    await observer.observe("tool:pre", edit, session="child", turn="one", agent="coder")
+    file.write_text("new")
+    await observer.observe("tool:post", edit, session="child", turn="one", agent="coder")
+    command = {"tool_name": "bash", "tool_call_id": "test", "tool_input": {"command": "pytest"}}
+    for changed in (False, True):
+        await observer.observe("tool:pre", command, session="root", turn="two", agent="tester")
+        if changed:
+            file.write_text("concurrent edit")
+        result = await observer.observe(
+            "tool:post",
+            {**command, "result": {"success": True, "output": {"returncode": 0}}},
+            session="root",
+            turn="two",
+            agent="tester",
+        )
+        assert bool(result["matching_prior_changes"]) is not changed
+        assert result["returncode"] == 0
+        if not changed:
+            prior = result["matching_prior_changes"][0]
+            assert prior["agent"] == "coder" and prior["tool_call_id"] == "edit"
+            assert prior["sha256"] == hashlib.sha256(b"new").hexdigest()
+        else:
+            assert result["source_stability"] == "changed during command"
+
+
+async def test_missing_post_keeps_pre_effect_evidence_once(tmp_path):
+    observer = ToolEvidence(tmp_path)
+    data = {"tool_name": "write_file", "tool_call_id": "lost", "tool_input": {"path": "file"}}
+    await observer.observe("tool:pre", data, session="child", turn="turn", agent="coder")
+    (row,) = observer.interrupted()
+    assert row["before"]["files"] == {"file": "absent"}
+    assert row["after"] is None and row["tool_success"] is None
+    assert "unknown" in row["status"] and not observer.interrupted()

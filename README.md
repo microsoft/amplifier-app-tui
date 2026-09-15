@@ -209,12 +209,20 @@ cancellation; detached/remote work and uncooperative modules remain separate lim
 **Recovered work** offers eligible interrupted direct children an explicit new instruction
 and confirmation before continuing their captured public context under a new child ID.
 The original receipt remains intact; missing tool outcomes are marked unknown, not replayed.
-Only unchanged simple context/stateless-loop compositions and mode are supported; this is
-not private-state reconstruction or automatic crash-uncertain recipe retry.
+Unchanged simple or persistent context with supported stateless loops and mode are
+supported. Persistent adoption creates a fresh isolated transcript; the old file is
+never overwritten. This is not private-state reconstruction or automatic crash-uncertain
+recipe retry.
 **Change and command evidence** correlates file versions with agent/session/tool-call IDs.
 Capture is bounded (explicit file target or first 128 Git-listed files); unavailable and
 overlapping observations are labelled. Command success is not a test-coverage verdict,
 and concurrent external edits cannot be exclusively attributed to an agent.
+Command observations link matching, unchanged captured versions to prior agent/tool
+changes in the open session (last 256 paths). This does not prove the command tested
+those files. Missing final callbacks retain pre-tool evidence with an unknown outcome.
+**Context intelligence** includes explicitly configured budget policy; omitted defaults
+remain module-owned. Configured limits and historical request usage are not a current
+occupancy meter, and inspection never builds a request or compacts context.
 Full presets retain authored shell/file tools and permissions: **this is not a sandbox**.
 The workspace launcher stores state in this project's `.state/work`; the installed
 launcher uses the separate user-data directory described above.

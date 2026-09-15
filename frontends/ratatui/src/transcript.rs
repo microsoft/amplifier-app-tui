@@ -53,9 +53,18 @@ impl App {
                 self.anchor_offsets[view] = Some((anchor.item, offset));
             } else {
                 self.anchor_offsets[view] = None;
-                self.status =
-                    "Layout changed structurally; retained item, character anchor unavailable"
-                        .into();
+                if let Some(row) = cell_anchor(&old_lines, &new_lines, anchor.row) {
+                    self.anchors[view] = Some(Anchor {
+                        item: anchor.item,
+                        row,
+                    });
+                    self.status =
+                        "Table layout changed; retained unique matching cell (approximate)".into();
+                } else {
+                    self.status =
+                        "Layout changed structurally; retained item, character anchor unavailable"
+                            .into();
+                }
             }
         }
     }
@@ -265,9 +274,74 @@ fn reanchor(old: &[String], new: &[String], offset: usize) -> Option<usize> {
     )
 }
 
+// Deliberately weaker than a source anchor: only a unique complete cell can
+// bridge a table's column/stacked layout. Repeated or wrapped cells refuse.
+fn cell_anchor(old: &[String], new: &[String], row: usize) -> Option<usize> {
+    if old.len() > 20000 || new.len() > 20000 {
+        return None;
+    }
+    let line = old.get(row.checked_sub(1)?)?;
+    let cells = |line: &str| -> Vec<String> {
+        line.split('│')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    for cell in cells(line)
+        .into_iter()
+        .rev()
+        .filter(|s| s.chars().count() >= 2)
+    {
+        if old
+            .iter()
+            .flat_map(|s| cells(s))
+            .filter(|s| s == &cell)
+            .count()
+            != 1
+        {
+            continue;
+        }
+        let matches: Vec<_> = new
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| cells(s).contains(&cell))
+            .map(|(i, _)| i + 1)
+            .collect();
+        if matches.len() == 1 {
+            return Some(matches[0]);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn structural_table_resize_retains_unique_cell_but_refuses_ambiguity() {
+        let source = "| Name | Value |\n|---|---|\n| Alpha | 12 |\n| Beta | 34 |";
+        let render = |width| {
+            markdown::render(source, width)
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        };
+        let wide = render(80);
+        let narrow = render(16);
+        let row = wide.iter().position(|s| s.contains("Beta")).unwrap() + 1;
+        let selected = cell_anchor(&wide, &narrow, row).unwrap();
+        assert_eq!(narrow[selected - 1].trim(), "34");
+        assert_eq!(cell_anchor(&narrow, &wide, selected), Some(row));
+        assert_eq!(
+            cell_anchor(&["│ same │ same │".into()], &["same".into()], 1),
+            None
+        );
+        assert_eq!(
+            cell_anchor(&["unique".into()], &["unique".into(), "unique".into()], 1),
+            None
+        );
+    }
     #[test]
     fn resize_preserves_original_unicode_boundary_without_roundtrip_drift() {
         let source = "one two 界界 e\u{301} 👩‍💻 repeated repeated tail";

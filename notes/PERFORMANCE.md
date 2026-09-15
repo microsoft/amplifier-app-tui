@@ -7,6 +7,18 @@ The comparison includes the entire path, not just IPC microbenchmarks or rendere
 
 ## Current measurement and policy gap
 
+The rc4 experiment now captures actual prepared policies through the installed isolated
+CLI's `resolve_bundle_config` and the TUI's `prepare`, with no session execution. Both
+use core 1.6.1 and the same fixture source. The CLI adds `tool-mode`, `tool-skills`,
+`hooks-mode`, `hooks-approval`, `hooks-routing` and `hooks-wayfinder`; the TUI's minimal
+fixture has none of those extra modules. This confirms a real composition mismatch,
+not merely an inferred source-code difference. It does not characterize full presets.
+Reproduce with `scripts/capture_runtime_policy.py --kind cli|tui --state NEW_STATE
+--output NEW_RECEIPT` under the respective interpreter, optionally `--sources MAP` for
+the TUI. State must be a new subdirectory of this checkout's `.state`; use the isolated
+CLI environment, never the daily shared environment. Receipts contain module inventories
+and policy hashes and must stay private: hashing does not anonymize guessable content.
+
 The AFK continuation measured full catalog/search/checkpoint-page lookup and actual native
 Resume paint over 200 synthetic conversations / 100,000 messages (30 warm samples):
 p95 37.0 ms and 68.3 ms respectively. The latter includes F4, action search, selection and

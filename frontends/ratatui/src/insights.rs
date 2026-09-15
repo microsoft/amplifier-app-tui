@@ -413,6 +413,23 @@ impl App {
     }
 
     pub fn observation(&mut self, row: Value) {
+        if row["id"] == "context-policy" {
+            let text = format!(
+                "Conversation: {}\n\n{}",
+                string(&row, "source"),
+                string(&row, "detail")
+            );
+            self.menu(
+                "Context intelligence · configuration snapshot",
+                vec![Choice {
+                    label: "Copy configuration snapshot".into(),
+                    action: Action::CopyText(text.clone()),
+                    detail: String::new(),
+                }],
+            );
+            self.ui.menu.as_mut().unwrap().detail = safe(&text);
+            return;
+        }
         let text = format!(
             "Conversation: {}\nTurn: {}\nIdentity: {}\nObserved sequences: {}–{}\n\n{}",
             string(&row, "source"),

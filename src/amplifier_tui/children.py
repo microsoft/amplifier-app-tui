@@ -32,6 +32,15 @@ def parent_orchestrator(session):
     return section.get("config", {}) if isinstance(section, dict) else {}
 
 
+def recovery_fingerprint(plan):
+    """Only the app-owned persistent transcript location may move on adoption."""
+    value = copy.deepcopy(plan)
+    context = value.get("session", {}).get("context", {})
+    if context.get("module") == "context-persistent":
+        context.setdefault("config", {})["transcript_path"] = "<new isolated child store>"
+    return fingerprint(value)
+
+
 class ChildDisplay:
     def __init__(self, owner, identity):
         self.owner, self.identity = owner, identity
@@ -231,7 +240,6 @@ class Children:
             if not self.host.store:
                 raise ValueError("Persistent child context requires isolated conversation storage")
             directory = self.host.store.path / "child-context" / identity
-            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
             context_plan.setdefault("config", {})["transcript_path"] = str(
                 directory / "messages.jsonl"
             )
@@ -240,14 +248,21 @@ class Children:
         if recovery:
             section = plan.get("session", {})
             if (
-                section.get("context", {}).get("module") != "context-simple"
+                section.get("context", {}).get("module")
+                not in ("context-simple", "context-persistent")
                 or section.get("orchestrator", {}).get("module")
                 not in ("loop-streaming", "loop-basic")
-                or fingerprint(plan) != recovery["mount_fingerprint"]
+                or (
+                    recovery_fingerprint(plan) != recovery["recovery_fingerprint"]
+                    if recovery.get("recovery_fingerprint")
+                    else fingerprint(plan) != recovery["mount_fingerprint"]
+                )
             ):
                 raise ValueError(
-                    "Child public-context recovery requires unchanged simple context and a supported stateless loop; private-state reconstruction refused"
+                    "Child public-context recovery requires unchanged supported context and stateless loop policy; private-state reconstruction refused"
                 )
+            if context_plan.get("module") == "context-persistent" and directory.exists():
+                raise ValueError("Recovery requires a fresh persistent child store")
         restored = self.restoring.get(identity)
         if restored and fingerprint(plan) != restored.get("mount_fingerprint"):
             raise ValueError("Child effective composition changed; continuation refused")
@@ -257,6 +272,8 @@ class Children:
             and not restored
         ):
             raise ValueError("Child identity already exists on disk; use explicit continuation")
+        if context_plan.get("module") == "context-persistent":
+            directory.mkdir(mode=0o700, parents=True, exist_ok=not bool(recovery))
         self.records[identity] = {
             "agent": agent_name,
             "parent": parent_id,
@@ -270,6 +287,7 @@ class Children:
             "routing": [p.to_dict() for p in provider_preferences or []],
             "request_index": 0,
             "mount_fingerprint": fingerprint(plan),
+            "recovery_fingerprint": recovery_fingerprint(plan),
             "root_fingerprint": self.host.fingerprint,
             "restart_policy": {
                 "tools": tool_inheritance,

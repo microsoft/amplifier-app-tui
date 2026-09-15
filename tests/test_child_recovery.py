@@ -2,6 +2,8 @@ import asyncio
 import copy
 import hashlib
 import json
+import os
+from pathlib import Path
 
 import pytest
 from test_navigation import bridge_for
@@ -10,7 +12,20 @@ from amplifier_tui.recovery import recovery_catalog
 
 
 @pytest.mark.parametrize("recover_root", [False, True])
-async def test_interrupted_child_adoption_is_owned_new_execution(prepared, tmp_path, recover_root):
+@pytest.mark.parametrize("persistent", [False, True])
+async def test_interrupted_child_adoption_is_owned_new_execution(
+    prepared, tmp_path, recover_root, persistent
+):
+    if persistent:
+        if os.environ.get("TUI_TEST_SWAPS") != "1":
+            pytest.skip("Requires independent persistent context package")
+        prepared[0].bundle.session["context"] = {
+            "module": "context-persistent",
+            "source": str(
+                Path(__file__).resolve().parents[2] / "amplifier-module-context-persistent"
+            ),
+            "config": {"memory_files": []},
+        }
     bridge, events = await bridge_for(prepared, tmp_path, tmp_path)
     host = bridge.host
     try:
@@ -24,6 +39,8 @@ async def test_interrupted_child_adoption_is_owned_new_execution(prepared, tmp_p
         identity = next(iter(host.children.records))
         path = host.store.path / "children" / f"{identity}.json"
         original = path.read_bytes()
+        context_path = host.store.path / "child-context" / identity / "messages.jsonl"
+        original_context = context_path.read_bytes() if context_path.exists() else None
         row = json.loads(original)
         assert row["status"] == "interrupted"
         catalog = recovery_catalog(host.store)
@@ -88,6 +105,10 @@ async def test_interrupted_child_adoption_is_owned_new_execution(prepared, tmp_p
         adopted = host.children.records[new_id]
         assert adopted["status"] == "completed", events[-5:]
         assert adopted["metadata"]["recovery"]["child"] == identity
+        if persistent:
+            new_context = host.store.path / "child-context" / new_id / "messages.jsonl"
+            assert new_context.exists() and "Compute once now" in new_context.read_text()
+            assert context_path.read_bytes() == original_context
         assert not host.children.active and not host.children.tasks
         assert json.loads((host.store.path / "checkpoint.json").read_text())["status"] == "ready"
         assert any("continued as" in str(e) for e in events)

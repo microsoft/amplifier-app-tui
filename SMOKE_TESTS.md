@@ -1,5 +1,19 @@
 # Verification guide
 
+rc4 gates: persistent direct-child public adoption runs in `test_child_recovery.py`
+with `TUI_TEST_SWAPS=1`, both same-root and historical-root paths. Preserve original
+receipt and module transcript bytes; a new store must read back imported messages
+exactly before execution. A module's existing-file restore policy is never bypassed.
+`test_change_evidence.py` links exact unchanged versions to earlier agent observations,
+refuses changed versions, and retains unresolved pre-tool evidence once. Context-policy
+tests distinguish configuration rows from actual usage/compaction observations; native
+inspection opens the detail without sending its retained draft. Unique table-cell resize
+matching is approximate; repeated/ambiguous cells must fall back rather than guess.
+`capture_runtime_policy.py` runs under the respective isolated CLI/TUI interpreter with
+a fresh `--state` directory. Keep its receipts private: hashes and module IDs are not
+anonymous diagnostic exports. Prepared-policy agreement alone never proves matching
+runtime requests or CLI latency. Do not disable policy to obtain a favorable number.
+
 AFK continuation: run `test_owned_execution.py`, `test_child_recovery.py`,
 `test_change_evidence.py`, `test_context_transfer.py` and the expanded independent-swap
 approval matrix. New native navigation cases cover provider-fork confirmation and

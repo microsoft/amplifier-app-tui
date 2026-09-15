@@ -5,7 +5,24 @@ Authority: [the steward's approved direction](DIRECTION-REVIEW.md), amended into
 All contract details remain draft targets. This is a local work record, not a formal
 Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
-## Current wave: direction and verification scaffolding
+## Active backlog — release and deeper continuity
+
+The steward authorized all seven groups again on 2026-09-15, with judgment for
+reversible decisions. This table owns current sequencing; all following wave tables
+are historical delivery records, not additional unresolved copies of these tasks.
+Work moves toward the existing contracts; unsupported effects must remain explicit.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| RECOVER-04 | continuity.v1:5, ecosystem.v1:6 | Persistent-child adoption and interrupted recipe policy | Fresh isolated store, original bytes unchanged, no replay, unsupported state refused | In progress |
+| LIFE-08 | session.v1:6, session.v1:8 | Cancellation and unconfirmed control accounting | Repeated cancellation cannot lose evidence or redeliver intent | In progress |
+| PERF-04 | performance.v1:1, performance.v1:2 | Actual policy equivalence and isolated latency measurement | Concrete policy comparison before any non-regression verdict | In progress |
+| REVIEW-07 | presentation.v1:7 | Link command evidence to captured versions and preceding agent edits | Exact matching digests, bounded provenance, changed/unknown scope explicit | In progress |
+| CONTEXT-05 | composition.v1:3, ecosystem.v1:2 | Public context-budget visibility and provider compatibility | Inspection makes no model request and distinguishes estimates from occupancy | In progress |
+| INPUT-07 | presentation.v1:3, presentation.v1:5 | Resize stability and terminal/platform breadth | Real terminal gates; unsupported physical environments not called verified | In progress |
+| INSTALL-05 | ecosystem.v1:1 | New version with reviewed compiler-free wheels | Exact published artifacts match tested source; old releases unchanged | In progress |
+
+## Historical wave: AFK seven-group continuation
 
 AFK authorization (2026-09-15): implement all seven remaining groups, using judgment
 for reversible decisions. Work toward existing promises; new recovery/conversion paths

@@ -481,7 +481,12 @@ class SessionHost:
                     )
                 await self.children.drain()
             if self.tool_evidence:
-                self.tool_evidence.pending.clear()
+                for evidence in self.tool_evidence.interrupted():
+                    self.emit(
+                        "change.observed",
+                        f"{self.turn_id}:change:{evidence['source_session']}:{evidence['tool_call_id']}",
+                        **evidence,
+                    )
             if self._stop_requested and status != "failed":
                 status = "interrupted"
                 message = "Stopped. Partial effects may remain; nothing was undone."

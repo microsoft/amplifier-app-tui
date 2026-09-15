@@ -159,7 +159,12 @@ async def test_context_and_activity_are_read_only_and_scoped(host, tmp_path):
         0
     ]
     # UUIDs can contain "999". Check the observations, never incidental identity text.
-    observations = [json.loads(row["detail"])["observation"] for row in output[-1]["rows"]]
+    observations = [
+        json.loads(row["detail"])["observation"]
+        for row in output[-1]["rows"]
+        if row["id"] != "context-policy"
+    ]
+    assert output[-1]["rows"][0]["status"] == "configuration, not occupancy"
     assert {"input_tokens": 42, "output_tokens": 7} in observations
     assert {"before_tokens": 800, "after_tokens": 400} in observations
     assert not any(value.get("input_tokens") == 999 for value in observations)
