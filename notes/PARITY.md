@@ -20,7 +20,7 @@ and contracts; verified scope belongs to [ACCEPTANCE](ACCEPTANCE.md).
 | Inspect context | Observed usage/compaction, local capture/dispatch policy and last-observed instruction-source index | Exact current request/occupancy; inline or non-reporting module sources |
 | Recover | Fail-closed checkpoints/control records; no silent replay; copy/dismiss; explicit uncertain follow-up dismissal with retained receipt | Crash-edge editor retention, exact interrupted-context/module-private recovery |
 | Perform | Native renderer, bounded projections/delivery, owned partial-startup cleanup, 100 ms Unix resize probe, reproducible stress receipts | Policy-equivalent CLI latency, cancellation warnings and broader all-seam policy conformance |
-| Install | Private Git install, embedded native client; compiler-free Linux ARM64 wheel-install gate and manual four-platform candidate workflow | Cross-platform execution/published wheel release; Git source install still needs Rust/linker; automatic CLI migration unsupported |
+| Install | Private Git install; four-platform 0.3.0rc1 native wheels with compiler-free install/native-unit gates; Linux ARM64 installed-live/tool/resume evidence | Other-platform interactive/live breadth; older Linux/musl support; Git source install still needs Rust/linker; automatic CLI migration unsupported |
 
 The remaining high-value runtime work includes cancellation edge ownership,
 attributed change/test review, platform/release gates and matched CLI measurements. Those need exercised

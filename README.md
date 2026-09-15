@@ -19,17 +19,29 @@ The [workflow coverage map](notes/PARITY.md) separates working paths from remain
 
 ### Install the native product
 
-Linux ARM64 is verified; macOS source builds are supported by the build hook but not yet
-exercised. Windows needs WSL2. Git installation requires **uv, Git, Rust/Cargo (tested
+Linux ARM64 has interactive PTY/tmux and installed-live verification. Candidate native
+unit/build/install gates also pass on Linux x86-64 and both macOS architectures; broader
+terminal/live-runtime coverage there remains open. Windows needs WSL2.
+Git installation requires **uv, Git, Rust/Cargo (tested
 with Rust 1.93), and a C linker**. The build embeds the native executable in a
 platform-specific wheel; normal launches need neither a source checkout nor Cargo.
 
-Release candidates can also be installed from a platform-matching wheel with
-`uv tool install ./amplifier_app_tui-<version>-<platform>.whl`, without Rust/Cargo.
-`scripts/release_wheel.py` builds and verifies this in an isolated tool environment
-with Cargo removed from PATH. The manual release-candidate workflow targets Linux
-x86-64/ARM64 and macOS Intel/Apple Silicon; only the local Linux ARM64 gate has run.
-Prebuilt public downloads and cross-platform release certification are not yet available.
+The private [0.3.0rc1 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc1)
+provides compiler-free wheels. Authenticate with an account that has repository access,
+download the matching wheel, then run `uv tool install ./<downloaded-wheel>.whl`.
+
+| Machine | Wheel platform suffix | Build/install gate |
+|---|---|---|
+| Linux ARM64 | `linux_aarch64` | Ubuntu 24.04 |
+| Linux x86-64 | `linux_x86_64` | Ubuntu 24.04 |
+| Apple Silicon Mac | `macosx_14_0_arm64` | macOS 14 |
+| Intel Mac | `macosx_15_0_x86_64` | macOS 15 |
+
+Linux wheels are not manylinux/musl or older-distribution compatibility claims. macOS
+wheels contain one architecture each, with the named deployment floor, not universal2.
+Each asset has an adjacent SHA-256/install receipt. `scripts/release_wheel.py` and the
+manual four-platform workflow verify isolated installation with Cargo absent and native
+executable loading. This is an early candidate, not complete cross-platform certification.
 
 The repository is private. Authenticate GitHub/Git with an account that has access
 (for GitHub CLI users, `gh auth login` then `gh auth setup-git`), then:

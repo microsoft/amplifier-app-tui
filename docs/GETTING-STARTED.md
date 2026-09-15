@@ -2,11 +2,17 @@
 
 Amplifier TUI is an early native terminal app powered by Amplifier bundles and modules.
 It can read files, run commands and delegate work using your selected composition.
-It is not an OS sandbox. Linux ARM64 is verified; macOS is untested and Windows needs WSL2.
+It is not an OS sandbox. Linux ARM64 has interactive/live verification. Native build/install
+checks also pass on Linux x86-64 and both macOS architectures; Windows needs WSL2.
 
 ## Install
 
-You need access to the private repository, uv, Git, Rust/Cargo and a C linker.
+For compiler-free installation, download your machine's wheel from the private
+[0.3.0rc1 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc1)
+and run `uv tool install ./<downloaded-wheel>.whl`. See the [platform table](../README.md#install-the-native-product)
+for the tested systems and limits. Repository access, uv and Git are still needed.
+
+For installation directly from source, you also need Rust/Cargo and a C linker.
 Rust is needed to build during installation, not for normal launches. If GitHub CLI
 is your chosen Git credential helper, authenticate with `gh auth login` and
 `gh auth setup-git`. Do not put a token in the install URL.
@@ -58,6 +64,10 @@ same unsent draft. Optional shortcut: F4 opens Actions.
 | Understand results | Review or Activity evidence; completion is not a test verdict |
 | Copy or scroll | Normal terminal selection / tmux copy mode; Transcript for reflow |
 | Change tool policy | Modes; the current mode stays visible |
+| Find previous work | Resume, or Actions → Search saved conversations |
+| Include an image | Actions → Attach image; confirm one workspace PNG/JPEG snapshot |
+| Inspect instruction provenance | Actions → Instruction sources; last observed resolutions, not a complete prompt |
+| Look up model IDs | Actions → Model catalog; explicit advisory lookup, not a model change |
 
 Stop requests cancellation and holds queued work. It cannot undo effects already made.
 The normal view leaves mouse selection to the terminal; menus and inspection own their

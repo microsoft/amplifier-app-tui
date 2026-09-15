@@ -32,11 +32,12 @@ not closure of every residual or a formal Converge verdict; contracts remain DRA
   resize probe has a 100 ms deadline and replays captured input using the pinned Crossterm
   fork. A silent responder disables later queries; conservative fallback retains history.
 
-Integrated verification: **371 Python tests passed** with native candidates, both presets
+Integrated verification: **372 Python tests passed** with native candidates, both presets
 and independent swaps enabled; **30 Rust tests passed** both normally and with NO_COLOR.
-Clippy warnings-denied, Cargo format, Ruff/format (121 files), direction/archive integrity
-(575 contract lines, 48 production files), wheel and sdist builds passed. Three cancellation
-warnings remain in child/module hook callbacks; this is not complete lifecycle hardening.
+Clippy warnings-denied, Cargo format, Ruff/format (122 files), direction/archive integrity
+(575 contract lines, 48 production files), wheel and sdist builds passed. The final run
+reported two cancellation warnings in child/module hook callbacks; earlier runs reported
+additional callback variants. This is not complete lifecycle hardening.
 
 The full suite exposed two real integration defects: the new recipe action's old “resume”
 description stole fuzzy Resume selection; and history recall could leave input blocked
@@ -84,6 +85,26 @@ run were rejected despite passing same-machine installation. The corrected hook 
 the build-host macOS major deployment floor and actual architecture, validates `lipo`
 output, and the release gate independently checks filename and installed architecture.
 A regression test covers both macOS architectures and rejects universal2 as a native target.
+
+The corrected [four-platform receipt](evidence/release-0.3.0rc1.json) records source
+`b4a491d79df5a80295db02247e3d9237701764e5`: all four remote native-unit/build/install jobs
+passed. Downloaded wheel members were independently privacy-rescanned; wheel/native hashes
+and actual ELF/Mach-O architectures match. The Linux ARM64 wheel is byte-identical to the
+CI candidate exercised by the [installed fixture/tool/resume probe](evidence/backlog-ci-installed-fixture.json).
+The private [0.3.0rc1 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc1)
+contains four corrected wheels and their individual receipts, not raw CI logs, private
+captures, local state or rejected candidates. Linux builds target the tested Ubuntu 24.04
+environment; macOS ARM64/Intel have explicit 14/15 deployment floors. Interactive/live
+certification on other platforms and older Linux/musl portability remain open.
+All eight published assets were downloaded again and matched to the verified receipts.
+Temporary CI runs/artifacts were then removed; sanitized release evidence and the private
+release assets remain, not raw runner logs. The existing development command link still
+targets this checkout and reports 0.3.0rc1 on relaunch; no running user app was replaced.
+An isolated `uv tool install git+https://github.com/bkrabach/amplifier-app-tui@v0.3.0rc1`
+also succeeded. Its [installed fixture receipt](evidence/backlog-tagged-git-fixture.json)
+verifies remote sources, a real digest tool, reopening without replay, a second turn,
+offline checks and non-submitting help outside the checkout. Source installation still
+requires Cargo; this is distinct from the compiler-free wheel gates.
 
 Remaining work is explicit in the seven current PLAN rows: uncooperative module cleanup,
 interrupted/custom-orchestrator/subprocess child recovery, broader media/references,

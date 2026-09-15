@@ -1,0 +1,87 @@
+{
+  "scope": "Private candidate packaging/native-unit evidence; not general terminal, provider or CLI parity.",
+  "source_revision": "b4a491d79df5a80295db02247e3d9237701764e5",
+  "version": "0.3.0rc1",
+  "workflow_run": 34922019420,
+  "workflow_conclusion": "success",
+  "platform_jobs": [
+    "ubuntu-24.04",
+    "ubuntu-24.04-arm",
+    "macos-14",
+    "macos-15-intel"
+  ],
+  "native_unit_checks_passed": true,
+  "downloaded_members_privacy_rescanned": true,
+  "downloaded_hashes_and_native_architectures_verified": true,
+  "linux_arm64_wheel_identical_to_installed_fixture_probe": true,
+  "prior_attempt": {
+    "run": 34921568732,
+    "disposition": "macOS artifacts rejected for false universal2 labels; no release; superseded run/artifacts deleted"
+  },
+  "artifacts": [
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Linux",
+      "architecture": "aarch64",
+      "build_os_release": "24.04",
+      "version": "0.3.0rc1",
+      "wheel": "amplifier_app_tui-0.3.0rc1-py3-none-linux_aarch64.whl",
+      "wheel_sha256": "5581f4b8e3f51e79ca98fcd5a235b9a2ccb0a544d9df16a214feccc43179718f",
+      "native_sha256": "51e081daf3644dd0b114bddcb84864e5d3e16dac136bd4913a99663c6e61b7e0",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true
+    },
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Linux",
+      "architecture": "x86_64",
+      "build_os_release": "24.04",
+      "version": "0.3.0rc1",
+      "wheel": "amplifier_app_tui-0.3.0rc1-py3-none-linux_x86_64.whl",
+      "wheel_sha256": "32c3bebd0229eb28467361bc33dbbe78833f8ee49bbfb1b447099cd200562013",
+      "native_sha256": "40608c28770f62cdf0798e07aee0eed957ec9eec1a2a58c4df6f60f12dd678e9",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true
+    },
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Darwin",
+      "architecture": "arm64",
+      "build_os_release": "14.8.9",
+      "version": "0.3.0rc1",
+      "wheel": "amplifier_app_tui-0.3.0rc1-py3-none-macosx_14_0_arm64.whl",
+      "wheel_sha256": "ddc207f78aedd8e94520231c88d837453f9781213d5266039eceaa26c3b5183e",
+      "native_sha256": "1623878d167edf37a9e305c17286f649c503b0ca812aa3437491750a96574ff4",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true
+    },
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Darwin",
+      "architecture": "x86_64",
+      "build_os_release": "15.7.9",
+      "version": "0.3.0rc1",
+      "wheel": "amplifier_app_tui-0.3.0rc1-py3-none-macosx_15_0_x86_64.whl",
+      "wheel_sha256": "9e754d57814a58fb562f6e1476b68dbf5f4d02f087525712bf58e6a2f16fb4fa",
+      "native_sha256": "f6e00cd9474f36a509acbcccd742aa08f9ef4c4048840af2729c213ca6b57b7a",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true
+    }
+  ]
+}
