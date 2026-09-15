@@ -5,7 +5,23 @@ Authority: [the steward's approved direction](DIRECTION-REVIEW.md), amended into
 All contract details remain draft targets. This is a local work record, not a formal
 Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
-## Active backlog — post-rc4 reliability and compatibility
+## Active backlog — rc5 recovery and release checkpoint
+
+The steward authorized all seven next areas. Preserve the vision's destination and
+derive bounded implementation from its contracts; evidence cannot turn unsupported
+private state or unequal runtime policy into successful parity.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| PERF-06 | performance.v1:1, performance.v1:2, performance.v1:7 | Refresh actual-entrypoint runtime timing and reproducible policy capture across selected bundles | Private immutable receipts; policy disagreement prevents a parity verdict | Implementing |
+| RECOVER-06 | continuity.v1:5, ecosystem.v1:6 | Guard nested public-context adoption and explain recipe checkpoint outcomes | Validate ancestry and effective policy; no ancestor/unknown-step replay | Implementing |
+| STEER-04 | session.v1:6, session.v1:8 | Explicit Stop with replacement draft retained | Confirmation stops only current work; zero automatic follow-up admission | Implementing |
+| CONTEXT-07 | composition.v1:3, ecosystem.v1:2 | Observe request-specific declared output reservations and public budget events | Bounded allowlisted numbers, identified request, no private meter or current occupancy claim | Implementing |
+| REVIEW-09 | presentation.v1:7, continuity.v1:3 | Correlate fresh structured JUnit reports with a command's captured source versions | Stale/invalid/unsafe reports refuse attribution; no semantic coverage inference | Implementing |
+| INPUT-09 | continuity.v1:2, presentation.v1:2 | Prioritize persistence of pasted drafts without sending | Native paste remains unsent and reaches storage before ordinary debounce | Implementing |
+| RELEASE-06 | ecosystem.v1:1, ecosystem.v1:2 | Document provider-auth seams and ship reviewed rc5 wheels | Source/artifact privacy review, five platform gates, exact installed-live and download verification | Implementing |
+
+## Historical wave — post-rc4 reliability and compatibility
 
 The steward again authorized all seven remaining areas. These bounded
 steps move toward existing promises; they do not assert universal recovery or parity.

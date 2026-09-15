@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import shlex
 import stat
 import time
 import uuid
@@ -20,6 +21,91 @@ NOTICE = (
 
 def display_path(value):
     return os.fsencode(value).decode("utf-8", "replace") if value is not None else None
+
+
+def junit_target(command):
+    """Only an explicit simple pytest invocation; never interpret shell programs."""
+    try:
+        words = shlex.split(command) if isinstance(command, str) else []
+    except ValueError:
+        return None
+    if not words or any(any(c in word for c in ";&|<>`$\n\r") for word in words):
+        return None
+    executable = Path(words[0]).name
+    direct = executable in ("pytest", "py.test")
+    python_module = executable.startswith("python") and words[1:3] == ["-m", "pytest"]
+    uv_run = executable == "uv" and (
+        words[1:3] == ["run", "pytest"] or words[1:4] == ["run", "--no-sync", "pytest"]
+    )
+    if not (direct or python_module or uv_run):
+        return None
+    targets = []
+    for index, word in enumerate(words):
+        if word in ("--junitxml", "--junit-xml") and index + 1 < len(words):
+            targets.append(words[index + 1])
+        elif word.startswith(("--junitxml=", "--junit-xml=")):
+            targets.append(word.split("=", 1)[1])
+    if (
+        len(targets) != 1
+        or not targets[0]
+        or Path(targets[0]).is_absolute()
+        or ".." in Path(targets[0]).parts
+    ):
+        return None
+    return targets[0]
+
+
+def junit_snapshot(cwd, path):
+    from .file_input import snapshot
+
+    try:
+        value = snapshot(cwd, path)
+        return {"sha256": value["sha256"], "text": value["text"]}
+    except FileNotFoundError:
+        return {"status": "absent"}
+    except (OSError, ValueError, UnicodeError):
+        return {"status": "unavailable"}
+
+
+def junit_observation(cwd, path, before):
+    from xml.etree import ElementTree
+
+    after = junit_snapshot(cwd, path)
+    evidence = {
+        "path": path,
+        "sha256": after.get("sha256"),
+        "status": "unavailable",
+        "scope": "Explicit pytest JUnit file changed across this command. Counts are report assertions, not semantic coverage, exclusive command authorship or task acceptance. Source snapshots bracket the command, not individual test cases.",
+    }
+    if "text" not in after or before.get("status") == "unavailable":
+        return evidence
+    if before.get("sha256") == after["sha256"]:
+        return {**evidence, "status": "unchanged report; not attributed to this command"}
+    try:
+        xml = after["text"]
+        if "<!DOCTYPE" in xml.upper() or "<!ENTITY" in xml.upper():
+            raise ValueError("DTD/entity declarations refused")
+        root = ElementTree.fromstring(xml)
+        if root.tag not in ("testsuite", "testsuites"):
+            raise ValueError("Not a JUnit report")
+        cases = list(root.iter("testcase"))
+        if not cases or len(cases) > 2000:
+            raise ValueError("Missing or excessive case detail")
+        counts = {"tests": len(cases), "failed": 0, "errors": 0, "skipped": 0, "passed": 0}
+        for case in cases:
+            status = (
+                "errors"
+                if case.find("error") is not None
+                else "failed"
+                if case.find("failure") is not None
+                else "skipped"
+                if case.find("skipped") is not None
+                else "passed"
+            )
+            counts[status] += 1
+        return {**evidence, "status": "changed structured report observed", "counts": counts}
+    except (ValueError, ElementTree.ParseError):
+        return {**evidence, "status": "invalid or unsupported report; counts unavailable"}
 
 
 class ToolEvidence:
@@ -134,6 +220,12 @@ class ToolEvidence:
                 if len(self.pending) > 1:
                     other["overlap"] = True
             self.pending[key]["before"] = await self.snapshot(name, arguments)
+            target = junit_target(arguments.get("command")) if name == "bash" else None
+            if target:
+                self.pending[key]["junit"] = (
+                    target,
+                    await asyncio.to_thread(junit_snapshot, self.cwd, target),
+                )
             return None
         row = self.pending.pop(key, None)
         if row is None:
@@ -177,6 +269,11 @@ class ToolEvidence:
             "scope": "Observed source versions bracket this identified tool. Command success is not a test-coverage or task-acceptance verdict; concurrent external edits cannot be causally attributed.",
         }
         self.remember(observation, turn)
+        if "junit" in row:
+            target, report_before = row["junit"]
+            observation["test_report"] = await asyncio.to_thread(
+                junit_observation, self.cwd, target, report_before
+            )
         return observation
 
     def interrupted(self):

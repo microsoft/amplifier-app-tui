@@ -1,5 +1,25 @@
 # Verification guide
 
+rc5 gates: `test_rc5.py` uses real nested session mounts, validates cyclic/missing
+ancestry refusal and preserves original child/ancestor receipts. Nested adoption is
+explicit reparenting under a new identity, not resumed ancestor execution. Actual
+pytest JUnit reports retain report hashes and case counts; unchanged, invalid,
+symlink/outside or shell-ambiguous reports never claim fresh test evidence. Reports
+remain bounded workspace snapshots, not semantic coverage or exclusive attribution.
+`test_ecosystem_workflows.py` now removes progress fields only from its own generated
+recipe state and verifies the real runner refuses unsafe resume without repeating the
+completed write. Native gates test Stop-and-draft confirmation/cancel and pasted-draft
+persistence before ordinary debounce, with no submission. Inspect the captures.
+
+The runtime benchmark requires `--output NEW_PRIVATE_PATH --policy-comparison RECEIPT`;
+`--native-only` omits historical OpenTUI and `--pairs 30` is the full run. Run it alone,
+after preparing the isolated CLI baseline. The terminal probe's historical
+`alternate_screen` flag also chooses Ctrl-Q (native) versus Ctrl-D (CLI); it does not
+force native alternate-screen startup. Do not switch that flag merely because the
+native client now uses inline history. Keep failed diagnostic receipts distinct.
+Release receipts now include source commit and tracked-source cleanliness; match them
+to the tested revision and actual CI run before publishing candidate wheels.
+
 Post-rc4 gates: `test_post_rc4.py` exercises replayed source-version provenance,
 bounded model metadata, named environment references and Linux clipboard fallback.
 `test_child_recovery.py` covers both legacy and current receipts with simple/persistent

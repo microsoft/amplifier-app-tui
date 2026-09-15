@@ -576,6 +576,7 @@ class SessionHost:
                     for k in fields
                     if k in data and isinstance(data[k], (str, int, bool, type(None)))
                 },
+                request_budget=self.inspection.request_budget(data),
             )
             return HookResult()
         if event == "mentions:resolved":

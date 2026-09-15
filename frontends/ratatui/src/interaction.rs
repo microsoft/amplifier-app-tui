@@ -9,6 +9,8 @@ pub(super) enum Action {
     ConversationPage(usize, String),
     FindSaved,
     RecipeRequest(String),
+    StopForDraft,
+    StopForDraftApply(String),
     Models,
     DiscoverModels,
     Rename,
@@ -284,6 +286,7 @@ impl App {
                     choice("Copy exact tool evidence", Action::Copy),
                     choice("History — recall a sent message", Action::History),
                     choice("Stop active turn (does not undo effects)", Action::Stop),
+                    choice("Stop and keep replacement draft — review before sending", Action::StopForDraft),
                     choice(
                         "Composition details — diagnostic record",
                         Action::Diagnostics,
@@ -538,6 +541,25 @@ impl App {
             }
             Action::Send => return self.submit_draft(),
             Action::Stop => self.send(json!({"op":"stop"})),
+            Action::StopForDraft => {
+                let draft = self.draft.lines().join("\n");
+                if !self.flow.busy || draft.trim().is_empty() {
+                    self.status = "Write a replacement draft while work is active; nothing sent".into();
+                } else {
+                    self.menu("Stop current work and retain this draft?", vec![choice("Stop only — keep replacement unsent", Action::StopForDraftApply(draft))]);
+                    self.ui.menu.as_mut().unwrap().detail = "Stop holds waiting work and does not undo earlier effects. The draft and attachments stay here; no replacement is queued or sent. Wait for the observed ending, review effects, then Send explicitly. Uncooperative tools may require Quit, which has a separate owned-host shutdown deadline. Escape cancels.".into();
+                }
+            }
+            Action::StopForDraftApply(expected) => {
+                if expected != self.draft.lines().join("\n") || !self.flow.busy {
+                    self.status = "Work or draft changed; inspect again. Nothing sent".into();
+                } else {
+                    self.controls.steer = false;
+                    self.send(json!({"op":"stop"}));
+                    self.ui.menu = None;
+                    self.status = "Stop requested · replacement remains unsent · review effects before Send".into();
+                }
+            }
             Action::Decisions => {
                 if let Some(a) = &self.approval {
                     let id = string(a, "id");

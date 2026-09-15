@@ -336,15 +336,42 @@ class Children:
                 directory / "children", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
             )
             try:
-                fd = os.open(
-                    f"{identity}.json",
-                    os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
-                    dir_fd=parent_fd,
-                )
-                with os.fdopen(fd, "rb") as stream:
-                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-                        raise ValueError("Child receipt is not a regular file")
-                    raw = stream.read(1024 * 1024 + 1)
+
+                def read_receipt(child):
+                    if not isinstance(child, str) or not re.fullmatch(
+                        r"[A-Za-z0-9_-]{1,160}", child
+                    ):
+                        raise ValueError("Invalid child ancestry identity")
+                    fd = os.open(
+                        f"{child}.json",
+                        os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                        dir_fd=parent_fd,
+                    )
+                    with os.fdopen(fd, "rb") as stream:
+                        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                            raise ValueError("Child receipt is not a regular file")
+                        data = stream.read(1024 * 1024 + 1)
+                    if len(data) > 1024 * 1024:
+                        raise ValueError("Child ancestry receipt exceeds 1 MiB")
+                    value = json.loads(data)
+                    if (
+                        not isinstance(value, dict)
+                        or value.get("root_fingerprint") != self.host.fingerprint
+                    ):
+                        raise ValueError("Child ancestry composition changed")
+                    return data, value
+
+                raw, row = read_receipt(identity)
+                ancestor, seen, ancestry = row.get("parent"), {identity}, []
+                while ancestor != source:
+                    if ancestor in seen or len(ancestry) >= 2 or self.active:
+                        raise ValueError("Child ancestry is cyclic, too deep or still active")
+                    seen.add(ancestor)
+                    ancestor_raw, ancestor_row = read_receipt(ancestor)
+                    ancestry.append(
+                        {"id": ancestor, "sha256": hashlib.sha256(ancestor_raw).hexdigest()}
+                    )
+                    ancestor = ancestor_row.get("parent")
             finally:
                 os.close(parent_fd)
         finally:
@@ -358,11 +385,10 @@ class Children:
         if (
             row.get("status") not in ("interrupted", "failed", "running")
             or identity in self.active
-            or row.get("parent") != source
             or row.get("root_fingerprint") != self.host.fingerprint
         ):
             raise ValueError(
-                "Only an inactive direct child with unchanged composition can be adopted"
+                "Only an inactive captured child with unchanged composition can be adopted"
             )
         parent = self.host.session
         if row.get("mode") != parent.coordinator.session_state.get("active_mode"):
@@ -401,6 +427,9 @@ class Children:
                             "child": identity,
                             "sha256": digest,
                             "unknown_tool_calls": unknown,
+                            "original_parent": row["parent"],
+                            "ancestry": ancestry,
+                            "reparented": row["parent"] != source,
                             "notice": "New identity and instruction; public messages only, no tool replay or private-state reconstruction",
                         }
                     },

@@ -21,6 +21,28 @@ class Inspection:
         for event in events:
             self.observe(event)
 
+    @staticmethod
+    def request_budget(data):
+        """Numeric provider observations only; no request construction or private meter."""
+        raw = data.get("raw")
+        raw = raw if isinstance(raw, dict) else {}
+        result = {}
+        for key in ("context_window", "max_tokens", "max_output_tokens", "thinking_budget"):
+            value = data.get(key, raw.get(key))
+            if type(value) is int and 0 < value <= 2**31 - 1:
+                result[key] = value
+        thinking = raw.get("thinking")
+        if isinstance(thinking, dict):
+            value = thinking.get("budget_tokens")
+            if type(value) is int and 0 < value <= 2**31 - 1:
+                result["thinking_budget"] = value
+        result["scope"] = (
+            "Provider-reported declarations for this dispatch, not consumed tokens or current "
+            "occupancy. Thinking may share the output reservation; do not add them. Missing "
+            "limits are unknown. No catalog substitution, private meter or logging change."
+        )
+        return result
+
     def capture_request(self, data, host, identity):
         if not self.capture_next:
             return
@@ -148,6 +170,26 @@ class Inspection:
         payload = {**previous, **{k: v for k, v in event.payload.items() if v is not None}}
         if event.kind == "approval.resolved":
             payload["status"] = "resolved"
+        if payload.get("name") == "recipes" and isinstance(payload.get("result"), dict):
+            result = payload["result"]
+            output, error = result.get("output"), result.get("error")
+            output = output if isinstance(output, dict) else {}
+            error = error if isinstance(error, dict) else {}
+            status = output.get("status")
+            refusal = error.get("type") in (
+                "V2RunNotRecorded",
+                "V2EngineSessionMissing",
+                "V2EngineSessionUnknown",
+            )
+            payload["recovery_guidance"] = (
+                "Runner refused unsafe resume: checkpoint/outcome unavailable. No steps were replayed by this refusal. Inspect earlier effects; a fresh execution requires separate authorization."
+                if refusal
+                else "Runner reports all steps completed; no resume needed."
+                if status in ("completed", "nothing_to_resume")
+                else "Runner paused for approval. Inspect the exact stage; approval and resume remain separate explicit operations."
+                if status == "paused_for_approval"
+                else "Inspect the runner's recorded completed and unfinished steps before explicit resume. Unfinished steps may have partial effects; neither inspection nor reopening authorizes retry."
+            )
         text, partial = bounded(payload)
         partial = partial or old.get("partial", False)
         recipe_ids = []

@@ -15,7 +15,13 @@ Read [current direction](docs/VISION.md), [derived work](notes/PLAN.md), and
 [what the comparison evaluates](notes/FRONTEND-EVALUATION.md).
 The [workflow coverage map](notes/PARITY.md) separates working paths from remaining parity gaps.
 
-The development checkout is now `0.3.0rc5.dev0`, separate from the published rc4 wheels.
+The development checkout is now the `0.3.0rc5` candidate, under release verification.
+It adds guarded nested-child adoption under a new root, recipe recovery explanations,
+Stop with a retained replacement draft, prioritized pasted-draft persistence,
+request-specific declared budget observations and fresh JUnit report evidence. Existing
+rc4 wheels stay unchanged until a separately reviewed rc5 release is available.
+
+The preceding `0.3.0rc5.dev0` increment was separate from the published rc4 wheels.
 It adds legacy persistent-child policy verification, deliberate uncertain-correction
 reuse into an empty unsent draft, prior-edit evidence across resume, model catalog
 limits, Linux JPEG/WebP/static GIF clipboard fallback, and named credential environment

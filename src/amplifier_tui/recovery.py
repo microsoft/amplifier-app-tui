@@ -147,8 +147,8 @@ def child_references(source, root_id):
                     source_sha256=hashlib.sha256(raw).hexdigest(),
                     detail=detail,
                     partial=clipped or len(messages) > 100,
-                    recover_child=row.get("parent") == root_id
-                    and row.get("status") in ("interrupted", "failed", "running"),
+                    recover_child=row.get("status") in ("interrupted", "failed", "running"),
+                    reparented=row.get("parent") != root_id,
                 )
             except (OSError, ValueError, TypeError) as exc:
                 value.update(

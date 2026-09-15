@@ -33,6 +33,48 @@ def test_unsupported_provider_menu_is_explanatory_not_stuck_loading(tmp_path):
         probe.close()
 
 
+def test_stop_with_replacement_keeps_draft_and_never_submits(tmp_path):
+    probe = start(tmp_path, approval=True)
+    try:
+        probe.wait("Ready")
+        probe.send(b"Original task\r")
+        probe.wait("Waiting for your decision")
+        probe.send(b"Replacement after reviewing effects")
+        action(probe, "Stop and keep replacement", "Stop current work and retain this draft?")
+        probe.send(b"\x1b")
+        assert not any(e["kind"] == "turn.ended" for e in events(tmp_path))
+        action(probe, "Stop and keep replacement", "Stop current work and retain this draft?")
+        capture(probe, "rc5-stop-replacement")
+        probe.send(b"\r")
+        probe.wait("Interrupted")
+        draft_is(probe, "Replacement after reviewing effects")
+        assert len([e for e in events(tmp_path) if e["kind"] == "turn.accepted"]) == 1
+        assert not any(e["kind"] == "followup.updated" for e in events(tmp_path))
+    finally:
+        probe.close()
+    draft = next((tmp_path / "state/conversations").glob("*/draft.json"))
+    assert json.loads(draft.read_text())["text"] == "Replacement after reviewing effects"
+
+
+def test_pasted_draft_persists_before_typing_debounce_without_submission(tmp_path):
+    probe = start(tmp_path)
+    try:
+        probe.wait("Ready")
+        path = next((tmp_path / "state/conversations").glob("*/draft.json"))
+        text = "Pasted first line\nPasted second line"
+        started = time.monotonic()
+        probe.send(b"\x1b[200~" + text.encode() + b"\x1b[201~")
+        deadline = started + 0.20
+        while json.loads(path.read_text())["text"] != text and time.monotonic() < deadline:
+            probe.read(timeout=0.005)
+        assert json.loads(path.read_text())["text"] == text
+        assert time.monotonic() - started < 0.20
+        assert not any(e["kind"] == "turn.accepted" for e in events(tmp_path))
+        capture(probe, "rc5-pasted-draft")
+    finally:
+        probe.close()
+
+
 def test_model_catalog_limits_are_visible_without_a_turn(tmp_path):
     overlay = tmp_path / "model-catalog.yaml"
     overlay.write_text(

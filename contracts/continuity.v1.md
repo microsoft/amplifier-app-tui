@@ -40,7 +40,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: An invented or stale summary treated as user instruction violates provenance.
    Affected: the boundary's clients and the person relying on them.
 
-5. **Separate stopping and undo.** Interruption records partial effects without claiming rollback.
+5. **Separate stopping and undo.** Interruption records partial effects without claiming rollback. Explicit adoption of a captured nested child may reparent its public context to the current root only after validating complete recorded ancestry and unchanged effective policy; it never executes ancestors or implies continuation of their private state.
    An uncertain session remains inspectable/exportable. Explicit recovery creates a new identity with disclosed historical context, keeps the original intact and never replays unfinished tools or releases queued work. Supported structured recovery preserves observed tool identities, labels absent outcomes unknown and requires acknowledgement; unavailable module-private state is never invented. An explicitly adopted public-context child continuation uses a new identity and new instruction, retains verified completed tool results, and marks missing outcomes unknown without executing their calls. Unsupported private-state requirements refuse before execution. A supported persistent context is adopted only into a fresh isolated store with exact public-message readback; relocation is explicit and never overwrites the original module transcript.
    Broken: A cancelled operation presented as undone misstates workspace state.
    Affected: the boundary's clients and the person relying on them.
@@ -64,6 +64,7 @@ How does a replacement context manager preserve canonical history independently 
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-15 | Distinguish explicitly reparented nested public adoption from same-identity continuation in P5. | Steward authorized deeper recovery; a captured nested self-agent can have root-equivalent policy without requiring ancestor execution. |
 | 2026-09-15 | Clarify P5's fresh-store persistent public-context adoption. | Inspected persistent module intentionally ignores set_messages after loading its own transcript; changing an existing store would not implement recovery. |
 | 2026-09-15 | Clarify P5's explicit executable public-context child recovery. | Steward requested actual interrupted-work recovery; historical inspection remains distinct from a newly authorized execution. |
 | 2026-09-14 | Extend P2's source-scoped retention to other local dialog editors. | Steward authorized crash-edge editor work; queue edits, file selectors and searches currently disappear when their dialog closes. |

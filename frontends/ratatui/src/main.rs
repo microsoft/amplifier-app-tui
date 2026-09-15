@@ -1366,6 +1366,10 @@ fn main() -> io::Result<()> {
                         if app.nav.switching.is_some() {
                             continue;
                         }
+                        // Large pasted intent should not wait for the typing debounce.
+                        // The ordinary bounded transport still owns persistence; never Send.
+                        app.draft_changed = Instant::now() - Duration::from_millis(250);
+                        app.draft_pending = true;
                         if let Some(prompt) = &mut app.flow.prompt {
                             if prompt.pending.is_none() {
                                 prompt.editor.insert_str(if prompt.identity.is_some() {

@@ -64,6 +64,7 @@ async def main():
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--sources", type=Path)
+    parser.add_argument("--bundle", help="Explicit bundle URI; default is the controlled fixture")
     args = parser.parse_args()
     args.sources = args.sources.resolve() if args.sources else None
     args.output = args.output.resolve()
@@ -76,7 +77,7 @@ async def main():
     state.mkdir(mode=0o700, parents=True, exist_ok=False)
     os.environ["AMPLIFIER_HOME"] = str(state)
     os.chdir(state)
-    source = (root / "src/amplifier_tui/fixtures/bundle.yaml").as_uri()
+    source = args.bundle or (root / "src/amplifier_tui/fixtures/bundle.yaml").as_uri()
     if args.kind == "cli":
         from amplifier_app_cli.lib.settings import AppSettings
         from amplifier_app_cli.runtime.config import resolve_bundle_config

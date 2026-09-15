@@ -3,6 +3,27 @@
 Upgrading the app does not import CLI configuration, credentials, queues or sessions.
 Keep the original state directory and use one of these explicit paths.
 
+## Credential and interactive-login boundaries
+
+`--setup` writes only an explicitly named environment-variable reference into a new
+YAML overlay, not a key or shared CLI configuration. It does not search keychains.
+Choose a distinct variable for each intended credential binding; keep values out of
+conversation input, overlays, source control and diagnostic reports.
+
+The inspected CLI provider adapter supports module-declared `auth:*` capabilities
+with public `auth_status()` and `login()` methods. A capability label alone does not
+establish working login: both methods, terminal ownership, cancellation and the
+module's credential-storage policy need verification. Synchronous login may print
+device-code instructions and read the terminal; it must not run behind the TUI's
+active composer. There is no TUI login control yet, and no shared token/keychain
+import or inferred authorization. Complete supported module login deliberately outside
+the running TUI, using that module's documented entrypoint and storage scope, then
+launch an explicit composition. Do not copy another client's credential files.
+
+Source basis: the workspace study of CLI `provider_config_utils.py`, functions
+`_maybe_login_provider` and `_run_provider_login`; this is not a claim that every
+provider implements the seam or that OAuth is part of the kernel provider contract.
+
 ## Continue the same TUI conversation
 
 Run `amplifier-tui --state-dir /path/to/existing/state --resume` and select it.

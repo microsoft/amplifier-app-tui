@@ -279,7 +279,8 @@ async def test_delegate_child_questions_route_and_stop_cleans_up(ecosystem):
     assert any(r["status"] == "interrupted" for r in host.children.records.values())
 
 
-async def test_recipe_resume_after_reopen_skips_completed_steps(ecosystem):
+@pytest.mark.parametrize("missing_checkpoint", [False, True])
+async def test_recipe_resume_after_reopen_skips_completed_steps(ecosystem, missing_checkpoint):
     """Real v2 engine via the ordinary tool path; a failed step is explicitly retried."""
     import shlex
 
@@ -346,9 +347,22 @@ async def test_recipe_resume_after_reopen_skips_completed_steps(ecosystem):
         assert not restored.session.coordinator.get("providers")["fixture"].calls
         assert receipts.read_text() == "once\n"
         gate.touch()
+        if missing_checkpoint:
+            # Only this test's generated module-owned state: model a lost run outcome.
+            manager = restored.session.coordinator.get("tools")["recipes"].session_manager
+            state = manager.load_state(recipe_id, tmp_path)
+            for key in ("v2_run", "current_stage_index", "current_step_index", "completed_steps"):
+                state.pop(key, None)
+            manager.save_state(recipe_id, tmp_path, state)
         result = await invoke(restored, {"operation": "resume", "session_id": recipe_id})
-        assert result["status"] == "succeeded", result
-        assert result["result"]["output"]["status"] == "completed", result
+        if missing_checkpoint:
+            assert result["status"] == "failed", result
+            assert result["result"]["error"]["type"] == "V2RunNotRecorded", result
+            inspected = restored.inspection.catalog(restored, "recipes")
+            assert any("Runner refused unsafe resume" in row["detail"] for row in inspected["rows"])
+        else:
+            assert result["status"] == "succeeded", result
+            assert result["result"]["output"]["status"] == "completed", result
         assert receipts.read_text() == "once\n"
     finally:
         await restored.close()

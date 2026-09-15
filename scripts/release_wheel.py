@@ -227,6 +227,10 @@ finally:
         receipt = {
             "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
             "platform": platform.system(),
+            "source_commit": checked(["git", "rev-parse", "HEAD"], cwd=ROOT).stdout.strip(),
+            "tracked_source_clean": not checked(
+                ["git", "status", "--porcelain", "--untracked-files=no"], cwd=ROOT
+            ).stdout.strip(),
             "architecture": platform.machine(),
             "build_os_release": platform.mac_ver()[0]
             if platform.system() == "Darwin"

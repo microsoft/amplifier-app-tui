@@ -1,5 +1,29 @@
 # Engine boundary: first-slice record and reopened decision
 
+## rc5 scoped recovery and evidence
+
+Nested interrupted public-context adoption validates at most two captured ancestors
+back to the source root, using bounded no-symlink receipt reads and unchanged root
+fingerprints. It refuses cycles, missing parents and active nested ancestry. The
+new execution is deliberately parented to the current root; exact child effective
+policy still must match, so a parent-specific composition is not silently replaced.
+Original children and ancestors never execute or change during adoption. Same-identity
+nested continuation keeps its existing active-parent requirement.
+
+Recipe inspection explains the runner's public outcome, including unsafe-resume
+refusals; it does not implement a second checkpoint interpreter. JUnit evidence reads
+only an explicit simple pytest command's workspace-relative report, bounded to the
+existing 64 KiB safe snapshot. New/changed valid reports expose counted case outcomes
+and a digest beside command/source evidence; unchanged or unavailable reports cannot
+be attributed. Counts do not establish coverage, truth of assertions or authorship.
+
+Request-budget observations allowlist provider-dispatch numeric limits only, including
+already-exposed raw numeric fields; they never enable raw logging or copy credentials,
+messages or private context meters. Missing effective budgets remain unknown. The
+thinking reservation may be part of output, not an additional amount to sum.
+Pastes bypass the ordinary 250 ms typing debounce through the same bounded transport;
+this narrows the persistence window, not a guarantee for unacknowledged keystrokes.
+
 ## Post-rc4 compatibility boundaries
 
 Legacy persistent receipts without relocation fingerprints can be adopted only when
