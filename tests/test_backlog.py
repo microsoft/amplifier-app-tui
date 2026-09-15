@@ -264,7 +264,7 @@ def test_provider_setup_never_reads_keys_or_overwrites(tmp_path, monkeypatch, ca
     monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
     monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
     path = tmp_path / "provider.yaml"
-    answers = iter(["anthropic", "chosen-model", str(path), "y"])
+    answers = iter(["anthropic", "chosen-model", str(path), "", "y"])
     monkeypatch.setattr("builtins.input", lambda _: next(answers))
     setup_provider()
     raw = path.read_text()

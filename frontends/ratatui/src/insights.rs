@@ -101,7 +101,12 @@ impl App {
                 } else {
                     Action::CopyText(string(row, "model"))
                 },
-                detail: "Enter copies the reported model ID, not a configuration change.".into(),
+                detail: format!(
+                    "Provider-reported context window: {} tokens\nMaximum output: {} tokens\nAdvertised capabilities: {}\nThese catalog limits are not current occupancy or remaining request capacity. Module reserves/instructions/tools still apply. Enter copies only the model ID; no configuration change.",
+                    row["limits"]["context_window"].as_u64().map(|n| n.to_string()).unwrap_or("unknown".into()),
+                    row["limits"]["max_output_tokens"].as_u64().map(|n| n.to_string()).unwrap_or("unknown".into()),
+                    row["capabilities"],
+                ),
             })
             .collect();
         self.menu("Model catalog · advisory IDs", choices);

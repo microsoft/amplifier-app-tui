@@ -128,11 +128,35 @@ class RuntimeControls:
                     ):
                         partial = True
                         continue
+                    limits = {}
+                    for key in ("context_window", "max_output_tokens"):
+                        value = (
+                            model.get(key) if isinstance(model, dict) else getattr(model, key, None)
+                        )
+                        if type(value) is int and 0 < value <= 2**31 - 1:
+                            limits[key] = value
+                    capabilities = (
+                        model.get("capabilities", [])
+                        if isinstance(model, dict)
+                        else getattr(model, "capabilities", [])
+                    )
+                    capabilities = (
+                        [
+                            c
+                            for c in capabilities[:32]
+                            if isinstance(c, str)
+                            and c in ("tools", "vision", "thinking", "streaming", "json_mode")
+                        ]
+                        if isinstance(capabilities, list)
+                        else []
+                    )
                     rows.append(
                         {
                             "provider": str(name)[:160],
                             "model": identity,
                             "status": "provider reported",
+                            "limits": limits,
+                            "capabilities": capabilities,
                         }
                     )
                 if not models:
@@ -156,7 +180,7 @@ class RuntimeControls:
         return {
             "rows": rows,
             "partial": partial,
-            "scope": "Provider-reported IDs, possibly a static catalog; not credential, access, image support or selection validation. Up to 8 mounted providers / 128 IDs each; cooperative 3-second timeout per provider. Copy an ID for --setup / a new overlay. Current conversation and routing are unchanged.",
+            "scope": "Provider-reported IDs, model limits and advertised capabilities, possibly a static catalog; not credential, access, image support or selection validation. Context window is not the current request budget or remaining capacity; output reserves, tools, instructions and module policy still apply. Missing limits remain unknown. Up to 8 mounted providers / 128 IDs each; cooperative 3-second timeout per provider. Copy an ID for --setup / a new overlay. Current conversation and routing are unchanged.",
         }
 
     async def validate_provider(self, name):

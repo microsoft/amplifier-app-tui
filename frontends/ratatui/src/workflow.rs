@@ -250,16 +250,26 @@ impl App {
         };
         let item = &self.items[index];
         let detail = safe(&item.text.chars().take(12000).collect::<String>());
+        let reuse =
+            item.kind == "correction" && matches!(item.status.as_str(), "unconfirmed" | "pending");
+        let mut choices = vec![
+            choice("Go to this message", Action::Jump(id.clone()), ""),
+            choice(
+                "Copy message source / Markdown",
+                Action::CopyMessage(id.clone()),
+                "",
+            ),
+        ];
+        if reuse {
+            choices.push(choice(
+                "Reuse correction as an unsent draft — review first",
+                Action::CorrectionDraft(id),
+                "Original insertion/effects remain uncertain; never a retry or automatic send.",
+            ));
+        }
         self.menu(
             "Message · retained source preview (up to 12000 characters)",
-            vec![
-                choice("Go to this message", Action::Jump(id.clone()), ""),
-                choice(
-                    "Copy message source / Markdown",
-                    Action::CopyMessage(id),
-                    "",
-                ),
-            ],
+            choices,
         );
         self.ui.menu.as_mut().unwrap().detail = detail;
     }

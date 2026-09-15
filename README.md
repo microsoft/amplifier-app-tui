@@ -15,6 +15,13 @@ Read [current direction](docs/VISION.md), [derived work](notes/PLAN.md), and
 [what the comparison evaluates](notes/FRONTEND-EVALUATION.md).
 The [workflow coverage map](notes/PARITY.md) separates working paths from remaining parity gaps.
 
+The development checkout is now `0.3.0rc5.dev0`, separate from the published rc4 wheels.
+It adds legacy persistent-child policy verification, deliberate uncertain-correction
+reuse into an empty unsent draft, prior-edit evidence across resume, model catalog
+limits, Linux JPEG/WebP/static GIF clipboard fallback, and named credential environment
+references in setup. Relaunch the development command to load it; existing releases
+and conversations are not rewritten. These are scoped improvements, not full parity.
+
 The 0.3.0rc4 candidate adds confirmed fresh-store adoption of supported interrupted
 persistent children, source-version links from commands to preceding agent edits,
 retained interrupted-tool evidence, explicit context configuration inspection and
@@ -80,6 +87,8 @@ and modules are executable code: only select sources you trust.
 
 For Anthropic or OpenAI configuration, run `amplifier-tui --setup`: choose a provider,
 exact model ID and **new** overlay path, review the configuration, then confirm creation.
+Use a lowercase `.yaml` or `.yml` suffix. The wizard accepts an environment variable
+name for the credential (defaulting to the provider's usual name), never its value.
 The offline wizard writes a private environment-reference overlay, never a key or shared
 CLI settings. Launch with the printed `--overlay` command. It does not validate model
 availability/credentials; review or pin the declared module source before trusting it.

@@ -26,7 +26,14 @@ def main():
         action="store_true",
         help="Also adopt an interrupted persistent child through the native menu; two additional billed child turns",
     )
+    parser.add_argument(
+        "--legacy-receipt",
+        action="store_true",
+        help="Shape only this probe's generated persistent receipt like an older record before adoption",
+    )
     args = parser.parse_args()
+    if args.legacy_receipt and not args.adopt_persistent:
+        parser.error("--legacy-receipt requires --adopt-persistent")
     if not os.environ.get("ANTHROPIC_API_KEY"):
         parser.error("Supply the live provider credential explicitly")
     state = ROOT / ".state/lifecycle-live" / uuid.uuid4().hex
@@ -127,6 +134,11 @@ def main():
         assert json.loads((path / "checkpoint.json").read_text())["status"] == "uncertain"
         if args.adopt_persistent:
             child_path = next((path / "children").glob("*.json"))
+            if args.legacy_receipt:
+                # This is our just-created probe fixture, never a user conversation.
+                legacy = json.loads(child_path.read_bytes())
+                legacy.pop("recovery_fingerprint")
+                child_path.write_text(json.dumps(legacy))
             original = child_path.read_bytes()
             original_context_path = path / "child-context" / child_path.stem / "messages.jsonl"
             original_context = original_context_path.read_bytes()
@@ -174,6 +186,7 @@ def main():
                 "uncertain_checkpoint_retained": True,
                 "clean_terminal_exit": True,
                 "native_persistent_child_adoption": args.adopt_persistent,
+                "generated_legacy_receipt": args.legacy_receipt,
             }
         )
         print(json.dumps(results[-1]), flush=True)

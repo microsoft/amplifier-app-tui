@@ -14,6 +14,50 @@ pub struct Controls {
 }
 
 impl App {
+    pub fn correction_draft(&mut self, id: String, confirmed: Option<String>) {
+        let Some(item) = self.index.get(&id).map(|i| &self.items[*i]) else {
+            return;
+        };
+        if self.flow.busy
+            || self.nav.switching.is_some()
+            || !self.draft.lines().join("\n").is_empty()
+            || self.insights.image.is_some()
+            || item.kind != "correction"
+            || !matches!(item.status.as_str(), "pending" | "unconfirmed")
+        {
+            self.status =
+                "Reuse requires an idle empty composer without attachments; existing work retained"
+                    .into();
+            return;
+        }
+        let text = item.text.clone();
+        if let Some(expected) = confirmed {
+            if expected != text {
+                self.status = "Correction changed; inspect again. Nothing copied or sent".into();
+                return;
+            }
+            self.draft.insert_str(safe(&text));
+            self.ui.menu = None;
+            self.status =
+                "Unsent correction copy · original effects remain uncertain · review before Send"
+                    .into();
+            return;
+        }
+        self.menu(
+            "Copy uncertain correction into empty draft?",
+            vec![Choice {
+                label: "Copy to composer only — do not send".into(),
+                action: Action::CorrectionDraftApply(id, text.clone()),
+                detail: String::new(),
+            }],
+        );
+        self.ui.menu.as_mut().unwrap().detail = format!(
+            "The original correction's insertion/effects remain UNKNOWN. This does not retry, queue, stop or undo anything. It only makes an unsent copy; review it before a separate Send. Original status is unchanged. Escape cancels.\n\n{}",
+            safe(&text.chars().take(12000).collect::<String>())
+        );
+        self.status =
+            "Review uncertain correction · confirmation copies only an unsent draft".into();
+    }
     pub fn mode_menu(&mut self, data: &Value) {
         if data["supported"] != true {
             self.status = "This composition has no supported mode control".into();

@@ -1,5 +1,21 @@
 # Verification guide
 
+Post-rc4 gates: `test_post_rc4.py` exercises replayed source-version provenance,
+bounded model metadata, named environment references and Linux clipboard fallback.
+`test_child_recovery.py` covers both legacy and current receipts with simple/persistent
+contexts, same/historical roots, and altered-policy refusal. Native correction reuse
+requires an empty idle composer, separate confirmation and zero new turn admissions.
+Inspect both correction/model-limit captures. After the full suite, run
+`scripts/lifecycle_probe.py --live --adopt-persistent --legacy-receipt --output PATH`:
+it changes only its freshly generated test receipt to the legacy shape, never a user's
+record, then verifies source preservation after native adoption in both presets.
+Clipboard acquisition has one total three-second deadline, preserves source bytes,
+and rejects a successful utility response whose format disagrees with the requested MIME.
+Utility fixtures are not physical desktop or SSH clipboard proof. Provider setup must
+reject non-YAML suffixes before writing; valid JSON content alone is not a loadable filename.
+`compare_runtime_policy.py` exits 1 for differing prepared fields, 2 for invalid evidence;
+even exit 0 does not prove request-time, credential or latency equivalence.
+
 rc4 gates: persistent direct-child public adoption runs in `test_child_recovery.py`
 with `TUI_TEST_SWAPS=1`, both same-root and historical-root paths. Preserve original
 receipt and module transcript bytes; a new store must read back imported messages

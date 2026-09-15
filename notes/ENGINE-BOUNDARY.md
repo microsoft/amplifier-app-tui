@@ -1,5 +1,26 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Post-rc4 compatibility boundaries
+
+Legacy persistent receipts without relocation fingerprints can be adopted only when
+their full recorded mount fingerprint matches the newly reconstructed plan using the
+original app-owned transcript location. Execution still uses a fresh new-ID store;
+the compatibility check never loads or overwrites the original transcript. Missing
+policy evidence and changed/private/nested requirements remain explicit refusals.
+
+Correction reuse is a native-only confirmed copy into an empty idle composer without
+attachments. It neither resends the original control nor changes its status. The
+eventual Send is a separate normal admission, so the person must review uncertain
+earlier effects. Bounded change observations restore prior-version provenance on
+resume; new command boundaries must still match the saved digest. This is historical
+source correlation, not proof a command tested a file or exclusive attribution.
+
+Model discovery adds allowlisted advertised limits/capabilities from the public model
+catalog. It never reads private token meters, constructs context or infers remaining
+capacity. Linux clipboard acquisition tries PNG, JPEG, WebP then GIF representations
+under one deadline, with no conversion; an available but invalid/mismatched image
+fails rather than falling through. macOS still requests original PNG data only.
+
 ## Confirmed local review and child finalization
 
 Git inspection remains read-only. An explicitly selected unmerged path can separately

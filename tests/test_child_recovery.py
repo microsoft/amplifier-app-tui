@@ -13,8 +13,9 @@ from amplifier_tui.recovery import recovery_catalog
 
 @pytest.mark.parametrize("recover_root", [False, True])
 @pytest.mark.parametrize("persistent", [False, True])
+@pytest.mark.parametrize("legacy", [False, True])
 async def test_interrupted_child_adoption_is_owned_new_execution(
-    prepared, tmp_path, recover_root, persistent
+    prepared, tmp_path, recover_root, persistent, legacy
 ):
     if persistent:
         if os.environ.get("TUI_TEST_SWAPS") != "1":
@@ -38,6 +39,10 @@ async def test_interrupted_child_adoption_is_owned_new_execution(
             await task
         identity = next(iter(host.children.records))
         path = host.store.path / "children" / f"{identity}.json"
+        if legacy:
+            old = json.loads(path.read_bytes())
+            old.pop("recovery_fingerprint")
+            path.write_text(json.dumps(old))
         original = path.read_bytes()
         context_path = host.store.path / "child-context" / identity / "messages.jsonl"
         original_context = context_path.read_bytes() if context_path.exists() else None
@@ -97,7 +102,17 @@ async def test_interrupted_child_adoption_is_owned_new_execution(
             assert not host.children.active and not host.children.recovering
             assert path.read_bytes() == original
         finally:
-            host.children.prepared.bundle.session = original_session
+            host.children.prepared.bundle.session = copy.deepcopy(original_session)
+        # Legacy compatibility must still check the complete original policy.
+        host.children.prepared.bundle.session["context"].setdefault("config", {})["max_tokens"] = (
+            12345
+        )
+        try:
+            with pytest.raises(ValueError, match="unchanged supported context"):
+                await operation()
+            assert path.read_bytes() == original and not host.children.active
+        finally:
+            host.children.prepared.bundle.session = copy.deepcopy(original_session)
         assert bridge.command(request)[0]
         await host.task
         assert path.read_bytes() == original

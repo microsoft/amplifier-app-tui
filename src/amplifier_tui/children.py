@@ -247,6 +247,13 @@ class Children:
         recovery = self.recovering.get(identity)
         if recovery:
             section = plan.get("session", {})
+            legacy_plan = copy.deepcopy(plan)
+            if context_plan.get("module") == "context-persistent":
+                # Older receipts hashed the original app-owned storage path. Verify
+                # that exact policy at its original location, never ignore the hash.
+                legacy_plan["session"]["context"]["config"]["transcript_path"] = recovery[
+                    "legacy_transcript_path"
+                ]
             if (
                 section.get("context", {}).get("module")
                 not in ("context-simple", "context-persistent")
@@ -255,7 +262,7 @@ class Children:
                 or (
                     recovery_fingerprint(plan) != recovery["recovery_fingerprint"]
                     if recovery.get("recovery_fingerprint")
-                    else fingerprint(plan) != recovery["mount_fingerprint"]
+                    else fingerprint(legacy_plan) != recovery["mount_fingerprint"]
                 )
             ):
                 raise ValueError(
@@ -368,7 +375,12 @@ class Children:
         new_id = uuid.uuid4().hex
 
         async def run():
-            self.recovering[new_id] = row
+            self.recovering[new_id] = {
+                **row,
+                "legacy_transcript_path": str(
+                    directory / "child-context" / identity / "messages.jsonl"
+                ),
+            }
             try:
                 result = await self.spawn(
                     row["agent"],

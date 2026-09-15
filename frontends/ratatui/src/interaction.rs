@@ -38,6 +38,8 @@ pub(super) enum Action {
     QueueResolveConfirm(String),
     CorrectActive,
     Corrections,
+    CorrectionDraft(String),
+    CorrectionDraftApply(String, String),
     Questions,
     WorkspaceChanges,
     WorkspaceDiff(String, String),
@@ -495,6 +497,8 @@ impl App {
                 self.menu("Corrections · latest 100 · applied means inserted, not task success", choices);
                 self.ui.menu.as_mut().unwrap().detail = "Pending waits for runtime insertion. Unconfirmed means no insertion acknowledgement; never retried or queued automatically. Open to inspect / copy the original correction.".into();
             }
+            Action::CorrectionDraft(id) => self.correction_draft(id, None),
+            Action::CorrectionDraftApply(id, text) => self.correction_draft(id, Some(text)),
             Action::ForkComposition => self.prompt("New provider overlay"),
             Action::ForkCompositionApply(overlay) => {
                 self.nav.switching = Some((self.request + 1).to_string());

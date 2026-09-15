@@ -5,7 +5,25 @@ Authority: [the steward's approved direction](DIRECTION-REVIEW.md), amended into
 All contract details remain draft targets. This is a local work record, not a formal
 Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
-## Active backlog — release and deeper continuity
+## Active backlog — post-rc4 reliability and compatibility
+
+The steward again authorized all seven remaining areas. These bounded
+steps move toward existing promises; they do not assert universal recovery or parity.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| RECOVER-05 | continuity.v1:5 | Verify legacy persistent policy using its original app-owned store location before new-store adoption | Original bytes preserved; altered policies still refuse | Implementing |
+| STEER-03 | session.v1:6, continuity.v1:2 | Explicit stopped/unconfirmed correction reuse into an empty idle draft | Unchanged original status and no send; occupied composer refuses | Implementing |
+| PERF-05 | performance.v1:1, performance.v1:2 | Machine-check prepared-policy differences with credential-redaction uncertainty | Changed/invalid evidence cannot produce a matching-policy latency verdict | Implementing |
+| CONTEXT-06 | composition.v1:3, ecosystem.v1:2 | Bounded provider-reported model limits/capabilities through explicit discovery | No request sent; catalog limit never labelled current occupancy | Implementing |
+| REVIEW-08 | presentation.v1:7, continuity.v1:3 | Restore bounded prior-edit provenance on resume | Link only unchanged versions; no evidence execution | Implementing |
+| INPUT-08 | interaction.v1:3, presentation.v1:5 | Negotiate supported Linux clipboard image formats | Bounded acquisition, original bytes retained, mismatched/animated data refused | Implementing |
+| SETUP-02 | ecosystem.v1:1, ecosystem.v1:2 | Named credential environment references and loadable overlay paths | Reject invalid references/suffixes without writing or reading secret values | Implementing |
+
+Physical desktops, detached remote processes and arbitrary provider/module-private state
+cannot be certified by these local changes. Record actual gates and remaining boundaries.
+
+## Historical wave — rc4 release and deeper continuity
 
 The steward authorized all seven groups again on 2026-09-15, with judgment for
 reversible decisions. This table owns current sequencing; all following wave tables

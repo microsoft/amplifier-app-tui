@@ -25,10 +25,42 @@ def display_path(value):
 class ToolEvidence:
     """Bounded source observations correlated to a tool, never exclusive authorship."""
 
-    def __init__(self, cwd):
+    def __init__(self, cwd, events=()):
         self.cwd = Path(cwd).resolve()
         self.pending = {}
         self.versions = {}
+        for event in events:
+            if event.kind == "change.observed":
+                self.remember(event.payload, event.turn_id, historical=True)
+
+    def remember(self, row, turn, *, historical=False):
+        """Replay bounded version observations only; never read files or run commands."""
+        after = row.get("after")
+        files = after.get("files") if isinstance(after, dict) else None
+        changed = row.get("changed")
+        if not isinstance(files, dict) or not isinstance(changed, list):
+            return
+        for path in changed[:128]:
+            if not isinstance(path, str) or len(path) > 4096:
+                continue
+            self.versions.pop(path, None)
+            digest = files.get(path)
+            if (
+                isinstance(digest, str)
+                and len(digest) == 64
+                and all(c in "0123456789abcdef" for c in digest)
+            ):
+                self.versions[path] = {
+                    "sha256": digest,
+                    "agent": row.get("agent"),
+                    "source_session": row.get("source_session"),
+                    "tool_call_id": row.get("tool_call_id"),
+                    "turn": turn,
+                    "overlapping_tools": row.get("overlapping_tools"),
+                    "historical": historical,
+                }
+        while len(self.versions) > 256:
+            self.versions.pop(next(iter(self.versions)))
 
     async def snapshot(self, name, arguments):
         from .file_input import snapshot
@@ -122,22 +154,8 @@ class ToolEvidence:
                 previous = self.versions.get(path)
                 if previous and previous["sha256"] == digest and after["files"].get(path) == digest:
                     matched.append({"path": path, **previous})
-        for path in changed:
-            digest = after["files"].get(path)
-            self.versions.pop(path, None)
-            if isinstance(digest, str) and len(digest) == 64:
-                self.versions[path] = {
-                    "sha256": digest,
-                    "agent": agent,
-                    "source_session": session,
-                    "tool_call_id": call,
-                    "turn": turn,
-                    "overlapping_tools": row["overlap"],
-                }
-        while len(self.versions) > 256:
-            self.versions.pop(next(iter(self.versions)))
         output = result.get("output") if isinstance(result, dict) else None
-        return {
+        observation = {
             "name": f"{agent} · {name} · source evidence",
             "source_session": session,
             "tool_call_id": call,
@@ -158,6 +176,8 @@ class ToolEvidence:
             "command": row["arguments"].get("command") if name == "bash" else None,
             "scope": "Observed source versions bracket this identified tool. Command success is not a test-coverage or task-acceptance verdict; concurrent external edits cannot be causally attributed.",
         }
+        self.remember(observation, turn)
+        return observation
 
     def interrupted(self):
         """Retain pre-effect observations when no post-tool callback arrives."""

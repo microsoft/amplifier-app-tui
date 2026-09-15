@@ -33,6 +33,103 @@ def test_unsupported_provider_menu_is_explanatory_not_stuck_loading(tmp_path):
         probe.close()
 
 
+def test_model_catalog_limits_are_visible_without_a_turn(tmp_path):
+    overlay = tmp_path / "model-catalog.yaml"
+    overlay.write_text(
+        json.dumps(
+            {
+                "bundle": {"name": "model-catalog-fixture"},
+                "providers": [
+                    {
+                        "module": "provider-fixture",
+                        "config": {
+                            "models": [
+                                {
+                                    "id": "catalog-model",
+                                    "context_window": 100000,
+                                    "max_output_tokens": 8000,
+                                    "capabilities": ["tools", "vision"],
+                                }
+                            ]
+                        },
+                    }
+                ],
+            }
+        )
+    )
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--state-dir",
+            str(tmp_path / "state"),
+            "--overlay",
+            str(overlay),
+        ],
+        cols=160,
+    )
+    try:
+        probe.wait("Ready")
+        probe.send(b"Keep unsent context question")
+        action(probe, "Model catalog", "Model catalog · explicit discovery")
+        probe.send(b"\r")
+        probe.wait("Model catalog · advisory IDs")
+        probe.wait("context window: 100000 tokens")
+        probe.wait("Maximum output: 8000 tokens")
+        capture(probe, "post-rc4-model-limits")
+        draft_is(probe, "Keep unsent context question")
+        assert not any(e["kind"] == "turn.accepted" for e in events(tmp_path))
+    finally:
+        probe.close()
+
+
+def test_uncertain_correction_reuse_is_confirmed_unsent_and_preserves_source(tmp_path):
+    probe = start(tmp_path, approval=True)
+    text = "Review this uncertain correction"
+    try:
+        probe.wait("Ready")
+        probe.send(b"First work\r")
+        probe.wait("Waiting for your decision")
+        action(probe, "Correct active turn", "Correction for this turn only")
+        probe.send(text.encode() + b"\r")
+        probe.wait("your correction · pending")
+        action(probe, "Stop active", "Interrupted")
+        probe.wait("your correction · unconfirmed")
+        probe.send(b"Existing scratch")
+        action(probe, "Corrections —", "Corrections · latest")
+        probe.send(b"\r")
+        probe.wait("Message · retained source preview")
+        probe.send(b"Reuse correction\r")
+        probe.wait("Reuse requires an idle empty composer")
+        draft_is(probe, "Existing scratch")
+        probe.send(b"\x1b")
+        probe.wait("Actions / choices", absent=True)
+        probe.send(b"\x01\x0b")  # Home then kill-line: explicit removal of scratch.
+        draft_is(probe, "")
+        for confirm in (False, True):
+            action(probe, "Corrections —", "Corrections · latest")
+            probe.send(b"\r")
+            probe.wait("Message · retained source preview")
+            probe.send(b"Reuse correction\r")
+            probe.wait("Copy uncertain correction into empty draft?")
+            draft_is(probe, "")
+            capture(probe, "post-rc4-correction-reuse")
+            probe.send(b"\r" if confirm else b"\x1b")
+            probe.wait("Actions / choices", absent=True)
+            draft_is(probe, text if confirm else "")
+        rows = events(tmp_path)
+        assert sum(r["kind"] == "turn.accepted" for r in rows) == 1
+        updates = [r for r in rows if r["kind"] == "steering.updated"]
+        assert [r["payload"]["status"] for r in updates] == ["pending", "unconfirmed"]
+        assert not any(r["kind"] == "queue.updated" for r in rows)
+    finally:
+        probe.close()
+    draft = next((tmp_path / "state/conversations").glob("*/draft.json"))
+    assert json.loads(draft.read_text())["text"] == text
+
+
 def test_native_correction_insertion_scope_copy_and_draft(tmp_path):
     probe = start(tmp_path, approval=True)
     try:

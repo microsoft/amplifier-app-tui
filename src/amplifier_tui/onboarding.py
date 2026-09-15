@@ -3,13 +3,14 @@
 import json
 import os
 import platform
+import re
 import shutil
 import sys
 from importlib.metadata import version
 from pathlib import Path
 
 
-def provider_overlay(provider, model):
+def provider_overlay(provider, model, credential_env=None):
     """Generate explicit environment-reference configuration, never credential values."""
     if provider not in ("anthropic", "openai"):
         raise ValueError("Choose anthropic or openai; custom modules use --overlay")
@@ -21,6 +22,11 @@ def provider_overlay(provider, model):
         raise ValueError(
             "Enter an explicit model ID (letters, numbers, -._:/; at most 128 characters)"
         )
+    credential_env = credential_env if credential_env is not None else provider.upper() + "_API_KEY"
+    if not isinstance(credential_env, str) or not re.fullmatch(
+        r"[A-Za-z_][A-Za-z0-9_]{0,63}", credential_env
+    ):
+        raise ValueError("Enter an environment variable NAME, not a key, value or shell expression")
     return {
         "bundle": {"name": f"local-{provider}", "version": "1.0.0"},
         "providers": [
@@ -29,7 +35,7 @@ def provider_overlay(provider, model):
                 "source": f"git+https://github.com/microsoft/amplifier-module-provider-{provider}@main",
                 "config": {
                     "default_model": model,
-                    "api_key": "${" + provider.upper() + "_API_KEY}",
+                    "api_key": "${" + credential_env + "}",
                 },
             }
         ],
@@ -46,12 +52,21 @@ def setup_provider():
     print("Credentials stay in environment variables. Do not enter an API key here.")
     provider = input("Provider [anthropic/openai]: ").strip().lower()
     model = input("Exact model ID from your provider: ").strip()
-    value = provider_overlay(provider, model)
+    provider_overlay(provider, model)  # Validate before requesting any path.
     path = Path(
         input("New overlay file path (existing files are never replaced): ").strip()
     ).expanduser()
     if not path.name or path.exists() or path.is_symlink() or not path.parent.is_dir():
         raise ValueError("Choose a new file in an existing directory")
+    if path.suffix not in (".yaml", ".yml"):
+        raise ValueError("Choose a .yaml or .yml overlay path so Foundation can load it")
+    credential_env = (
+        input(
+            f"Credential environment variable NAME [{provider.upper()}_API_KEY] (never the value): "
+        ).strip()
+        or provider.upper() + "_API_KEY"
+    )
+    value = provider_overlay(provider, model, credential_env)
     rendered = json.dumps(value, indent=2) + "\n"  # JSON is valid YAML.
     print(rendered)
     print(
@@ -67,7 +82,7 @@ def setup_provider():
         os.fsync(stream.fileno())
     import shlex
 
-    print(f"Created overlay. Set {provider.upper()}_API_KEY through your usual secret mechanism.")
+    print(f"Created overlay. Set {credential_env} through your usual secret mechanism.")
     print(f"Launch: amplifier-tui --overlay {shlex.quote(str(path.resolve()))}")
     print(
         "Model/credentials were not validated. Existing conversations keep their recorded composition."

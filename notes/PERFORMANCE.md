@@ -7,6 +7,14 @@ The comparison includes the entire path, not just IPC microbenchmarks or rendere
 
 ## Current measurement and policy gap
 
+`scripts/compare_runtime_policy.py --cli CAPTURE --tui CAPTURE --output NEW_RECEIPT`
+now validates the capture shape and compares ordered module inventories, source/config,
+instructions, session policy and kernel version. Exit 1 means differences; exit 2 means
+invalid evidence. Exit 0 only means the compared prepared fields match: credential
+values were omitted, and request-time schemas/policy/execution still require proof.
+Fresh isolated CLI 0.1.1 / TUI 0.3.0rc5.dev0 captures on core 1.6.1 still differ in session,
+instruction, tool-count and hook-count fields. No latency verdict is inferred from them.
+
 The rc4 experiment now captures actual prepared policies through the installed isolated
 CLI's `resolve_bundle_config` and the TUI's `prepare`, with no session execution. Both
 use core 1.6.1 and the same fixture source. The CLI adds `tool-mode`, `tool-skills`,

@@ -29,7 +29,7 @@ class FixtureProvider:
         )
 
     async def list_models(self):
-        return []
+        return self.config.get("models", [])
 
     def parse_tool_calls(self, response):
         return response.tool_calls or []

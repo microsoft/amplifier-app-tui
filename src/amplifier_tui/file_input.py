@@ -162,21 +162,22 @@ async def clipboard_image():
         raise ValueError(
             "Host clipboard image unavailable: requires macOS/osascript PNG data, Wayland/wl-paste or X11/xclip. Over SSH, save the image in the workspace and use Attach image."
         )
-    process = await asyncio.create_subprocess_exec(
-        *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.DEVNULL,
-        start_new_session=True,
-    )
-    try:
-        async with asyncio.timeout(3):
+
+    async def acquire(command):
+        process = await asyncio.create_subprocess_exec(
+            *command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        try:
             raw = bytearray()
             while chunk := await process.stdout.read(65536):
                 raw.extend(chunk)
                 if len(raw) > (4 * 1024 * 1024 + 128 if apple else 2 * 1024 * 1024):
                     raise ValueError("Clipboard image exceeds 2 MiB; nothing attached")
             if await process.wait():
-                raise ValueError("Host clipboard does not provide a PNG image")
+                return None
             if apple:
                 match = re.fullmatch("«data PNGf([0-9a-fA-F]+)»\\s*".encode(), bytes(raw))
                 if match is None:
@@ -184,16 +185,36 @@ async def clipboard_image():
                         "macOS clipboard returned no supported PNG data; nothing attached"
                     )
                 raw = bytes.fromhex(match[1].decode("ascii"))
-            return image_snapshot(bytes(raw), "host clipboard (PNG)")
+            return bytes(raw)
+        finally:
+            # Own each utility group, including descendants holding its pipe open.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            await process.wait()
+
+    try:
+        # One total deadline, not four independent three-second waits. Prefer PNG;
+        # only an unavailable representation permits the next explicit MIME request.
+        async with asyncio.timeout(3):
+            formats = (
+                ("image/png",) if apple else ("image/png", "image/jpeg", "image/webp", "image/gif")
+            )
+            for mime in formats:
+                command = [mime if a == "image/png" else a for a in args]
+                raw = await acquire(command)
+                if raw is None:
+                    continue
+                value = image_snapshot(raw, f"host clipboard ({mime})")
+                if value["media_type"] != mime:
+                    raise ValueError(
+                        "Clipboard bytes differ from the requested image format; nothing attached"
+                    )
+                return value
+            raise ValueError("Host clipboard has no supported static image representation")
     except TimeoutError as exc:
         raise ValueError("Host clipboard timed out; nothing attached") from exc
-    finally:
-        # Own the utility process group, including descendants keeping the pipe open.
-        try:
-            os.killpg(process.pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        await process.wait()
 
 
 class ImageDraft:

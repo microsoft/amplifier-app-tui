@@ -164,7 +164,7 @@ class SessionHost:
             coordinator = self.session.coordinator
             from .workspace_review import ToolEvidence
 
-            self.tool_evidence = ToolEvidence(cwd)
+            self.tool_evidence = ToolEvidence(cwd, self.store.restored_events if self.store else ())
             from .file_input import ImageDraft
 
             self.images = ImageDraft(self.store)
