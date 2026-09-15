@@ -15,22 +15,19 @@ Read [current direction](docs/VISION.md), [derived work](notes/PLAN.md), and
 [what the comparison evaluates](notes/FRONTEND-EVALUATION.md).
 The [workflow coverage map](notes/PARITY.md) separates working paths from remaining parity gaps.
 
-The 0.3.0rc3 candidate includes multi-image drafts/queues with thumbnails, explicit
-Linux host-clipboard images, indexed saved-message search, chronological directory recall,
-stored-context inspection and side-by-side diff viewing. Restart the development command
-to load changes. The private prerelease includes this slice; full CLI parity remains open.
+The 0.3.0rc4 candidate adds confirmed fresh-store adoption of supported interrupted
+persistent children, source-version links from commands to preceding agent edits,
+retained interrupted-tool evidence, explicit context configuration inspection and
+approximate unique table-cell resize anchors. Restart the development command to load
+changes. Full CLI parity remains open; see the [release validation](notes/evidence/rc4-validation.md).
 See [explicit migration and provider checks](docs/MIGRATION.md) for historical text import
 into a new composition without replay or a compatibility-guard bypass.
 
-This release also adds file/line reference attachments, retained local-dialog copies,
-optional provider-request diagnostics and non-blocking native host writes with explicit
-forced-exit reporting.
-
-New in 0.3.0rc3: separately confirmed conflict-file editing, protected child
-finalization, historical child recovery evidence and static GIF/WebP attachments.
-The macOS host clipboard adapter requests PNG data through osascript; parser tests alone
-do not establish real desktop support. Exact release verification is tracked in
-[acceptance evidence](notes/ACCEPTANCE.md); existing rc2 assets remain unchanged.
+Earlier slices remain available: multi-image/file-reference drafts and queues,
+indexed saved-message search, directory recall, retained dialog copies, optional
+provider-request diagnostics, Git review and confirmed conflict editing. Actual macOS
+CI PNG pasteboard checks pass; physical-desktop/remote clipboard breadth remains open.
+Existing rc1/rc2/rc3 release assets are unchanged.
 
 ## Work with Amplifier
 
@@ -44,14 +41,14 @@ Git installation requires **uv, Git, Rust/Cargo (tested
 with Rust 1.93), and a C linker**. The build embeds the native executable in a
 platform-specific wheel; normal launches need neither a source checkout nor Cargo.
 
-The private [0.3.0rc3 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc3)
+The private [0.3.0rc4 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc4)
 provides compiler-free wheels. Authenticate with an account that has repository access,
 download the matching wheel, then run `uv tool install ./<downloaded-wheel>.whl`.
 
 | Machine | Wheel platform suffix | Build/install gate |
 |---|---|---|
 | Linux ARM64 | `linux_aarch64` | Ubuntu 24.04 |
-| Linux x86-64 | `linux_x86_64` | Ubuntu 24.04 |
+| Linux x86-64 | `linux_x86_64` | Ubuntu 22.04 |
 | Apple Silicon Mac | `macosx_14_0_arm64` | macOS 14 |
 | Intel Mac | `macosx_15_0_x86_64` | macOS 15 |
 
@@ -60,8 +57,8 @@ wheels contain one architecture each, with the named deployment floor, not unive
 Each asset has an adjacent SHA-256/install receipt. `scripts/release_wheel.py` and the
 manual workflow verify isolated installation with Cargo absent, native
 executable loading and installed fixture tool/resume/terminal-restoration behavior.
-The development workflow now tests five runners, including Ubuntu 22.04; that does not
-replace the four published rc3 platform assets. See the [development validation](notes/evidence/afk-validation.md).
+The workflow tests five runners; the separate Ubuntu 24.04 x86 build is not a release
+asset. The published x86 wheel is the tested Ubuntu 22.04 build. See [rc4 validation](notes/evidence/rc4-validation.md).
 This is an early candidate, not complete cross-platform certification.
 
 The repository is private. Authenticate GitHub/Git with an account that has access

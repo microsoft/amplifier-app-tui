@@ -2,8 +2,10 @@
 
 ## rc4 continuity, evidence and delivery (2026-09-15)
 
-Current candidate version: 0.3.0rc4; release verification is in progress, not a published
-artifact claim. Existing rc3 assets remain unchanged. Direction remains DRAFT.
+Published private candidate: 0.3.0rc4 at `c6817f2351bf0e19ab29fa578d9ee48d347e8260`.
+Four reviewed compiler-free wheels and receipts were redownloaded and byte-verified.
+Existing rc3 assets remain unchanged. Direction remains DRAFT. Exact scope and hashes
+are in [rc4 validation](evidence/rc4-validation.md).
 
 - Supported interrupted direct-child adoption now includes persistent context into a
   fresh isolated transcript. Same-root and historical-root cases use the real module,
@@ -26,10 +28,23 @@ artifact claim. Existing rc3 assets remain unchanged. Direction remains DRAFT.
 The first full run reported 475 passes and one old test assumption: it treated the new
 configuration row as a runtime observation. The corrected test separately checks both
 row types; the focused native/configuration/observation tests pass. The corrected full
-run passes **476 tests in 211.24 seconds**, with candidates/presets/swaps enabled and no
-warnings. Native tests: 36 normal/NO_COLOR, all-target Clippy; Bun: 3. A subsequent native
-label-only correction removes inapplicable event sequence fields from the configuration
-detail; final integrated/live/performance/release receipts follow after their actual runs.
+run passes **476 tests in 211.24 seconds**. After correcting native configuration detail
+labels and synchronizing the menu test, the final integrated run passes **476 tests in
+216.06 seconds**, with candidates/presets/swaps enabled and no warnings. Native tests:
+36 normal/NO_COLOR, all-target Clippy; Bun: 3. Subsequent native changes only correct
+recovery confirmation wording. Both live presets pass read/resume without replay,
+Stop/exit during a child question, and explicitly confirmed persistent-child adoption
+through the recovered-work menu. Original receipt/transcript bytes remain unchanged;
+the new child finishes in its own persistent store, with no new tool call. Captures
+were inspected. The first extended probe failed at overlay loading before any provider
+call because its generated overlay used an unrecognized suffix; the corrected run passes.
+The subsequent final-source integrated rerun passes **476 tests in 232.55 seconds**,
+without warnings. The isolated synthetic native benchmark reports first usable input
+p95 63.4 ms and editing p95 18.1–19.6 ms across the nine history/rate cells, not CLI
+parity. All five CI platform jobs and both-preset installed-live gates on the exact
+CI ARM wheel pass. Pinned Git-source installation also passes installed fixture gates.
+Reviewed release artifacts match downloaded bytes; temporary CI uploads were removed
+after local evidence retention, with HTTP 404 confirmation.
 
 The active table at the top of PLAN owns remaining work; preceding delivery tables are
 explicitly historical. New behavior does not reopen already completed basic TUI features.

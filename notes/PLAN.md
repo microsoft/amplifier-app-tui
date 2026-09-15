@@ -14,13 +14,13 @@ Work moves toward the existing contracts; unsupported effects must remain explic
 
 | Item | Source promises | Gap and action | Observable completion / falsifier | State |
 |---|---|---|---|---|
-| RECOVER-04 | continuity.v1:5, ecosystem.v1:6 | Persistent-child adoption and interrupted recipe policy | Fresh isolated store, original bytes unchanged, no replay, unsupported state refused | In progress |
-| LIFE-08 | session.v1:6, session.v1:8 | Cancellation and unconfirmed control accounting | Repeated cancellation cannot lose evidence or redeliver intent | In progress |
-| PERF-04 | performance.v1:1, performance.v1:2 | Actual policy equivalence and isolated latency measurement | Concrete policy comparison before any non-regression verdict | In progress |
-| REVIEW-07 | presentation.v1:7 | Link command evidence to captured versions and preceding agent edits | Exact matching digests, bounded provenance, changed/unknown scope explicit | In progress |
-| CONTEXT-05 | composition.v1:3, ecosystem.v1:2 | Public context-budget visibility and provider compatibility | Inspection makes no model request and distinguishes estimates from occupancy | In progress |
-| INPUT-07 | presentation.v1:3, presentation.v1:5 | Resize stability and terminal/platform breadth | Real terminal gates; unsupported physical environments not called verified | In progress |
-| INSTALL-05 | ecosystem.v1:1 | New version with reviewed compiler-free wheels | Exact published artifacts match tested source; old releases unchanged | In progress |
+| RECOVER-04 | continuity.v1:5, ecosystem.v1:6 | Persistent-child adoption and interrupted recipe policy | Fresh isolated store, original bytes unchanged, no replay, unsupported state refused | Real same/historical-root tests and both-preset native live adoption pass. Older persistent receipts, arbitrary private/nested recovery and crash-uncertain recipe effects remain |
+| LIFE-08 | session.v1:6, session.v1:8 | Cancellation and unconfirmed control accounting | Repeated cancellation cannot lose evidence or redeliver intent | Interrupted pre-effect records survive once with unknown outcomes; 476-case suite has no warnings. Arbitrary cleanup and uncertain steering replacement remain |
+| PERF-04 | performance.v1:1, performance.v1:2 | Actual policy equivalence and isolated latency measurement | Concrete policy comparison before any non-regression verdict | Actual isolated preparation confirms six extra CLI policy modules. Renderer benchmark completed; matched-policy CLI latency remains unresolved |
+| REVIEW-07 | presentation.v1:7 | Link command evidence to captured versions and preceding agent edits | Exact matching digests, bounded provenance, changed/unknown scope explicit | Implemented unchanged-version prior-edit links and command return code, with bounded observations. Exclusive attribution and semantic coverage remain outside this evidence |
+| CONTEXT-05 | composition.v1:3, ecosystem.v1:2 | Public context-budget visibility and provider compatibility | Inspection makes no model request and distinguishes estimates from occupancy | Allowlisted configuration snapshot and no-submission native detail pass. Effective model budget, exact occupancy and arbitrary vendor/private-state conversion remain |
+| INPUT-07 | presentation.v1:3, presentation.v1:5 | Resize stability and terminal/platform breadth | Real terminal gates; unsupported physical environments not called verified | Approximate unique table-cell reanchor and all five platform gates pass, including actual Mac PNG pasteboard. General exact reflow and physical/remote clipboard breadth remain |
+| INSTALL-05 | ecosystem.v1:1 | New version with reviewed compiler-free wheels | Exact published artifacts match tested source; old releases unchanged | Private rc4 published at c6817f2; four reviewed wheel/receipt pairs redownloaded byte-identical. Exact CI ARM installed-live and pinned Git install pass. Old releases unchanged; wider platform compatibility remains scoped |
 
 ## Historical wave: AFK seven-group continuation
 

@@ -4,6 +4,10 @@ rc4 gates: persistent direct-child public adoption runs in `test_child_recovery.
 with `TUI_TEST_SWAPS=1`, both same-root and historical-root paths. Preserve original
 receipt and module transcript bytes; a new store must read back imported messages
 exactly before execution. A module's existing-file restore policy is never bypassed.
+After the integrated gate, `scripts/lifecycle_probe.py --live --adopt-persistent`
+exercises the actual recovered-work menu and confirmation with both live presets.
+It bills two additional child turns. Generated overlays need a recognized YAML suffix;
+successful serialization alone does not establish that Foundation can load the file.
 `test_change_evidence.py` links exact unchanged versions to earlier agent observations,
 refuses changed versions, and retains unresolved pre-tool evidence once. Context-policy
 tests distinguish configuration rows from actual usage/compaction observations; native
