@@ -75,6 +75,32 @@ a surviving controlling-session guard; three added regressions pass, including r
 leakage and nonzero app exit. Product source is unchanged by this observer correction.
 Only a successful corrected CI run can support the new platform release claim.
 
+The final integrated rerun after the observer correction passes **442 Python tests in
+197.40 seconds**, with native candidates, both presets and independent swaps enabled.
+Two known unawaited callback warnings remain (child observer and module handler).
+Ruff and formatting pass across 140 files; product/native source is unchanged from the
+34-test Rust/all-target Clippy and live/renderer gates above.
+
+Private [0.3.0rc3](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc3)
+is published from **0d8d0c49a07c9c5597b712e2d585993ab5597751**. The corrected
+four-platform run passes native tests, compiler-free installation and installed PTY
+fixture Help/tool/resume/terminal-restoration checks on Ubuntu 24.04 ARM64/x86-64,
+macOS 14 ARM64 and macOS 15 Intel. All four wheels and adjacent receipts received
+fresh-context semantic privacy review; ELF/Mach-O architecture, wheel/native hashes
+and source identity were checked. All eight published assets were downloaded again
+and are byte-identical; the release tag resolves to the identified source.
+The [release receipt](evidence/readiness-release.json) retains the platform evidence.
+
+The exact CI Linux ARM64 wheel passes both real presets through delegation/read-only
+child tool/Help/exit/resume/second-turn checks, with no source map or checkout imports
+([CI installed-live receipt](evidence/readiness-ci-installed-live.json)); four root/two
+child turns billed separately from the local-wheel run. The pinned private Git revision
+also passes isolated `uv tool install git+https` and an installed fixture tool/resume
+gate ([Git receipt](evidence/readiness-git-installed-fixture.json)). Raw captures stay
+private; source/docs HEAD after publication is distinct from the release pin. Existing
+rc1/rc2 releases and unrelated user-owned notes remain untouched. These gates do not
+close the explicitly listed runtime, CLI-equivalence or physical-desktop gaps.
+
 ## Continuation: references, diagnostics and transport ownership (2026-09-14)
 
 This is ongoing checkout work, not a replacement of the published 0.3.0rc2 assets or

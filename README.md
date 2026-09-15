@@ -7,7 +7,7 @@ Getting started** opens task-based help without sending anything.
 For a problem report, see [safe troubleshooting](docs/SUPPORT.md).
 
 **Current status:** Ratatui is the working integration client: discoverable actions,
-focused decisions, structured questions, read-only Git review, active corrections, scoped model selection, Markdown, line scrollback, editor history/completion and saved
+focused decisions, structured questions, Git review with explicitly confirmed conflict edits, active corrections, scoped model selection, Markdown, line scrollback, editor history/completion and saved
 Amplifier conversations. OpenTUI remains the earlier comparison
 candidate; Textual remains a regression harness. Neither a final architecture decision
 nor complete CLI parity is claimed.
@@ -15,35 +15,36 @@ Read [current direction](docs/VISION.md), [derived work](notes/PLAN.md), and
 [what the comparison evaluates](notes/FRONTEND-EVALUATION.md).
 The [workflow coverage map](notes/PARITY.md) separates working paths from remaining parity gaps.
 
-The 0.3.0rc2 candidate adds multi-image drafts/queues with thumbnails, explicit
+The 0.3.0rc3 candidate includes multi-image drafts/queues with thumbnails, explicit
 Linux host-clipboard images, indexed saved-message search, chronological directory recall,
 stored-context inspection and side-by-side diff viewing. Restart the development command
 to load changes. The private prerelease includes this slice; full CLI parity remains open.
 See [explicit migration and provider checks](docs/MIGRATION.md) for historical text import
 into a new composition without replay or a compatibility-guard bypass.
 
-The development checkout also adds file/line reference attachments, retained local-dialog
-copies, optional provider-request diagnostics and non-blocking native host writes with explicit forced-exit reporting. These
-ongoing changes are not included in the already-published 0.3.0rc2 wheel assets.
+This release also adds file/line reference attachments, retained local-dialog copies,
+optional provider-request diagnostics and non-blocking native host writes with explicit
+forced-exit reporting.
 
-The 0.3.0rc3 checkout adds separately confirmed conflict-file editing, protected child
+New in 0.3.0rc3: separately confirmed conflict-file editing, protected child
 finalization, historical child recovery evidence and static GIF/WebP attachments.
 The macOS host clipboard adapter requests PNG data through osascript; parser tests alone
-do not establish real desktop support. New-version release verification is tracked in
+do not establish real desktop support. Exact release verification is tracked in
 [acceptance evidence](notes/ACCEPTANCE.md); existing rc2 assets remain unchanged.
 
 ## Work with Amplifier
 
 ### Install the native product
 
-Linux ARM64 has interactive PTY/tmux and installed-live verification. Candidate native
-unit/build/install gates also pass on Linux x86-64 and both macOS architectures; broader
-terminal/live-runtime coverage there remains open. Windows needs WSL2.
+Linux ARM64 has interactive PTY/tmux and installed-live verification. Native unit,
+compiler-free install and installed PTY fixture gates pass on Linux x86-64 and both
+macOS architectures too; broader physical-terminal/live-runtime coverage there remains
+open. Windows needs WSL2.
 Git installation requires **uv, Git, Rust/Cargo (tested
 with Rust 1.93), and a C linker**. The build embeds the native executable in a
 platform-specific wheel; normal launches need neither a source checkout nor Cargo.
 
-The private [0.3.0rc2 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc2)
+The private [0.3.0rc3 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc3)
 provides compiler-free wheels. Authenticate with an account that has repository access,
 download the matching wheel, then run `uv tool install ./<downloaded-wheel>.whl`.
 
@@ -57,8 +58,9 @@ download the matching wheel, then run `uv tool install ./<downloaded-wheel>.whl`
 Linux wheels are not manylinux/musl or older-distribution compatibility claims. macOS
 wheels contain one architecture each, with the named deployment floor, not universal2.
 Each asset has an adjacent SHA-256/install receipt. `scripts/release_wheel.py` and the
-manual four-platform workflow verify isolated installation with Cargo absent and native
-executable loading. This is an early candidate, not complete cross-platform certification.
+manual four-platform workflow verify isolated installation with Cargo absent, native
+executable loading and installed fixture tool/resume/terminal-restoration behavior.
+This is an early candidate, not complete cross-platform certification.
 
 The repository is private. Authenticate GitHub/Git with an account that has access
 (for GitHub CLI users, `gh auth login` then `gh auth setup-git`), then:

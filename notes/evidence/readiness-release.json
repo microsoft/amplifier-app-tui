@@ -1,0 +1,111 @@
+{
+  "scope": "Private rc3 exact CI artifact verification; runner PTY fixtures and Linux ARM64 live scope only",
+  "source_revision": "0d8d0c49a07c9c5597b712e2d585993ab5597751",
+  "workflow_run": 34953153712,
+  "workflow_conclusion": "success",
+  "version": "0.3.0rc3",
+  "release": "https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc3",
+  "published_tag_matches_source": true,
+  "published_assets_redownloaded_byte_identical": true,
+  "native_architectures_verified": true,
+  "ci_arm64_installed_live_receipt": "readiness-ci-installed-live.json",
+  "git_revision_fixture_receipt": "readiness-git-installed-fixture.json",
+  "platforms": [
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Darwin",
+      "architecture": "arm64",
+      "build_os_release": "14.8.9",
+      "version": "0.3.0rc3",
+      "wheel": "amplifier_app_tui-0.3.0rc3-py3-none-macosx_14_0_arm64.whl",
+      "wheel_sha256": "cfa5a1434029dc45538f246b539385b9b422533f7b9383d0617d73546ad7aaba",
+      "native_sha256": "50775d28380d4f4d048bec8be239f00674478b7d71ba796989617d9666a07359",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true,
+      "terminal_fixture": {
+        "fixture_tool_round_trip": true,
+        "resume_without_submission": true,
+        "second_turn": true,
+        "help_preserves_draft_without_submission": true,
+        "terminal_modes_restored": true,
+        "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification"
+      }
+    },
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Darwin",
+      "architecture": "x86_64",
+      "build_os_release": "15.7.9",
+      "version": "0.3.0rc3",
+      "wheel": "amplifier_app_tui-0.3.0rc3-py3-none-macosx_15_0_x86_64.whl",
+      "wheel_sha256": "b52ff52e21b94fb5f63d43935d6dd5b61e3c10157d58ef5ef2811a9354048b0a",
+      "native_sha256": "8df37a2a3579110c3edf369dc2d868f3f78bce665a35e0ad8e88fe9cae1b8ff7",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true,
+      "terminal_fixture": {
+        "fixture_tool_round_trip": true,
+        "resume_without_submission": true,
+        "second_turn": true,
+        "help_preserves_draft_without_submission": true,
+        "terminal_modes_restored": true,
+        "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification"
+      }
+    },
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Linux",
+      "architecture": "x86_64",
+      "build_os_release": "24.04",
+      "version": "0.3.0rc3",
+      "wheel": "amplifier_app_tui-0.3.0rc3-py3-none-linux_x86_64.whl",
+      "wheel_sha256": "176c822575ea4d3c321194a21805b7efe8eaa0acfeefecfefac07e4ac07e0745",
+      "native_sha256": "af1823a2c23f997ac387b33c7df6a22ac48b11fa8e7ee52b4485a915772e5766",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true,
+      "terminal_fixture": {
+        "fixture_tool_round_trip": true,
+        "resume_without_submission": true,
+        "second_turn": true,
+        "help_preserves_draft_without_submission": true,
+        "terminal_modes_restored": true,
+        "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification"
+      }
+    },
+    {
+      "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+      "platform": "Linux",
+      "architecture": "aarch64",
+      "build_os_release": "24.04",
+      "version": "0.3.0rc3",
+      "wheel": "amplifier_app_tui-0.3.0rc3-py3-none-linux_aarch64.whl",
+      "wheel_sha256": "e16909db564be9de9b986290d36c16578031c9dfaafc5b74795cc99fdd592edb",
+      "native_sha256": "dcc556cf5830a2b0a97223930727abcd1929aa962d30bd9f265accd97faf1e86",
+      "cargo_available_during_install": false,
+      "doctor_passed": true,
+      "state_untouched": true,
+      "installed_native_bytes_match": true,
+      "installed_native_load_passed": true,
+      "artifact_privacy_scan_passed": true,
+      "terminal_fixture": {
+        "fixture_tool_round_trip": true,
+        "resume_without_submission": true,
+        "second_turn": true,
+        "help_preserves_draft_without_submission": true,
+        "terminal_modes_restored": true,
+        "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification"
+      }
+    }
+  ]
+}
