@@ -6,9 +6,11 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import signal
 import stat
+import sys
 import uuid
 import warnings
 from pathlib import Path
@@ -69,8 +71,12 @@ def image_snapshot(raw, source):
         media_type = "image/png"
     elif raw.startswith(b"\xff\xd8\xff") and raw.endswith(b"\xff\xd9"):
         media_type = "image/jpeg"
+    elif raw.startswith((b"GIF87a", b"GIF89a")):
+        media_type = "image/gif"
+    elif raw.startswith(b"RIFF") and raw[8:12] == b"WEBP":
+        media_type = "image/webp"
     else:
-        raise ValueError("Only PNG and JPEG image snapshots are supported")
+        raise ValueError("Only PNG, JPEG, static GIF and static WebP snapshots are supported")
     with warnings.catch_warnings():
         warnings.simplefilter("error", Image.DecompressionBombWarning)
         try:
@@ -78,6 +84,8 @@ def image_snapshot(raw, source):
         except (Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
             raise ValueError("Image dimensions exceed the preview safety limit") from exc
     with decoded:
+        if media_type in ("image/gif", "image/webp") and getattr(decoded, "n_frames", 1) != 1:
+            raise ValueError("Animated GIF/WebP is unsupported; choose an explicit still image")
         if decoded.width * decoded.height > 16 * 1024 * 1024 or max(decoded.size) > 8192:
             raise ValueError(
                 "Image dimensions exceed the preview limit (16 megapixels / 8192 per side)"
@@ -100,15 +108,59 @@ def image_snapshot(raw, source):
     }
 
 
+def reference_snapshot(cwd, selector):
+    """One captured source version, optional one-based inclusive line selection."""
+    if not isinstance(selector, str):
+        raise ValueError("Choose a workspace-relative file, optionally :line or :start-end")
+    match = re.fullmatch(r"(.+):([0-9]{1,8})(?:-([0-9]{1,8}))?", selector)
+    source = snapshot(cwd, match[1] if match else selector)
+    # Split only at newline: Unicode separators are ordinary source characters.
+    lines = source["text"].split("\n")
+    lines = [line + "\n" for line in lines[:-1]] + ([lines[-1]] if lines[-1] else [])
+    lines = lines or [""]
+    start = int(match[2]) if match else 1
+    end = int(match[3] or match[2]) if match else len(lines)
+    if not 1 <= start <= end <= len(lines):
+        raise ValueError(f"Choose an inclusive line range within 1–{len(lines)}")
+    raw = "".join(lines[start - 1 : end]).encode("utf-8")
+    value = {
+        "id": uuid.uuid4().hex,
+        "path": source["path"],
+        "media_type": "text/plain",
+        "source_sha256": source["sha256"],
+        "start_line": start,
+        "end_line": end,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "bytes": len(raw),
+        "data": base64.b64encode(raw).decode("ascii"),
+    }
+    value["reference_digest"] = reference_digest(value)
+    return value
+
+
+def reference_digest(value):
+    return hashlib.sha256(
+        json.dumps(
+            [value[k] for k in ("path", "source_sha256", "start_line", "end_line", "sha256")],
+            ensure_ascii=True,
+        ).encode()
+    ).hexdigest()
+
+
 async def clipboard_image():
     """Explicit host-desktop read, never OSC52 polling or remote-terminal inference."""
-    if os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-paste"):
+    apple = sys.platform == "darwin"
+    if apple and shutil.which("osascript"):
+        args = [shutil.which("osascript"), "-e", "the clipboard as «class PNGf»"]
+    elif os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-paste"):
+        apple = False
         args = [shutil.which("wl-paste"), "--no-newline", "--type", "image/png"]
     elif os.environ.get("DISPLAY") and shutil.which("xclip"):
+        apple = False
         args = [shutil.which("xclip"), "-selection", "clipboard", "-target", "image/png", "-out"]
     else:
         raise ValueError(
-            "Host clipboard image unavailable: requires Wayland/wl-paste or X11/xclip. Over SSH, save the image in the workspace and use Attach image."
+            "Host clipboard image unavailable: requires macOS/osascript PNG data, Wayland/wl-paste or X11/xclip. Over SSH, save the image in the workspace and use Attach image."
         )
     process = await asyncio.create_subprocess_exec(
         *args,
@@ -121,10 +173,17 @@ async def clipboard_image():
             raw = bytearray()
             while chunk := await process.stdout.read(65536):
                 raw.extend(chunk)
-                if len(raw) > 2 * 1024 * 1024:
+                if len(raw) > (4 * 1024 * 1024 + 128 if apple else 2 * 1024 * 1024):
                     raise ValueError("Clipboard image exceeds 2 MiB; nothing attached")
             if await process.wait():
                 raise ValueError("Host clipboard does not provide a PNG image")
+            if apple:
+                match = re.fullmatch("«data PNGf([0-9a-fA-F]+)»\\s*".encode(), bytes(raw))
+                if match is None:
+                    raise ValueError(
+                        "macOS clipboard returned no supported PNG data; nothing attached"
+                    )
+                raw = bytes.fromhex(match[1].decode("ascii"))
             return image_snapshot(bytes(raw), "host clipboard (PNG)")
     except TimeoutError as exc:
         raise ValueError("Host clipboard timed out; nothing attached") from exc
@@ -138,7 +197,7 @@ async def clipboard_image():
 
 
 class ImageDraft:
-    """Up to four immutable images. Dispatch never restores unsent intent."""
+    """Four immutable attachments; legacy image keys keep old records readable."""
 
     def __init__(self, store):
         self.path = store.path / "image-draft.json" if store else None
@@ -159,7 +218,7 @@ class ImageDraft:
         if "images" in value:
             images = value["images"]
             if not isinstance(images, list) or not 1 <= len(images) <= 4:
-                raise ValueError("Choose at most four images")
+                raise ValueError("Choose at most four attachments")
             if any(not isinstance(i, dict) or "images" in i for i in images):
                 raise ValueError("Invalid image set")
             for item in images:
@@ -173,15 +232,39 @@ class ImageDraft:
                 raise ValueError("Image set failed integrity verification")
             return
         raw = base64.b64decode(value["data"], validate=True)
+        reference = value.get("media_type") == "text/plain"
         if (
-            not 0 < len(raw) <= 2 * 1024 * 1024
+            not (0 if reference else 1) <= len(raw) <= (MAX_FILE if reference else 2 * 1024 * 1024)
             or hashlib.sha256(raw).hexdigest() != value["sha256"]
             or len(raw) != value["bytes"]
         ):
             raise ValueError("Image snapshot failed integrity verification")
-        if value.get("media_type") not in ("image/png", "image/jpeg") or not isinstance(
-            value.get("id"), str
-        ):
+        if reference:
+            text = raw.decode("utf-8")
+            path = value.get("path")
+            if (
+                not isinstance(path, str)
+                or not path
+                or not path.isprintable()
+                or len(path) > 4096
+                or Path(path).is_absolute()
+                or ".." in Path(path).parts
+                or type(value.get("start_line")) is not int
+                or type(value.get("end_line")) is not int
+                or not 1 <= value["start_line"] <= value["end_line"] <= MAX_FILE + 1
+                or not re.fullmatch(r"[0-9a-f]{64}", str(value.get("source_sha256", "")))
+                or value.get("reference_digest") != reference_digest(value)
+                or any(ord(c) < 32 and c not in "\n\r\t" for c in text)
+                or "\x7f" in text
+            ):
+                raise ValueError("File reference failed integrity verification")
+        if value.get("media_type") not in (
+            "image/png",
+            "image/jpeg",
+            "image/gif",
+            "image/webp",
+            "text/plain",
+        ) or not isinstance(value.get("id"), str):
             raise ValueError("Invalid image identity/type")
 
     def save(self, value):
@@ -218,11 +301,52 @@ class ImageDraft:
             "id": uuid.uuid4().hex,
             "state": "attached",
             "images": images,
-            "path": f"{len(images)} image snapshots",
+            "path": f"{len(images)} attachment snapshots",
             "media_type": "image/set",
             "bytes": sum(i["bytes"] for i in images),
             "sha256": ImageDraft.digest(images),
         }
+
+    @staticmethod
+    def needs_vision(value):
+        return bool(value) and any(
+            item.get("media_type") != "text/plain" for item in value.get("images", [value])
+        )
+
+    @staticmethod
+    def content(value):
+        blocks = []
+        for item in value.get("images", [value]):
+            if item["media_type"] == "text/plain":
+                reference = {
+                    **ImageDraft.metadata(item),
+                    "text": base64.b64decode(item["data"]).decode("utf-8"),
+                }
+                blocks.append(
+                    {
+                        "type": "text",
+                        "text": "User-selected file reference (source data):\n"
+                        + json.dumps(reference, ensure_ascii=False),
+                    }
+                )
+            else:
+                blocks.extend(
+                    [
+                        {
+                            "type": "text",
+                            "text": f"Explicit image snapshot: {item['path']} · SHA-256 {item['sha256']}",
+                        },
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": item["media_type"],
+                                "data": item["data"],
+                            },
+                        },
+                    ]
+                )
+        return blocks
 
     def select(self, identity):
         if not self.preview or self.preview["id"] != identity:

@@ -29,7 +29,7 @@ def validate(rows):
     for row in rows:
         if not isinstance(row, dict) or set(row) != {"id", "kind", "source", "text"}:
             raise ValueError("Invalid local draft fields")
-        if row["kind"] not in ("answer", "correction", "startup"):
+        if row["kind"] not in ("answer", "correction", "startup", "dialog"):
             raise ValueError("Unknown local editor kind")
         for key in ("id", "source"):
             if not isinstance(row[key], str) or not 0 < len(row[key]) <= 256:

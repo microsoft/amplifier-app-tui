@@ -73,7 +73,7 @@ def refresh(db, root, entries, *, budget=READ_BUDGET):
             db.execute("DELETE FROM search WHERE session=?", (identity,))
             db.execute("DELETE FROM sources WHERE id=?", (identity,))
         for entry in ordered:
-            if budget <= 0 or time.monotonic() >= deadline:
+            if budget < 4096 or time.monotonic() >= deadline:
                 partial = True
                 break
             identity = entry["id"]
@@ -85,8 +85,12 @@ def refresh(db, root, entries, *, budget=READ_BUDGET):
                     # A fixed first-record fingerprint plus inode/size/mtime detects
                     # replacement/truncation and same-size edits without re-reading
                     # the already indexed body of an append-only journal.
-                    prefix = stream.readline(LINE_LIMIT + 1)
-                    signature = f"{stat.st_dev}:{stat.st_ino}:" + hashlib.sha256(prefix).hexdigest()
+                    prefix = stream.readline(4096)
+                    budget -= len(prefix)
+                    signature = (
+                        f"prefix4k:{stat.st_dev}:{stat.st_ino}:"
+                        + hashlib.sha256(prefix).hexdigest()
+                    )
                     position, source_partial = (prior[1], bool(prior[4])) if prior else (0, False)
                     skipping = bool(prior[5]) if prior else False
                     if prior and (
@@ -129,9 +133,11 @@ def refresh(db, root, entries, *, budget=READ_BUDGET):
                                 source_partial = True
                                 continue
                             stamp = event.get("timestamp_ns", 0)
-                            stamp = stamp if type(stamp) is int and stamp > 0 else 0
+                            if type(stamp) is not int or not 0 <= stamp < 2**63:
+                                stamp = 0
+                                source_partial = True
                             sequence = event.get("sequence", 0)
-                            if type(sequence) is not int:
+                            if type(sequence) is not int or not 0 <= sequence < 2**63:
                                 source_partial = True
                                 continue
                             db.execute(
@@ -194,11 +200,16 @@ def search(root, entries, query):
                 (folded,),
             )
         for index, (identity, sequence, kind, text) in enumerate(rows):
-            if index == 10000:
+            if index == 10000 or time.monotonic() >= deadline:
                 partial = True
                 break
             if identity not in matches and folded in text.casefold():
-                at = text.casefold().find(folded)
+                folded_at = text.casefold().find(folded)
+                consumed, at = 0, 0
+                for at, char in enumerate(text):
+                    if consumed >= folded_at:
+                        break
+                    consumed += len(char.casefold())
                 matches[identity] = (
                     f"{kind} · sequence {sequence} · indexed excerpt\n{text[max(0, at - 80) : at + 400]}"
                 )

@@ -5,6 +5,7 @@ terminal, live-provider or arbitrary bundle compatibility evidence. Only wheel a
 allowlisted receipt go into dist/release; temporary install data is removed.
 """
 
+import argparse
 import hashlib
 import json
 import os
@@ -51,7 +52,84 @@ def verify_payload(data):
         )
 
 
+def terminal_smoke(command, stage, env):
+    """Installed fixture runtime, real PTY, no sibling sources or model credentials."""
+    from terminal_probe import Probe
+
+    state = stage / "terminal-state"
+    launch = [str(command), "--state-dir", str(state)]
+    identity = None
+    for resumed in (False, True):
+        probe = Probe(
+            [*launch, *(["--resume", identity] if resumed else ["--fixture"])],
+            cwd=stage,
+            env=env,
+            cols=120,
+        )
+        try:
+            # Current status row, not a Ready word in a historical reply.
+            import time
+
+            deadline = time.monotonic() + 300
+            while time.monotonic() < deadline:
+                probe.read()
+                if any(line.strip().startswith("Ready") for line in probe.text.splitlines()[-2:]):
+                    break
+            else:
+                raise AssertionError("Installed fixture did not reach current readiness")
+            metadata = next((state / "conversations").glob("*/metadata.json"))
+            path = metadata.parent
+            record = json.loads(metadata.read_text())
+            identity = record["id"]
+            assert record["launch"]["sources"] is None
+
+            def events():
+                return [
+                    json.loads(line) for line in (path / "events.jsonl").read_text().splitlines()
+                ]
+
+            assert sum(e["kind"] == "turn.accepted" for e in events()) == int(resumed)
+            probe.send(b"Compute a digest")
+            probe.wait("Compute a digest")
+            probe.send(b"\x1bOS")
+            probe.wait("Search:")
+            probe.send(b"Getting started\r")
+            probe.wait("Help · choose a topic")
+            probe.send(b"\x1b")
+            probe.wait("Actions / choices", absent=True)
+            assert sum(e["kind"] == "turn.accepted" for e in events()) == int(resumed)
+            probe.send(b"\r")
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                probe.read()
+                ended = [e for e in events() if e["kind"] == "turn.ended"]
+                if len(ended) == int(resumed) + 1:
+                    assert ended[-1]["payload"]["status"] == "completed"
+                    break
+            else:
+                raise AssertionError("Installed fixture turn did not complete")
+            assert any(
+                e["kind"] == "tool.updated" and e["payload"].get("status") == "succeeded"
+                for e in events()
+            )
+        finally:
+            probe.close()  # Includes actual termios restoration and bounded clean exit.
+    return {
+        "fixture_tool_round_trip": True,
+        "resume_without_submission": True,
+        "second_turn": True,
+        "help_preserves_draft_without_submission": True,
+        "terminal_modes_restored": True,
+        "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification",
+    }
+
+
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--terminal", action="store_true", help="Also exercise installed fixture PTY; requires pyte"
+    )
+    args = parser.parse_args()
     uv = shutil.which("uv")
     if not uv:
         raise SystemExit("uv is required")
@@ -85,6 +163,7 @@ def main():
             for directory in os.get_exec_path()
             if not (Path(directory) / "cargo").exists()
         )
+        env.pop("PYTHONPATH", None)
         assert shutil.which("cargo", path=env["PATH"]) is None
         checked([uv, "tool", "install", str(wheel)], env=env)
         command = stage / "bin/amplifier-tui"
@@ -109,6 +188,7 @@ def main():
         assert loaded.returncode == 1
         assert b"Use scripts/compare.py ratatui to launch" in loaded.stderr
         checked([str(command), "--getting-started"], env=env, cwd=stage)
+        terminal = terminal_smoke(command, stage, env) if args.terminal else None
         receipt = {
             "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
             "platform": platform.system(),
@@ -126,6 +206,7 @@ def main():
             "installed_native_bytes_match": True,
             "installed_native_load_passed": True,
             "artifact_privacy_scan_passed": True,
+            "terminal_fixture": terminal,
         }
         verify_payload(json.dumps(receipt).encode())
         shutil.copy2(wheel, output / wheel.name)

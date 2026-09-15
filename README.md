@@ -22,6 +22,16 @@ to load changes. The private prerelease includes this slice; full CLI parity rem
 See [explicit migration and provider checks](docs/MIGRATION.md) for historical text import
 into a new composition without replay or a compatibility-guard bypass.
 
+The development checkout also adds file/line reference attachments, retained local-dialog
+copies, optional provider-request diagnostics and non-blocking native host writes with explicit forced-exit reporting. These
+ongoing changes are not included in the already-published 0.3.0rc2 wheel assets.
+
+The 0.3.0rc3 checkout adds separately confirmed conflict-file editing, protected child
+finalization, historical child recovery evidence and static GIF/WebP attachments.
+The macOS host clipboard adapter requests PNG data through osascript; parser tests alone
+do not establish real desktop support. New-version release verification is tracked in
+[acceptance evidence](notes/ACCEPTANCE.md); existing rc2 assets remain unchanged.
+
 ## Work with Amplifier
 
 ### Install the native product
@@ -152,15 +162,39 @@ assistant to invoke `load_skill`, `delegate` or `recipes` when mounted. **Action
 (`/mode`) selects discovered session policy with explicit Apply.
 Assistant mode requests needing consent use **Review decision**, not an unanswerable retry.
 Conversation-provider selection and steering use supported public module capabilities.
-Use **Insert text file** for UTF-8 snapshots and **Attach image** for one PNG/JPEG up to
-2 MiB. The image dialog shows path, size and digest, not a rendered thumbnail. Confirm
-the captured bytes, add your prompt, then Send explicitly. File changes after capture do
-not change the attachment. All mounted providers must advertise vision support; actual
-format/model limits can still reject a request. Images enter Amplifier's public context
-format, without replacing the orchestrator. **Attached image** inspects/removes the
-reference. Attaching pauses the queue; queued image turns are not supported. Unsent
-images survive ordinary resume; dispatched images never silently become unsent again.
-Historical recovery does not copy attachments, and removing a reference is not rollback.
+Use **Insert text file** for plain UTF-8 insertion, or **Attach file reference** to retain
+a captured file's location and version separately from your prompt. Enter a workspace-relative
+path, optionally `src/example.py:10` or `src/example.py:10-25` (one-based inclusive lines;
+the whole source must fit within 64 KiB). Review the excerpt and source/content digests,
+then confirm. Text references need public context support, not a vision-capable provider.
+**Attach image** accepts PNG/JPEG and static GIF/WebP up to 2 MiB each and shows a bounded coarse thumbnail;
+animated GIF/WebP is refused without conversion. Provider/model format support can still differ.
+**Paste image** explicitly requests PNG from an available macOS/osascript or Wayland/X11 host clipboard, not an SSH
+client clipboard. Up to four combined attachments share one immutable admission record.
+Add a prompt, then Send or Queue explicitly. Source changes/deletion never change captured
+bytes. Only sets containing images require all mounted providers to advertise vision;
+actual format/model limits may still reject them. **Attached images / references** inspects
+or removes them individually. Attaching pauses the queue; queued attachments survive reopen
+and require explicit release (16 MiB aggregate queue budget). Unsent attachments survive
+ordinary resume; dispatched records never silently become unsent again. Text recall and
+historical recovery do not recreate attachments; removing one is not rollback.
+
+**Provider request diagnostic** offers explicit one-shot capture, inspection and clear.
+After confirmation it waits for the next root provider request; it does not Send for you.
+Only provider-exposed raw fields can be projected: missing content stays unavailable,
+and the app never enables provider raw logging. The bounded capture stays in memory,
+not the host journal; separate module logging policy is unchanged. It can contain private
+prompts and source content, so review before copying. Media/auth/oversize/unknown fields
+are omitted; this is not exact network serialization, delivery proof or a context meter.
+
+**Saved local drafts** also retains dialog copies (queue edits, rename, searches and file
+selectors) under their original scope. Recovery is inspection/copy, never automatic Apply
+or Send. Autosave follows a 250 ms pause and dialog exit; unflushed keystrokes can still
+be lost in a crash. Ordinary exit requests host cleanup; after three seconds an unresponsive
+host process group is force-terminated with an explicit uncertainty message. Detached
+processes and remote work are not covered, and no effects are claimed undone.
+Child cleanup and receipt persistence retain ownership through repeated cancellation;
+this does not fix the separate third-party async-callback bridge warning.
 Full presets retain authored shell/file tools and permissions: **this is not a sandbox**.
 The workspace launcher stores state in this project's `.state/work`; the installed
 launcher uses the separate user-data directory described above.
@@ -178,6 +212,11 @@ launcher uses the separate user-data directory described above.
   execute or approve anything. After reviewing completed/unfinished steps, explicitly ask
   the assistant to resume the chosen session. The real v2 runner's completed-step skip
   behavior is tested across reopening; unfinished steps can be retried and may have partial effects.
+- **Actions → Recovered work** inspects copied historical action evidence and bounded
+  public-message excerpts from child receipts retained during explicit recovery. Child
+  source identity/hash and uncertain status remain visible. Missing/oversized/corrupt
+  receipts are labelled unavailable; media/private module state is not restored. This
+  neither restarts interrupted children nor resumes crash-uncertain recipe steps.
 - **Actions → Search saved conversations** searches saved titles/IDs/directories and recent
   user/assistant message text, without opening sessions or calling a model. Previous/Next
   pages inspect 100 conversations each; partial scans are disclosed. Startup Resume uses
@@ -284,6 +323,13 @@ launcher uses the separate user-data directory described above.
   Binary diffs are summarized by Git. Changes during inspection are not an atomic
   snapshot; detected status/HEAD changes require refresh. External helpers and content
   filters are disabled, so comparisons can differ from your usual filtered Git output.
+  An unmerged regular UTF-8 file offers **Prepare conflict edit** (at most 64 KiB).
+  Capture does not write; edit the separate proposal, press Enter to review, then
+  explicitly **Apply exact proposal**. Original content is backed up under the current
+  conversation's private `review-backups` directory. Git's index stays unmerged until
+  you stage separately. Detected stale content/status, symlinks and hard-linked files
+  refuse replacement. Stop unrelated writers first: this is not an atomic transaction
+  with external applications. Rejected proposals remain copyable; no automatic retry.
   Additions/removals use distinct colours; **Browse hunks in this snapshot** navigates
   up to 100 observed hunks without another Git read. Copying a hunk preserves that snapshot,
   not the latest file contents, and is labelled as an excerpt rather than a complete patch.
@@ -440,7 +486,7 @@ provider-control save refuses resume; no fallback model or automatic repair is g
 Unacknowledged dialog text remains accessible after a disconnect: the dialog shows
 **F2 copy text / Esc close**. Copy depends on terminal OSC52 support; closing does not
 retry the uncertain request or overwrite the main draft. Answer/correction text saved before
-disconnect remains in Saved local drafts; other dialog kinds are not crash-durable.
+disconnect remains in Saved local drafts, including supported dialog-editor copies.
 Draft text autosaves after a 250 ms input pause and flushes on normal quit; sudden process
 death can lose the most recent unsaved edits. Cursor/selection retention across history
 navigation is in-memory; only text is restored across process exit. Store directories are

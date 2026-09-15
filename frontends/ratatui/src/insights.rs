@@ -127,13 +127,23 @@ impl App {
         self.insights.file_request = None;
         if let Some(error) = value["error"].as_str() {
             self.ui.menu = None;
-            self.status = format!("Image not attached: {}", safe(error));
+            self.status = format!("Attachment not added: {}", safe(error));
             return;
         }
+        let reference = value["media_type"] == "text/plain";
         self.menu(
-            "Image snapshot · confirm attachment",
+            if reference {
+                "File reference · confirm attachment"
+            } else {
+                "Image snapshot · confirm attachment"
+            },
             vec![Choice {
-                label: "Add captured image to draft (up to four)".into(),
+                label: if reference {
+                    "Add captured reference to draft (up to four attachments)"
+                } else {
+                    "Add captured image to draft (up to four)"
+                }
+                .into(),
                 action: Action::ImageSelect(string(&value, "id")),
                 detail: String::new(),
             }],
@@ -146,36 +156,59 @@ impl App {
             string(&value, "sha256")
         );
         self.ui.menu.as_mut().unwrap().image = value.get("thumbnail").cloned();
+        if reference {
+            self.ui.menu.as_mut().unwrap().detail = format!(
+                "{}:{}-{} · {} bytes\nSource SHA-256: {}\nExcerpt SHA-256: {}\nCaptured source data; Send or Queue shares this version, never a later file reread. Escape leaves attachments unchanged.\n\n{}",
+                safe(&string(&value, "path")),
+                value["start_line"],
+                value["end_line"],
+                value["bytes"],
+                string(&value, "source_sha256"),
+                string(&value, "sha256"),
+                safe(&string(&value, "preview_text"))
+            );
+        }
     }
 
     pub fn image_draft_menu(&mut self) {
         let Some(image) = self.insights.image.clone() else {
-            self.status = "No image attached".into();
+            self.status = "No attachment".into();
             return;
         };
         self.menu(
-            "Image draft · inspect before removing",
+            "Attachment draft · inspect before removing",
             vec![Choice {
-                label: "Remove image reference (never undo or retry)".into(),
+                label: "Remove attachment set (never undo or retry)".into(),
                 action: Action::ImageRemove(string(&image, "id")),
                 detail: String::new(),
             }],
         );
         self.ui.menu.as_mut().unwrap().detail = format!(
-            "{}\nState: {}\nSHA-256: {}\nDispatched means admission was recorded, not proof the provider saw it. A dispatched image never becomes an unsent attachment after restart.",
-            safe(&string(&image, "path")),
+            "{}\nState: {}\nSHA-256: {}\nDispatched means admission was recorded, not proof the provider saw it. A dispatched attachment never becomes unsent after restart.",
+            attachment_location(&image),
             string(&image, "state"),
             string(&image, "sha256")
         );
+        if image["source_sha256"].is_string() {
+            self.ui.menu.as_mut().unwrap().detail.push_str(&format!(
+                "\nSource SHA-256: {}",
+                string(&image, "source_sha256")
+            ));
+        }
         if image["state"] == "attached" {
             for item in image["images"].as_array().unwrap_or(&vec![]) {
                 self.ui.menu.as_mut().unwrap().choices.push(Choice {
-                    label: format!("Remove {}", safe(&string(item, "path"))),
+                    label: format!("Remove {}", attachment_location(item)),
                     action: Action::ImageRemoveItem(string(&image, "id"), string(item, "id")),
                     detail: format!(
-                        "{} bytes · SHA-256 {}",
+                        "{} bytes · SHA-256 {}{}",
                         item["bytes"],
-                        string(item, "sha256")
+                        string(item, "sha256"),
+                        if item["source_sha256"].is_string() {
+                            format!("\nSource SHA-256: {}", string(item, "source_sha256"))
+                        } else {
+                            String::new()
+                        }
                     ),
                 });
             }
@@ -321,8 +354,10 @@ impl App {
                 "children" => "Delegated work · scoped child observations",
                 "context" => "Context intelligence · observed diagnostics",
                 "stored_context" => "Stored context · module snapshot, not wire request",
+                "wire_request" => "Provider request · memory-only projection",
                 "instructions" => "Instruction sources · last observed resolution",
                 "recipes" => "Recipe activity · observed tool calls",
+                "recovery" => "Recovered work · historical, never resumed",
                 _ => "Activity evidence · identified runtime observations",
             },
             choices,
@@ -334,6 +369,14 @@ impl App {
             value["partial"],
             value["storage_policy"]
         );
+        if category == "wire_request" {
+            self.ui.menu.as_mut().unwrap().detail = format!(
+                "{}\n{}\nProjection limited: {}",
+                string(&value, "scope"),
+                string(&value, "context_note"),
+                value["partial"]
+            );
+        }
         if let Some((query, id, scroll)) = prior {
             let menu = self.ui.menu.as_mut().unwrap();
             menu.query = query;
@@ -421,7 +464,14 @@ impl App {
                 "correction",
             )
         } else {
-            return;
+            (
+                format!(
+                    "dialog:{}:{}",
+                    prompt.kind,
+                    prompt.identity.as_deref().unwrap_or("local")
+                ),
+                "dialog",
+            )
         };
         let text = prompt.editor.lines().join("\n");
         self.retain_text(id, kind, text);
@@ -469,7 +519,7 @@ impl App {
             choices,
         );
         self.ui.menu.as_mut().unwrap().detail = format!(
-            "Answers, corrections and startup-conflict drafts retain their original scope. Open to copy or remove; nothing is resumed or retargeted. Up to 32 drafts / 2 MiB; autosave after a 250 ms pause. {}",
+            "Answers, corrections, dialog editors and startup-conflict drafts retain their original scope. Open to copy or remove; nothing is resumed or retargeted. Up to 32 drafts / 2 MiB; autosave after a 250 ms pause. Unflushed keystrokes are not crash-durable. {}",
             self.insights.error
         );
     }
@@ -499,9 +549,32 @@ impl App {
     }
 }
 
+pub fn attachment_location(value: &Value) -> String {
+    let path = safe(&string(value, "path"));
+    if value["media_type"] == "text/plain" {
+        format!("{path}:{}-{}", value["start_line"], value["end_line"])
+    } else {
+        path
+    }
+}
+
 #[cfg(test)]
 mod thumbnail_tests {
     use super::*;
+    #[test]
+    fn reference_location_disambiguates_same_file_ranges() {
+        let first =
+            json!({"path":"src/界.rs", "media_type":"text/plain", "start_line":7, "end_line":9});
+        let mut second = first.clone();
+        second["start_line"] = json!(12);
+        second["end_line"] = json!(12);
+        assert_eq!(attachment_location(&first), "src/界.rs:7-9");
+        assert_eq!(attachment_location(&second), "src/界.rs:12-12");
+        assert_eq!(
+            attachment_location(&json!({"path":"image.png", "media_type":"image/png"})),
+            "image.png"
+        );
+    }
     #[test]
     fn bounded_thumbnail_rejects_invalid_channels_and_respects_width() {
         let value =

@@ -137,6 +137,44 @@ impl App {
         if v["error"].is_string() {
             self.menu("Workspace changes · unavailable", vec![refresh]);
             self.ui.menu.as_mut().unwrap().detail = safe(&string(v, "error"));
+            if let Some(proposal) = self.flow.conflict.as_ref() {
+                self.ui.menu.as_mut().unwrap().choices.push(Choice {
+                    label: "Copy retained conflict proposal · no retry".into(),
+                    action: Action::CopyText(string(proposal, "text")),
+                    detail: "A failed or uncertain write is never automatically retried.".into(),
+                });
+            }
+        } else if v["type"] == "workspace_edit_prepare" {
+            self.menu(
+                "Conflict file · original captured, nothing changed",
+                vec![Choice {
+                    label: "Edit captured conflict proposal".into(),
+                    action: Action::WorkspaceEdit(Arc::new(v.clone())),
+                    detail:
+                        "Alt+Enter inserts a newline; Enter reviews, not writes. Escape cancels."
+                            .into(),
+                }],
+            );
+            self.ui.menu.as_mut().unwrap().detail = format!(
+                "Path: {}\nSHA-256: {}\n{}\n\n{}",
+                safe(&string(v, "path")),
+                string(v, "sha256"),
+                safe(&string(v, "notice")),
+                safe(&string(v, "text"))
+            );
+        } else if v["type"] == "workspace_edit_apply" {
+            self.flow.conflict = None;
+            self.menu(
+                "Conflict file · replacement completed, index unchanged",
+                vec![refresh],
+            );
+            self.ui.menu.as_mut().unwrap().detail = format!(
+                "{}\nPath: {}\nSHA-256: {}\nPrivate original backup: {}",
+                safe(&string(v, "text")),
+                safe(&string(v, "path")),
+                string(v, "sha256"),
+                safe(&string(v, "backup"))
+            );
         } else if v["type"] == "workspace_changes" {
             let mut choices = vec![refresh];
             choices.extend(v["rows"].as_array().into_iter().flatten().map(|r| Choice {
@@ -250,6 +288,15 @@ impl App {
         );
         self.ui.menu.as_mut().unwrap().detail = body;
         self.ui.menu.as_mut().unwrap().diff = true;
+        if v["scope"] == "conflict" {
+            self.ui.menu.as_mut().unwrap().choices.push(Choice {
+                label: "Prepare conflict edit · capture only, no write".into(),
+                action: Action::WorkspaceEditPrepare(string(v, "id"), string(v, "token")),
+                detail:
+                    "Idle only. Edit and confirm separately; detected stale versions refuse Apply."
+                        .into(),
+            });
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 import json
 import stat
+from pathlib import Path
 
 from test_input_history import journal
 
@@ -85,6 +86,82 @@ def test_unicode_and_query_syntax_are_literal(tmp_path):
     for query in ("é", "ÉTÉ", "STRASSE", '"quoted"', '" OR'):
         assert identity in search(tmp_path, catalog(tmp_path), query)[0]
     assert not search(tmp_path, catalog(tmp_path), "missing OR Straße")[0]
+
+
+def test_unicode_excerpt_maps_casefold_expansion_back_to_source(tmp_path):
+    identity = "a" * 32
+    journal(tmp_path, tmp_path, identity, ["ß" * 1000 + "visible needle"], 1)
+    assert "visible needle" in search(tmp_path, catalog(tmp_path), "needle")[0][identity]
+
+
+def test_out_of_range_metadata_is_partial_not_a_search_failure(tmp_path):
+    identity = "a" * 32
+    path = journal(tmp_path, tmp_path, identity, ["valid needle"], 1)
+    append(path, identity, "invalid sequence needle", 2**100)
+    with (path / "events.jsonl").open("a") as stream:
+        stream.write(
+            json.dumps(
+                {
+                    "session_id": identity,
+                    "sequence": 3,
+                    "timestamp_ns": 2**100,
+                    "kind": "text.final",
+                    "payload": {"text": "timestamp needle"},
+                }
+            )
+            + "\n"
+        )
+    original = (path / "events.jsonl").read_bytes()
+    matches, partial = search(tmp_path, catalog(tmp_path), "needle")
+    assert identity in matches and partial
+    assert (path / "events.jsonl").read_bytes() == original
+    db = open_index(tmp_path)
+    try:
+        texts = [row[0] for row in db.execute("SELECT text FROM messages")]
+        assert "invalid sequence needle" not in texts and "timestamp needle" in texts
+    finally:
+        db.close()
+
+
+def test_refresh_budget_counts_fingerprint_reads(tmp_path, monkeypatch):
+    entries = []
+    for number in range(8):
+        identity = f"{number:032x}"
+        journal(tmp_path, tmp_path, identity, ["large first record " + "x" * 10000], 1)
+        entries.append({"id": identity})
+    original_open = Path.open
+    consumed = 0
+
+    class Counted:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.stream.close()
+
+        def __getattr__(self, name):
+            return getattr(self.stream, name)
+
+        def readline(self, limit=-1):
+            nonlocal consumed
+            value = self.stream.readline(limit)
+            consumed += len(value)
+            return value
+
+    def counted(path, *args, **kwargs):
+        stream = original_open(path, *args, **kwargs)
+        return Counted(stream) if path.name == "events.jsonl" else stream
+
+    monkeypatch.setattr(Path, "open", counted)
+    db = open_index(tmp_path)
+    try:
+        assert refresh(db, tmp_path, entries, budget=20000)
+        assert consumed <= 20000
+    finally:
+        db.close()
 
 
 def test_search_filters_before_paging_and_reads_old_messages(tmp_path):

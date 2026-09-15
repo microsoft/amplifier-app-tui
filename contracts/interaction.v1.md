@@ -33,7 +33,7 @@ This describes the destination, not a claim that every interaction is implemente
    Affected: people writing corrections while tools and decisions arrive.
 
 3. **Preserve rich input intent.** Up/Down recall history only at editor line boundaries and restore the draft on return; supported references retain meaning, and text recall never invents missing attachments.
-   Recall includes same-directory submissions without importing model context. Explicit file/image snapshots disclose path/digest before attachment or insertion; media admission requires a compatible provider and immutable bytes, never a path reread or silent text conversion. External editing returns to an unsent draft and preserves it on failure.
+   Recall includes same-directory submissions without importing model context. Explicit snapshots disclose path, selected line range and digest before attachment or insertion; reference text retains source identity through queue/resume, while images require compatible providers. Captured bytes never become a path reread or silent conversion. External editing returns to an unsent draft and preserves it on failure.
    Broken: A draft submits corrupted references or missing queued attachments; timestamps recall out of order, legacy ordering is undisclosed, or clipboard acquisition implicitly submits.
    Affected: people assembling and recalling instructions; durable retention belongs to continuity.v1.
 
@@ -80,6 +80,7 @@ Which CLI discovery and provider-selection policies should be adopted for ordina
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Specify P3's file/location reference identity across queue and resume. | Steward authorized the remaining backlog; plain insertion loses location semantics and image-only admission unnecessarily requires vision. |
 | 2026-09-14 | Extend P3 to chronological recall and durable attachment/reference sets. | Steward authorized the entire remaining backlog; current recall groups sessions by activity and image admission supports one idle-only file. |
 | 2026-09-14 | Extend P3 to capability-backed immutable image input. | Steward requested the full backlog; string-only submission cannot carry image bytes, while the public context/provider formats support image blocks. |
 | 2026-09-14 | Extend P1 to paged saved-work discovery and source content search. | Steward authorized all reviewed backlog items; title-only filtering of the first 100 records cannot locate older work. |

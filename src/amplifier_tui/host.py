@@ -302,10 +302,11 @@ class SessionHost:
             )
         image = None
         try:
-            if (image_id or queued_image) and not self.supports_images():
+            value = queued_image or (self.images.value if self.images and image_id else None)
+            if (image_id or queued_image) and not self.supports_attachments(value):
                 return (
                     False,
-                    "Mounted provider/context does not advertise image input; draft retained",
+                    "Mounted provider/context does not support these attachments; draft retained",
                 )
             if queued_image:
                 from .file_input import ImageDraft
@@ -343,10 +344,19 @@ class SessionHost:
             self.emit(
                 "display.message",
                 f"{self.turn_id}:image",
-                text=f"Image snapshot: {image['path']} · {image['bytes']} bytes · SHA-256 {image['sha256']}",
+                text=f"Attachment snapshot: {image['path']} · {image['bytes']} bytes · SHA-256 {image['sha256']}",
             )
         self.task = asyncio.create_task(self._execute(text, image))
         return True, self.turn_id
+
+    def supports_attachments(self, value):
+        from .file_input import ImageDraft
+
+        if not self.session or not callable(
+            getattr(self.session.coordinator.get("context"), "add_message", None)
+        ):
+            return False
+        return not ImageDraft.needs_vision(value) or self.supports_images()
 
     def supports_images(self):
         if not self.session:
@@ -371,28 +381,12 @@ class SessionHost:
             if self._stop_requested:
                 raise asyncio.CancelledError
             if image:
-                content = []
-                for item in image.get("images", [image]):
-                    content.extend(
-                        [
-                            {
-                                "type": "text",
-                                "text": f"Explicit image snapshot: {item['path']} · SHA-256 {item['sha256']}",
-                            },
-                            {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": item["media_type"],
-                                    "data": item["data"],
-                                },
-                            },
-                        ]
-                    )
+                from .file_input import ImageDraft
+
                 await self.session.coordinator.get("context").add_message(
                     {
                         "role": "user",
-                        "content": content,
+                        "content": ImageDraft.content(image),
                     }
                 )
             reply = await self.session.execute(text)
@@ -486,6 +480,7 @@ class SessionHost:
             return HookResult()
         block_id = str(data.get("block_index", data.get("block_id", "0")))
         if event == "llm:request":
+            self.inspection.capture_request(data, self, f"{self.turn_id}:wire:{self.sequence + 1}")
             # Observe the provider's actual dispatch event, not orchestrator intent.
             # Raw wire payloads can contain secrets/images and are never copied here.
             fields = (
@@ -803,6 +798,7 @@ class RuntimeBridge:
             if request.get("session_id") != self.host.session_id:
                 return False, "Inspection belongs to another conversation"
             if request.get("category") not in (
+                "recovery",
                 "children",
                 "context",
                 "instructions",

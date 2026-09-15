@@ -1,6 +1,6 @@
 [project]
 name = "amplifier-app-tui"
-version = "0.3.0rc2"
+version = "0.3.0rc3"
 description = "A modular terminal host for Amplifier"
 readme = "README.md"
 requires-python = ">=3.11"

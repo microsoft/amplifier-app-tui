@@ -124,7 +124,20 @@ impl Chrome {
             .as_ref()
             .is_some_and(|image| image["state"] == "attached")
         {
-            choices.push(("[Image attached]".into(), Action::ImageDraft));
+            let media = app.insights.image.as_ref().unwrap();
+            let references = media["media_type"] == "text/plain"
+                || media["images"].as_array().is_some_and(|items| {
+                    items.iter().any(|item| item["media_type"] == "text/plain")
+                });
+            choices.push((
+                if references {
+                    "[References attached]"
+                } else {
+                    "[Image attached]"
+                }
+                .into(),
+                Action::ImageDraft,
+            ));
         }
         let mut buttons = Vec::new();
         let (mut x, mut y) = (0, 0);

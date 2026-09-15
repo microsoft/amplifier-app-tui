@@ -1,5 +1,41 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Confirmed local review and child finalization
+
+Git inspection remains read-only. An explicitly selected unmerged path can separately
+capture a regular UTF-8 proposal of at most 64 KiB. Only confirmed Apply writes, while
+the root is idle and its queue held. The host rechecks status and source digest, walks
+descriptor-relative without symlinks, refuses hard links, backs up original bytes, then
+rechecks inode/metadata before replacing through a same-directory temporary file. Index
+and HEAD are untouched. The proposal is consumed before replacement: ambiguous fsync or
+transport outcomes cannot authorize an automatic retry. Unrelated applications do not
+share a lock, so this detects stale versions but is not an external-writer CAS guarantee.
+Backups describe attempted replacement, not certified success; the operation result
+separately reports observed completion. Opening/editing the proposal never sends context.
+
+Child finalization now has one shielded owner for public-context capture, cleanup and
+durable receipt. Repeated caller cancellation is reported after that owner drains, with
+interrupted rather than completed continuation state. This is independent of the
+Rust/Python coroutine scheduling warning: third-party callbacks remain unchanged.
+Explicit historical recovery also copies bounded public child-message excerpts and
+source hashes into the recovery evidence, not executable children or canonical history.
+Its inspection is copy-only; arbitrary private state and unfinished recipe effects stay
+unknown. Static GIF/WebP keeps original bytes with explicit animation refusal; macOS
+clipboard acquisition requests PNG data only, without implicit TIFF conversion.
+
+## Next input slice: semantic references
+
+References use explicit workspace-relative `path:line` / `path:start-end` selection,
+capturing a regular UTF-8 file once with no symlink traversal. Confirmation discloses
+the path, one-based inclusive range, full-source digest and selected-content digest.
+They share the existing once-only attachment admission record with images, so a mixed
+set has one identity and one durable claim, not two partially consumed drafts. Existing
+`image`/`images` storage and transport keys remain backward compatible; entries declare
+their media type. Public metadata omits original bytes. References use public text
+context blocks with explicit provenance; only actual image entries require vision.
+No code is executed and no path is reread at Send, queue dispatch or resume. Text recall
+does not attach references. Four combined attachments and existing storage budgets apply.
+
 ## Indexed discovery, media and reference migration
 
 Search uses a derived 0600 SQLite trigram cache, not rewritten journals. Incremental
@@ -19,7 +55,14 @@ only available Wayland/wl-paste or X11/xclip. No inferred SSH clipboard access o
 
 Stored-context inspection reads public messages while idle, with bounded excerpts and
 image bytes omitted. Provider llm:request summaries are separate dispatch observations;
-raw wire payloads are never copied by the observer. Neither proves exact future context.
+raw wire payloads never enter the host's journal through this observer. An explicit
+one-shot diagnostic can retain a bounded, in-memory projection of the next root
+`llm:request.raw` if the selected provider exposes it. It never enables provider raw
+logging, rebuilds context or calls a model. Missing payloads remain unavailable; headers,
+media bytes, unknown top-level fields and oversize content are omitted. Provider-side
+redaction and projection mean this is not exact network serialization, delivery proof,
+future context, or an occupancy meter. Explicit clear, re-arm and reopening discard it.
+Module-authored logging policy is independent and may already persist that source event.
 Standalone confirmed provider probes pause the queue and cannot become transcript turns.
 Text import creates a new composition with a hashed historical reference, not executable
 tool messages or module-private state. Recovery also retains a typed source-event ledger.
@@ -38,6 +81,15 @@ dump; doctor remains a separate path-bearing private diagnostic. Neither reads t
 Native Help is client-local text, preserving the composer and requiring no host operation.
 
 ## Installed product and overload ownership
+
+Native control writes use eight queued records plus one in flight, at most one MiB each;
+the UI never waits for a host to drain its pipe. Queue failure disconnects without
+retry and leaves unacknowledged intent uncertain. The native client owns a separate
+Unix process group for its host. Exit requests cooperative shutdown, then terminates
+that group after three seconds and reports forced termination after restoring the
+terminal, allowing up to 500 ms to confirm direct-child reaping; missing confirmation
+is explicit rather than another unlimited wait. This covers inherited-group descendants, not detached groups or remote
+effects, and does not certify module cleanup or fix callback cancellation warnings.
 
 The installed entrypoint launches the packaged Ratatui binary with the same Python bridge.
 Hatch compiles locked Cargo sources at wheel-build time and assigns a platform tag; it
@@ -75,18 +127,20 @@ not a full request reconstruction. Advisory model discovery runs only after an e
 UI confirmation through public mounted `list_models`; copy does not select. Provider
 exceptions disclose only their type, not possibly credential-bearing exception messages.
 
-Source search scans 100 conversations/page, up to 1 MiB per journal and 16 MiB per page;
-metadata discovery still enumerates the local catalog (64 KiB maximum per metadata file).
-It is not an indexed large-store database. Oversized canonical checkpoints are validated
-on opening, not fully loaded for menu discovery. Matches are excerpts with event sequence,
-never imported context. Startup picker pagination remains title/ID/directory filtering
-within a page; cross-conversation message-content search lives in the running native app.
+Saved-message discovery now uses the incremental private index described above; the
+earlier tail scan is superseded. Metadata discovery still enumerates the local catalog
+(64 KiB maximum per metadata file). Oversized canonical checkpoints are validated on
+opening, not fully loaded for menu discovery. Matches are excerpts with event sequence,
+never imported context. Both startup and in-app pickers can search indexed content;
+record limits and unfinished refreshes remain disclosed partial results.
 
 `local_drafts` stores private atomic/fsynced editor copies outside canonical context/admission.
 Original conversation/request scopes survive explicit historical recovery, but carry no
 delivery authority. Corrupt records are retained and reported, never overwritten as empty.
 The client autosaves after a 250 ms pause and before leaving the editor; recent unflushed
-input is not crash-durable. Answer/correction copies can outlive their submitted request.
+input is not crash-durable. Answer/correction and other dialog copies can outlive their
+submitted request. Queue-edit copies retain the original queue identity; search, rename
+and file-selector copies retain their dialog kind. Recovery is copy-only, never activation.
 
 Completed child continuation is lazy and explicit through the public resume capability.
 It validates the saved parent/root fingerprint, completed status, inherited mode and recreated

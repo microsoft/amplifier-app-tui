@@ -1,5 +1,136 @@
 # First vertical slice — acceptance evidence
 
+## Confirmed review, historical children and release breadth (2026-09-15)
+
+This continuation follows the existing DRAFT promises (presentation P7, continuity
+P5, session P8 and ecosystem P2/P6); it does not redefine the destination to claim
+that all residual work is complete. The candidate version is 0.3.0rc3. Prior published
+0.3.0rc2 artifacts and user-owned local notes are preserved.
+
+- Conflict-file capture, a separate editable proposal and explicit Apply now work in
+  the native Review path. Tests use actual unmerged Git indexes. Capture/editing adds
+  no provider turn or workspace write; Apply retains an original private backup,
+  refuses detected stale/symlink/hard-link targets, and leaves index/HEAD unchanged.
+  A backup-failure gate and a write injected after backup preserve the newer source.
+  The native capture was inspected; proposal text must be visible before confirmation.
+  This is not a transaction with unrelated external writers, a staging action, an
+  automatic conflict solver or attribution of other workspace changes.
+- Child public-context capture, cleanup and final receipt now have one shielded
+  finalization owner. Repeated cancellation during context capture and cleanup drains
+  once and retains an interrupted receipt. This does not certify arbitrary module
+  cleanup or fix the separate Rust/Python coroutine scheduling warning.
+- Explicit historical recovery copies bounded child public-message excerpts and
+  source hashes into read-only recovery evidence. The native Recovered work action
+  inspects it alongside historical actions; no children, recipes or private state are
+  restarted. A real interrupted fixture child retains its original bytes and causes
+  zero operations when the recovered root opens. Foreign/symlink/oversized receipts
+  remain unavailable, not guessed valid. Media blocks are omitted from excerpts.
+- Static GIF/WebP attachment capture preserves original bytes through storage/public
+  context blocks; animated GIF/WebP refuses without conversion. The macOS clipboard
+  adapter explicitly requests PNG data; its local parser test is not real desktop proof.
+- The release workflow requests an installed PTY fixture gate on each platform:
+  ordinary editing/Help, actual tool execution, clean exit, no-replay resume and a
+  second turn. Configuration alone does not make an unrun platform pass.
+
+Integrated verification: **439 Python tests passed in 207.34 seconds**, with presets,
+native clients and independent swaps enabled. **34 Rust tests**, all-target Clippy,
+formatting and Ruff pass. Three unawaited callback warnings remain (two module handler,
+one child observer) in real-preset child-question cancellation tests. No warning filter,
+kernel patch or synchronous event-order workaround was introduced. Structure remains
+584 contract lines / 49 production source files; no formal Converge verdict is implied.
+
+Both real presets pass the [static GIF](evidence/readiness-gif-live.json) and
+[static WebP](evidence/readiness-webp-live.json) native gates: controlled colours,
+exact canonical source bytes, one completed turn each, zero tools and no extra turn
+from source/model-catalog inspection. The [live lifecycle receipt](evidence/readiness-lifecycle-live.json)
+repeats completed read/resume without replay and Stop/exit during a child question;
+each preset retains one interrupted child/parent, no invented answer and uncertain checkpoint.
+These runs billed eight root and two child turns in total. Private native captures were
+inspected; they are not publication artifacts.
+
+The [renderer receipt](evidence/readiness-renderer-benchmark.json) covers the 18-cell
+scene matrix and clean exits, plus 240 syntax-stress edits. Ratatui's worst cell edit
+p95 is 21.1 ms and stream-update p95 24.1 ms; syntax edit p95 is 21.2 ms. First usable
+scene paint across 30 launches has median 40.9 / p95 59.1 ms. This is synthetic renderer
+work, not live startup, history-catalog I/O, policy-equivalent CLI latency or a final
+frontend-selection verdict. Rust's NO_COLOR run and all three OpenTUI tests also pass.
+
+The [local Linux ARM64 wheel](evidence/readiness-local-wheel.json) passes compiler-free
+isolated installation, native-byte/load checks, offline diagnostics, and the new
+installed PTY fixture gate outside the checkout. Help adds no submission; tool execution,
+no-replay resume, second turn and terminal restoration pass. Every wheel member passes
+the deterministic privacy scan. This is not yet the four-platform published release or
+installed live-provider evidence. New-version platform evidence follows its actual jobs.
+Exact interrupted/private-state reconstruction, crash-uncertain recipe effects,
+causal agent/test attribution, character-exact resize anchors, broad provider conversion,
+matched-policy CLI latency and real desktop/older Linux coverage remain open.
+
+## Continuation: references, diagnostics and transport ownership (2026-09-14)
+
+This is ongoing checkout work, not a replacement of the published 0.3.0rc2 assets or
+a claim that every remaining backlog group is complete. Direction was amended before
+implementation; contracts remain DRAFT and production source count remains 49/50.
+
+- Explicit file/line reference attachments preserve full-source and excerpt hashes,
+  original location and immutable bytes through queue/reopen, sharing one admission
+  record with images. Text-only providers do not need vision; mixed sets still do.
+- Other local dialog editors now retain source-scoped copies. They never restore into
+  a potentially changed target or become submitted context. The 250 ms flush window remains.
+- Native host writes move off the UI thread into a bounded queue. Exit owns the host's
+  Unix process group, permits three seconds for cooperative shutdown and up to 500 ms
+  for direct-child reaping confirmation, then reports uncertainty. A deliberately
+  non-reading transport fixture cannot trap the terminal; its inherited descendant is
+  no longer running. Detached/remote effects and kernel callback warnings remain open.
+- Explicit one-shot diagnostics project provider-reported request fields in memory,
+  without enabling logging, building context, adding a provider call or copying raw
+  payloads into the host journal. Content can be private; provider redaction, omitted
+  fields and bounds mean this is not exact wire serialization, occupancy or delivery proof.
+- Index prefix reads now count toward the I/O budget; malformed large integer metadata
+  produces partial results instead of breaking search, and Unicode casefold expansion
+  no longer shifts a matched excerpt past its source text.
+
+Eight native continuation regressions pass. Both real presets pass the
+[controlled-reference live gate](evidence/continuation-live.json): delete source after
+capture, queue/close/reopen with no implicit execution, explicitly Run, verify exact
+canonical location/bytes and the controlled reply, then inspect a provider-reported
+request without an extra turn. Actual private reference and diagnostic captures are
+retained locally; reference confirmation and the provider-request menu were visually
+inspected. The final all-flags suite passed **422 Python tests in 192.93 seconds**, with
+one unawaited `Children.execute.<locals>.observe` callback warning during child cancellation.
+The first 422-case run passed with three callback warnings. They remain open, not suppressed.
+**34 Rust tests** pass normally and with NO_COLOR, all-target Clippy/fmt pass, and the
+OpenTUI comparator's three tests pass. Ruff checks/formatting (137 files), direction
+structure (584 contract lines / 49 production files) and archive integrity pass.
+
+The [live lifecycle gate](evidence/continuation-lifecycle-live.json) passes both presets:
+completed read/resume without replay, then Stop/exit during a child question, one
+interrupted parent/child, no invented answer, uncertain checkpoint and restored terminal.
+The [updated index measurement](evidence/continuation-history-benchmark.json) uses
+200 synthetic sessions / 100,000 messages / 61.6 MB of journals: four refreshes totaling
+2045.9 ms, largest call 560.2 ms, warm search median 17.3 / p95 22.6 ms. Journals stay
+unchanged. This excludes catalog/UI/provider/CLI work and is not a parity claim.
+
+A local unpublished Linux ARM64 wheel and source distribution build successfully;
+all 39 wheel and 63 source members pass privacy scans. Isolated wheel installation,
+exact embedded-native byte/load checks, doctor and offline help pass with no checkout
+source imports; diagnostic/native-load checks run with Cargo absent and create no state.
+This is not another four-platform release or an installed-live certification. Existing
+0.3.0rc2 assets remain untouched; the development command still loads the checkout.
+
+The convention-required fresh-context privacy review found no required redactions in
+the source delta, owned new tests/probe, three receipts and exact local package artifacts.
+Private captures, user-owned notes and unrelated local state remain excluded from publication.
+
+README/PLAN/PARITY now distinguish delivered reference, image, indexing, provider and
+delegation slices from their real residuals. Interrupted/private/subprocess recovery,
+causal change/test review and conflict editing, exact request/occupancy and broader provider
+conversion, kernel callback cancellation, matched CLI policy and broader interactive
+platform evidence are **not complete**. Non-Linux clipboard support and character-exact
+resize anchors also remain open.
+
+Historical delivery records below describe the version they verified, not today's
+remaining backlog. The current [workflow map](PARITY.md) owns that gap summary.
+
 ## Rich inputs, discovery and explicit context controls (2026-09-14)
 
 The current eight-group authorization drives this slice; it does not close all eight

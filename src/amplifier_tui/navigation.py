@@ -136,6 +136,7 @@ class WorkspaceBridge(RuntimeBridge):
         self.followups = None
         self.review_task = None
         self.review = None
+        self.review_mutating = False
         self.history_loading = True
         self.history_state = None
         self.transport_emit = self.emit
@@ -200,6 +201,8 @@ class WorkspaceBridge(RuntimeBridge):
         if self.switch_task and not self.switch_task.done():
             return False, "Opening conversation; editing is paused, source draft saved"
         op = request.get("op")
+        if self.review_mutating and op not in ("draft", "editor_draft", "stop"):
+            return False, "Conflict review operation is in progress; draft retained"
         if self.host.validation_active and op == "stop":
             if self.lookup_task:
                 self.lookup_task.cancel()
@@ -228,6 +231,34 @@ class WorkspaceBridge(RuntimeBridge):
             return True, "Standalone provider probe; no conversation or workspace content sent"
         if self.history_loading and op in ("submit", "queue", "queue_run", "switch"):
             return False, "Loading directory history; draft retained, send when ready"
+        if op in ("request_capture", "request_clear") or (
+            op == "inspect" and request.get("category") == "wire_request"
+        ):
+            if identity != self.host.session_id:
+                return False, "Request diagnostics require the current conversation"
+            if op == "request_capture":
+                if request.get("confirm_private_context") is not True:
+                    return False, "Confirm private context may be retained in memory and displayed"
+                self.host.inspection.request_preview = None
+                self.host.inspection.capture_next = True
+                return (
+                    True,
+                    "One-shot request diagnostic armed; Send explicitly; provider exposure required",
+                )
+            if op == "request_clear":
+                self.host.inspection.request_preview = None
+                self.host.inspection.capture_next = False
+                return True, "Request capture cleared and disarmed; module logs unchanged"
+            self.emit(
+                {
+                    "type": "inspection",
+                    "session_id": identity,
+                    "request_id": request.get("request_id"),
+                    "category": "wire_request",
+                    **self.host.inspection.request_catalog(),
+                }
+            )
+            return True, "Inspecting memory-only provider observation; no model request"
         if op == "inspect" and request.get("category") == "stored_context":
             if (
                 identity != self.host.session_id
@@ -270,20 +301,32 @@ class WorkspaceBridge(RuntimeBridge):
                 }
             )
             return True, f"Exported to {path}"
-        if op in ("file_snapshot", "image_snapshot", "clipboard_image"):
+        if op in ("file_snapshot", "image_snapshot", "clipboard_image", "reference_snapshot"):
             if identity != self.host.session_id:
                 return False, "File input requires the current conversation identity"
             if self.lookup_task and not self.lookup_task.done():
                 return False, "Local lookup is still running"
             self.lookup_task = asyncio.create_task(self.file_snapshot(request))
             return True, "Reading the explicitly selected local file; nothing submitted"
-        if op in ("workspace_changes", "workspace_diff"):
+        if op in (
+            "workspace_changes",
+            "workspace_diff",
+            "workspace_edit_prepare",
+            "workspace_edit_apply",
+        ):
             if identity != self.host.session_id:
                 return False, "Workspace review requires the current conversation identity"
             if self.review_task and not self.review_task.done():
                 return False, "Workspace review is still reading; try again"
+            if op in ("workspace_edit_prepare", "workspace_edit_apply"):
+                if not self.host.ready or (self.host.task and not self.host.task.done()):
+                    return False, "Conflict editing requires an idle ready conversation"
+                if op == "workspace_edit_apply" and request.get("confirm_write") is not True:
+                    return False, "Confirm the exact proposed file replacement before Apply"
+                self.followups.hold()
+                self.review_mutating = True
             self.review_task = asyncio.create_task(self.workspace_review(request))
-            return True, "Reading local Git state; no model or tool execution"
+            return True, "Workspace operation accepted; inspect its result for the actual outcome"
         if op in ("provider_select", "mode_select"):
             # Changing the provider is not permission to release waiting work.
             self.followups.hold()
@@ -429,14 +472,19 @@ class WorkspaceBridge(RuntimeBridge):
             )
 
     async def file_snapshot(self, request):
-        from .file_input import snapshot
+        from .file_input import reference_snapshot, snapshot
 
         identity = self.host.session_id
         image = request.get("op") in ("image_snapshot", "clipboard_image")
+        reference = request.get("op") == "reference_snapshot"
         try:
             if image and not self.host.supports_images():
                 raise ValueError("All mounted providers must advertise vision for image input")
-            if request.get("op") == "clipboard_image":
+            if reference:
+                if not self.host.supports_attachments(None):
+                    raise ValueError("Mounted context does not support file references")
+                result = await asyncio.to_thread(reference_snapshot, self.cwd, request.get("path"))
+            elif request.get("op") == "clipboard_image":
                 from .file_input import clipboard_image
 
                 result = await clipboard_image()
@@ -444,15 +492,21 @@ class WorkspaceBridge(RuntimeBridge):
                 result = await asyncio.to_thread(
                     snapshot, self.cwd, request.get("path"), image=image
                 )
-            if image and identity == self.host.session_id:
+            if (image or reference) and identity == self.host.session_id:
                 self.host.images.preview = result
                 result = {k: v for k, v in result.items() if k != "data"}
+                if reference:
+                    import base64
+
+                    result["preview_text"] = base64.b64decode(
+                        self.host.images.preview["data"]
+                    ).decode("utf-8")
         except (OSError, ValueError) as exc:
             result = {"error": str(exc)}
         if identity == self.host.session_id:
             self.emit(
                 {
-                    "type": "image_snapshot" if image else "file_snapshot",
+                    "type": "image_snapshot" if image or reference else "file_snapshot",
                     "session_id": identity,
                     "request_id": request.get("request_id"),
                     **result,
@@ -502,10 +556,24 @@ class WorkspaceBridge(RuntimeBridge):
                 value.update(await self.review.refresh())
             elif self.review is None:
                 raise ValueError("Refresh Workspace changes first")
+            elif request["op"] == "workspace_edit_prepare":
+                value.update(
+                    await self.review.prepare_edit(request.get("id"), request.get("token"))
+                )
+            elif request["op"] == "workspace_edit_apply":
+                value.update(
+                    await self.review.apply_edit(
+                        request.get("id"),
+                        request.get("text"),
+                        self.host.store.path / "review-backups",
+                    )
+                )
             else:
                 value.update(await self.review.diff(request.get("id"), request.get("token")))
         except (OSError, ValueError, TimeoutError) as exc:
             value["error"] = str(exc)
+        finally:
+            self.review_mutating = False
         if identity == self.host.session_id:
             self.emit(value)
 

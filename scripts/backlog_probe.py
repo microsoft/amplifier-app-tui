@@ -22,6 +22,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", required=True, action="store_true")
     parser.add_argument("--output", default="notes/evidence/backlog-live.json")
+    parser.add_argument("--format", choices=("png", "gif", "webp"), default="png")
     args = parser.parse_args()
     if not os.environ.get("ANTHROPIC_API_KEY"):
         parser.error("Supply ANTHROPIC_API_KEY explicitly; no credential migration")
@@ -29,8 +30,9 @@ def main():
     directory.mkdir(parents=True, mode=0o700)
     image = Image.new("RGB", (320, 160), "red")
     ImageDraw.Draw(image).rectangle((160, 0, 319, 159), fill="blue")
-    image.save(directory / "board.png")
-    raw = (directory / "board.png").read_bytes()
+    filename = f"board.{args.format}"
+    image.save(directory / filename)
+    raw = (directory / filename).read_bytes()
     results = []
     for preset in ("anchors", "anchors-amp-dev"):
         state = directory / preset
@@ -53,9 +55,9 @@ def main():
             record = resolve_resume(state, "latest")
             path = state / "conversations" / record["id"]
             action(probe, "Attach image", "Workspace-relative PNG/JPEG")
-            probe.send(b"board.png\r")
+            probe.send(filename.encode() + b"\r")
             probe.wait("Image snapshot · confirm attachment")
-            capture(probe, f"backlog-live-{preset}-attachment")
+            capture(probe, f"backlog-live-{args.format}-{preset}-attachment")
             probe.send(b"\r")
             probe.wait("[Image attached]")
             probe.send(
@@ -78,7 +80,8 @@ def main():
                 if block.get("type") == "image"
             )
             assert base64.b64decode(attached["source"]["data"]) == raw
-            capture(probe, f"backlog-live-{preset}-reply")
+            assert attached["source"]["media_type"] == f"image/{args.format}"
+            capture(probe, f"backlog-live-{args.format}-{preset}-reply")
             action(probe, "Instruction sources", "Instruction sources · last observed resolution")
             capture(probe, f"backlog-live-{preset}-instructions")
             probe.send(b"\x1b")
@@ -91,6 +94,7 @@ def main():
             results.append(
                 {
                     "preset": preset,
+                    "format": args.format,
                     "image_bytes_preserved": True,
                     "colours_identified": True,
                     "completed_turns": 1,
@@ -111,7 +115,7 @@ def main():
     (ROOT / args.output).write_text(
         json.dumps(
             {
-                "scope": "Two billed vision turns over both real presets. Controlled PNG input, no tools. Not a universal provider/model or image-format certification.",
+                "scope": f"Two billed vision turns over both real presets. Controlled static {args.format.upper()} input, no tools. Not a universal provider/model or image-format certification.",
                 "results": results,
                 "source_fingerprints": {
                     str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()

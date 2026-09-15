@@ -34,12 +34,13 @@ def test_portable_history_allows_only_internal_sequence_changes():
         assert portable_history(plain) != portable_history(changed)
 
 
-async def test_local_drafts_resume_and_recovery_never_enter_context(prepared, tmp_path):
+@pytest.mark.parametrize("kind", ["correction", "dialog"])
+async def test_local_drafts_resume_and_recovery_never_enter_context(prepared, tmp_path, kind):
     store = ConversationStore(tmp_path, {})
     host = SessionHost(store)
     await host.open(*prepared, tmp_path)
     original = await host.session.coordinator.get("context").get_messages()
-    draft = row(store)
+    draft = {**row(store), "kind": kind, "id": f"{kind}:original-target"}
     assert save(store, {"row": draft})[0]
     assert read(store.path) == [draft]
     assert (store.path / "editors.json").stat().st_mode & 0o777 == 0o600

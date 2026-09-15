@@ -1,0 +1,24 @@
+{
+  "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
+  "platform": "Linux",
+  "architecture": "aarch64",
+  "build_os_release": "24.04",
+  "version": "0.3.0rc3",
+  "wheel": "amplifier_app_tui-0.3.0rc3-py3-none-linux_aarch64.whl",
+  "wheel_sha256": "202dc7ab4deff2e325eaf57eca91594ddabd51f5e81f9c4d0057901807b380ab",
+  "native_sha256": "bc72674d40abdcd6a6ec56f326bd2ba32d0e731eefa297d434583527c9cc7b7c",
+  "cargo_available_during_install": false,
+  "doctor_passed": true,
+  "state_untouched": true,
+  "installed_native_bytes_match": true,
+  "installed_native_load_passed": true,
+  "artifact_privacy_scan_passed": true,
+  "terminal_fixture": {
+    "fixture_tool_round_trip": true,
+    "resume_without_submission": true,
+    "second_turn": true,
+    "help_preserves_draft_without_submission": true,
+    "terminal_modes_restored": true,
+    "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification"
+  }
+}

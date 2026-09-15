@@ -1,5 +1,26 @@
 # Verification guide
 
+September continuation gates: `test_conflict_review.py` uses real unmerged indexes to
+test capture versus Apply, original backups, unchanged index/mode, stale content,
+symlink/hard-link refusal, backup failure and a write injected after backup. Enable
+native candidates for the actual proposal/confirmation/composer path; inspect its
+capture and assert the proposed text is visible, not only the Apply label. External
+writers remain outside a transactional lock. Never retry an ambiguous replacement.
+`test_lifecycle.py` gates repeated child cancellation during context capture and cleanup;
+ownership survives until the interrupted receipt is saved. Callback warnings are a
+separate runtime seam, never suppressed by these tests. `test_recovery_inputs.py` covers
+real interrupted-child historical recovery, original receipt preservation, no execution,
+unavailable/foreign/oversized child evidence, static GIF/WebP bytes and animation refusal.
+The macOS PNG clipboard parser is simulated locally; do not label it desktop verification.
+Run `scripts/backlog_probe.py --live --format gif` and `--format webp` with distinct
+receipt paths after the integrated suite. Each bills two controlled, tool-free turns.
+
+`scripts/release_wheel.py --terminal` adds installed real-PTY fixture execution, Help
+without submission, clean termios restoration, resume without replay and a second turn.
+The observer requires pyte; run through `uv run --no-project --with pyte==0.8.2 python`.
+CI requests this gate on each wheel platform. An unrun/failed job is not coverage; this
+does not verify real desktops, tmux, clipboard acquisition or billed live providers.
+
 Read AGENTS.md, current contracts, notes/PLAN.md and notes/ACCEPTANCE.md when entering verification. Do not use live
 credentials in deterministic tests. Run from the project directory after README setup.
 
@@ -48,6 +69,35 @@ both SHELL-BEFORE and each transcript marker exactly once. Inspect private `comp
 captures alongside actual live-preset ready/completed views. Corrupt local recovery
 storage must prevent startup draft overwrite; `test_daily_replacement.py` verifies this.
 Run native PTY/tmux probes serially: they share manifest bookkeeping.
+
+Continuation gates: `tests/test_file_references.py` covers source hashes, inclusive LF
+line ranges, UTF-8/CRLF, no symlink traversal, deleted-source queue dispatch, text-only
+providers and atomic mixed-set admission. `tests/test_request_diagnostics.py` checks
+explicit one-shot consent, bounded projection, missing provider exposure, child/probe
+scope, clear and no raw host-journal writes. `tests/test_backlog_terminal.py` adds the
+actual reference dialog, source-scoped dialog copies, persistent diagnostic status and
+a host that deliberately never reads its pipe. The native client must remain escapable,
+restore the terminal, report forced/uncertain cleanup and terminate its inherited group.
+Do not use a blocking stdin write before starting an exit timeout, or call detached and
+remote work reaped. Acknowledgement text can be immediately replaced by Ready: query and
+show the diagnostic's real waiting/captured state, not a transient success toast.
+
+After building/testing, run `PYTHONDONTWRITEBYTECODE=1 uv run --no-sync python
+scripts/continuation_probe.py --live --allow-private-provider-raw` serially. It makes two
+billed turns across both presets with a deliberately explicit raw-provider test overlay
+in private state. Queue a file/line reference, delete its source, reopen without composition
+overrides, then explicitly Run; check the exact captured source digest/location/content,
+controlled reply, no tool calls and no extra diagnostic turn. The overlay authorizes
+module-owned raw logging only for this isolated test; never publish its logs or captures.
+Inspect private `continuation-*` screenshots and publish only the allowlisted receipt.
+The extra flag is not normal app behavior: diagnostics never enable provider logging.
+
+Index regressions must include out-of-range SQLite integers, casefold-expanding text
+before a match, and a measured read budget that includes source-prefix fingerprints.
+The cache now uses a versioned first-record prefix of at most 4 KiB, charging those reads
+to the refresh budget; old derived signatures trigger rebuilding, never journal changes.
+Benchmark alone with `scripts/benchmark_history.py --output
+notes/evidence/continuation-history-benchmark.json`; retain the original rc2 receipt.
 
 Whole-backlog gates: `tests/test_backlog.py` exercises acquired-handle startup cleanup,
 source observations, content paging, explicit uncertain-delivery resolution and immutable

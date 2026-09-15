@@ -25,7 +25,7 @@ Waiting questions offer an answer where the question is shown, including at narr
 Delegation and recipes expose child progress, waiting reasons, scoped evidence and explicit continuation limits.
 The current mode stays visible; mode changes retain module enforcement and returning restores their policy.
 Interrupted work remains readable and can seed an explicitly acknowledged new conversation without replay.
-Markdown and syntax-coloured code stay readable without changing copied source; chronological recall, immutable attachment sets, semantic file references and external editing preserve unsent intent.
+Markdown and syntax-coloured code stay readable without changing copied source; chronological recall, immutable attachment sets, semantic file/line references and external editing preserve unsent intent. Referenced excerpts retain their source version and location through waiting work and return, without a hidden reread.
 Bundles bring instructions, tools, providers and behaviors without owning the interface.
 Installation delivers an identifiable native client without a development workspace or local compiler for supported release platforms; newcomers configure providers deliberately, without silent policy migration or exposing private conversation data.
 The [composition contract](../contracts/composition.v1.md) names the replaceable seams.
@@ -122,6 +122,7 @@ Rendering and transport do not monopolize input or cancellation; process and lan
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Clarify retained file/line reference location and source version. | Steward requested the entire remaining backlog; plain insertion loses attachment identity across queue and return. |
 | 2026-09-14 | Extend the destination to indexed discovery, richer retained inputs and deliberate review edits. | Steward requested all eight remaining backlog groups; bounded tail scans, one-image admission and read-only diffs leave named workflow gaps. |
 | 2026-09-14 | Clarify repeated-control ownership during finalization. | Continued steward authorization; repeated Stop or exit during a stopped turn's checkpoint cancels that checkpoint in a deterministic real-runtime reproduction. |
 | 2026-09-14 | Extend discovery across saved conversations and make compiler-free release installation explicit. | Steward requested the entire reviewed replacement-readiness backlog; the current picker stops at 100 records and Git installation requires local Rust tooling. |

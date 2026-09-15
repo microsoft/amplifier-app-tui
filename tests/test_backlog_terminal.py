@@ -3,7 +3,9 @@
 import base64
 import json
 import os
+import signal
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -15,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from interaction_probe import capture  # noqa: E402
 from questions_probe import wait_ready  # noqa: E402
-from terminal_probe import Probe  # noqa: E402
+from terminal_probe import Probe, record  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("TUI_TEST_CANDIDATES") != "1", reason="Build native client"
@@ -77,9 +79,9 @@ def test_image_attachment_and_saved_content_search_are_explicit(tmp_path):
         )
         assert base64.b64decode(image["source"]["data"]) == original
         probe.send(b"Keep this draft")
-        action(probe, "Attached image", "Image draft · inspect")
+        action(probe, "Attached image", "Attachment draft · inspect")
         probe.wait("dispatched")
-        dismiss(probe, "Image draft · inspect")
+        dismiss(probe, "Attachment draft · inspect")
         action(probe, "Search saved conversations", "Saved message text")
         probe.send(b"Fixture round trip complete\r")
         probe.wait("Saved conversations")
@@ -140,15 +142,15 @@ def test_multiple_queued_images_and_stored_context_keep_native_intent(tmp_path):
             probe.wait("Image snapshot · confirm attachment")
             probe.send(b"\r")
             probe.wait("[Image attached]")
-        action(probe, "Attached images", "Image draft · inspect")
-        probe.wait("2 image snapshots")
+        action(probe, "Attached images", "Attachment draft · inspect")
+        probe.wait("2 attachment snapshots")
         capture(probe, "approachability-multiple-images")
-        dismiss(probe, "Image draft · inspect")
+        dismiss(probe, "Attachment draft · inspect")
         action(probe, "Queue current draft", "[Pending 1] (paused)")
         action(probe, "Pending follow-ups", "Pending follow-ups · paused")
         probe.send(b"queued\r")
         probe.wait("Follow-up · inspect before changing")
-        probe.wait("Frozen images travel")
+        probe.wait("Frozen attachments travel")
         capture(probe, "approachability-queued-images")
         dismiss(probe, "Follow-up · inspect")
         action(probe, "Pending follow-ups", "Pending follow-ups · paused")
@@ -184,6 +186,198 @@ def test_multiple_queued_images_and_stored_context_keep_native_intent(tmp_path):
         assert sum(e["kind"] == "turn.accepted" for e in events) == 1
     finally:
         probe.close()
+
+
+def test_semantic_file_reference_confirmation_queue_and_text_only_send(tmp_path):
+    path = tmp_path / "source.txt"
+    path.write_text("Do not include this line\nSelected source evidence\n")
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--cwd",
+            str(tmp_path),
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=160,
+    )
+    try:
+        wait_ready(probe)
+        probe.send(b"Review this selection")
+        action(probe, "Attach file reference", "Workspace-relative file[:line")
+        probe.send(b"source.txt:2\r")
+        probe.wait("File reference · confirm attachment")
+        probe.wait("source.txt:2-2")
+        probe.wait("Selected source evidence")
+        capture(probe, "reference-confirmation")
+        path.unlink()
+        probe.send(b"\r")
+        probe.wait("[References attached]")
+        draft_is(probe, "Review this selection")
+        action(probe, "Attached images", "Attachment draft · inspect")
+        probe.wait("source.txt:2-2")
+        dismiss(probe, "Attachment draft · inspect")
+        action(probe, "Queue current draft", "[Pending 1] (paused)")
+        action(probe, "Pending follow-ups", "Pending follow-ups · paused")
+        probe.send(b"queued\r")
+        probe.wait("Follow-up · inspect before changing")
+        probe.wait("source.txt:2-2")
+        dismiss(probe, "Follow-up · inspect")
+        action(probe, "Pending follow-ups", "Pending follow-ups · paused")
+        probe.send(b"Run pending\r")
+        probe.wait("Completed")
+        root = next((tmp_path / "state/conversations").glob("*/metadata.json")).parent
+        messages = json.loads((root / "checkpoint.json").read_text())["messages"]
+        reference = next(
+            json.loads(block["text"].split("\n", 1)[1])
+            for message in messages
+            if isinstance(message.get("content"), list)
+            for block in message["content"]
+            if block.get("type") == "text"
+            and block.get("text", "").startswith("User-selected file reference")
+        )
+        assert reference["path"] == "source.txt" and reference["start_line"] == 2
+        assert reference["text"] == "Selected source evidence\n"
+        events = [json.loads(line) for line in (root / "events.jsonl").read_text().splitlines()]
+        assert sum(e["kind"] == "turn.accepted" for e in events) == 1
+        capture(probe, "reference-completed")
+    finally:
+        probe.close()
+
+
+def test_request_diagnostic_controls_are_confirmed_without_execution(tmp_path):
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--cwd",
+            str(tmp_path),
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=160,
+    )
+    try:
+        wait_ready(probe)
+        probe.send(b"Diagnostic must not send this")
+        action(probe, "Provider request diagnostic", "Provider request · private diagnostic")
+        probe.wait("private prompts")
+        probe.send(b"\r")
+        probe.wait("Waiting for the next root provider request")
+        capture(probe, "request-diagnostic-armed")
+        dismiss(probe, "Provider request · memory-only projection")
+        action(probe, "Provider request diagnostic", "Provider request · private diagnostic")
+        probe.send(b"Clear capture\r")
+        probe.wait("Provider request · memory-only projection")
+        assert "Waiting for the next root provider request" not in probe.text
+        dismiss(probe, "Provider request · memory-only projection")
+        draft_is(probe, "Diagnostic must not send this")
+        root = next((tmp_path / "state/conversations").glob("*/metadata.json")).parent
+        assert "turn.accepted" not in (root / "events.jsonl").read_text()
+    finally:
+        probe.close()
+
+
+def test_dialog_copies_keep_original_scope_without_applying(tmp_path):
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--cwd",
+            str(tmp_path),
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=160,
+    )
+    try:
+        wait_ready(probe)
+        probe.send(b"Main draft unchanged")
+        action(probe, "Rename conversation", "New name")
+        probe.send(b"Unapplied local name")
+        dismiss(probe, "Rename conversation")
+        action(probe, "Saved local drafts", "Saved local drafts · never")
+        probe.wait("Unapplied local name")
+        probe.send(b"Unapplied\r")
+        probe.wait("Saved draft · historical intent")
+        probe.wait("dialog:Rename conversation:local")
+        capture(probe, "dialog-retained-scope")
+        dismiss(probe, "Saved draft · historical intent")
+        draft_is(probe, "Main draft unchanged")
+        root = next((tmp_path / "state/conversations").glob("*/metadata.json")).parent
+        drafts = json.loads((root / "editors.json").read_text())["rows"]
+        assert any(r["kind"] == "dialog" and r["text"] == "Unapplied local name" for r in drafts)
+        assert "Unapplied local name" not in (root / "metadata.json").read_text()
+        assert "turn.accepted" not in (root / "events.jsonl").read_text()
+    finally:
+        probe.close()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Linux /proc descendant-liveness evidence")
+def test_nonreading_host_cannot_trap_exit_or_leave_inherited_group_running(tmp_path):
+    # Deliberately uncooperative transport fixture, not an Amplifier module claim.
+    program = """
+import json, os, pathlib, subprocess, sys, time
+child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+pathlib.Path(sys.argv[1]).write_text(json.dumps([os.getpid(), child.pid]))
+print(json.dumps(dict(version=1, type='snapshot', session_id='transport-fixture', navigation=True,
+    ready=True, durable=True, draft='', items=[], system=[], mode='FIXTURE RUNTIME')), flush=True)
+print(json.dumps(dict(version=1, type='state', status='Ready', ready=True)), flush=True)
+time.sleep(60)
+"""
+    pids = tmp_path / "owned-processes.json"
+    probe = Probe(
+        [
+            str(ROOT / "frontends/ratatui/target/release/amplifier-ratatui"),
+            "--host-json",
+            json.dumps([sys.executable, "-c", program, str(pids)]),
+        ],
+        cols=120,
+    )
+    host = None
+    closed = False
+    try:
+        probe.wait("Ready")
+        host, child = json.loads(pids.read_text())
+        assert os.getpgid(host) == host and os.getpgid(child) == host
+        record(host, "active")
+        # Larger than a pipe: old synchronous writes freeze here before Drop.
+        probe.send(b"\x1b[200~" + b"x" * 32768 + b"\x1b[201~")
+        deadline = time.monotonic() + 1
+        while time.monotonic() < deadline:
+            probe.read()
+        started = time.monotonic()
+        closed = True
+        probe.close()
+        assert time.monotonic() - started < 4
+        assert b"forced to exit" in probe.raw and b"uncertain" in probe.raw
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            proc = Path(f"/proc/{child}/stat")
+            if not proc.exists() or proc.read_text().split(") ", 1)[1].startswith("Z"):
+                break
+            time.sleep(0.01)
+        else:
+            pytest.fail("Inherited host descendant remains running after exit")
+        assert not Path(f"/proc/{host}").exists()
+    finally:
+        try:
+            if not closed:
+                probe.close()
+        finally:
+            if host is not None:
+                try:
+                    os.killpg(host, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                record(host, "reaped")
 
 
 def test_recipe_review_draft_and_live_child_refresh_keep_intent():

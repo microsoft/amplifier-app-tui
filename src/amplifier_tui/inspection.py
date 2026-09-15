@@ -1,6 +1,7 @@
 """Bounded read-only indexes of identified observations, never inferred authorship."""
 
 import json
+import math
 from collections import OrderedDict
 
 
@@ -15,8 +16,116 @@ class Inspection:
     def __init__(self, events=()):
         self.rows = OrderedDict()
         self.partial = False
+        self.capture_next = False
+        self.request_preview = None
         for event in events:
             self.observe(event)
+
+    def capture_request(self, data, host, identity):
+        if not self.capture_next:
+            return
+        self.capture_next = False
+        raw = data.get("raw")
+        remaining, nodes = 65536, 2000
+        partial = False
+
+        def project(value, depth=0):
+            nonlocal remaining, nodes, partial
+            nodes -= 1
+            if nodes < 0 or depth > 12 or remaining <= 0:
+                partial = True
+                return "[omitted: projection bound]"
+            if isinstance(value, dict):
+                if value.get("type") in ("image", "image_url", "input_image", "base64"):
+                    partial = True
+                    return "[omitted: media block]"
+                result = {}
+                for key, child in value.items():
+                    if nodes <= 0 or remaining <= 0:
+                        partial = True
+                        break
+                    if not isinstance(key, str) or key in (
+                        "data",
+                        "headers",
+                        "authorization",
+                        "api_key",
+                        "url",
+                    ):
+                        partial = True
+                        continue
+                    result[key[:160]] = project(child, depth + 1)
+                return result
+            if isinstance(value, list):
+                result = []
+                for child in value:
+                    if nodes <= 0 or remaining <= 0:
+                        partial = True
+                        break
+                    result.append(project(child, depth + 1))
+                return result
+            if isinstance(value, str):
+                encoded = value[:16384].encode("utf-8")
+                excerpt = encoded[: min(16384, remaining)].decode("utf-8", errors="ignore")
+                remaining -= len(excerpt.encode())
+                partial |= len(excerpt) != len(value)
+                return excerpt
+            if (
+                value is None
+                or type(value) is bool
+                or (type(value) is int and -(2**63) <= value < 2**63)
+                or (type(value) is float and math.isfinite(value))
+            ):
+                return value
+            partial = True
+            return "[omitted: unsupported value]"
+
+        fields = (
+            "model",
+            "messages",
+            "system",
+            "tools",
+            "max_tokens",
+            "max_output_tokens",
+            "temperature",
+            "tool_choice",
+            "thinking",
+        )
+        if isinstance(raw, dict):
+            selected = {key: raw[key] for key in fields if key in raw}
+            projection = project(selected)
+            partial |= len(selected) != len(raw)
+            detail, limited = bounded(projection)
+            status = "provider-reported projection; not exact wire"
+        else:
+            detail, limited = (
+                "Provider did not expose llm:request.raw. No content was reconstructed or logging enabled.",
+                False,
+            )
+            status = "request content unavailable"
+        self.request_preview = {
+            "id": identity,
+            "source": host.session_id,
+            "turn": host.turn_id,
+            "sequence": host.sequence + 1,
+            "first_sequence": host.sequence + 1,
+            "label": "One-shot provider request observation",
+            "status": status,
+            "detail": detail,
+            "partial": partial or limited,
+            "live": False,
+        }
+
+    def request_catalog(self):
+        return {
+            "rows": [dict(self.request_preview)] if self.request_preview else [],
+            "partial": bool(self.request_preview and self.request_preview["partial"]),
+            "scope": "One-shot diagnostic, memory only; contains private context. Provider-reported/redacted fields, not exact wire bytes or delivery proof. Media/auth/unknown fields and content beyond projection limits are omitted. No model call, request construction or provider configuration change.",
+            "context_note": "Waiting for the next root provider request; nothing submitted automatically."
+            if self.capture_next
+            else "Capture held for this launch only; clear, re-arm or reopening discards it. Module logging remains independent."
+            if self.request_preview
+            else "No capture retained or armed. Module logging remains independent.",
+        }
 
     def observe(self, event):
         if event.kind not in {
@@ -80,6 +189,10 @@ class Inspection:
             self.partial = True
 
     def catalog(self, host, category, child=None):
+        if category == "recovery":
+            from .recovery import recovery_catalog
+
+            return recovery_catalog(host.store)
         rows = list(reversed(self.rows.values()))
         if category == "children":
             rows = [r for r in rows if r["id"].startswith("child:") and r["kind"] == "tool.updated"]

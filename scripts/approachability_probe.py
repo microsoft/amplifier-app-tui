@@ -78,7 +78,7 @@ def main():
             assert not any(e["kind"] == "turn.accepted" for e in read_events(path))
             action(probe, "Pending follow-ups", "Pending follow-ups · paused")
             probe.send(b"queued\r")
-            probe.wait("Frozen images travel")
+            probe.wait("Frozen attachments travel")
             capture(probe, f"approachability-live-{preset}-queue")
             dismiss(probe, "Follow-up · inspect")
             action(probe, "Pending follow-ups", "Pending follow-ups · paused")

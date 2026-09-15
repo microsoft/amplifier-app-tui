@@ -28,7 +28,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: the boundary's clients and the person relying on them.
 
 2. **Retain intent.** Drafts and queued inputs survive closing with their admission state; explicit conversation switching saves the source draft, and failed target preparation preserves the current conversation.
-   Unsent answer/correction editors retain source identities separately from canonical context; recovery offers inspection/copy, never automatic delivery or retargeting.
+   Unsent answer/correction and other dialog editors retain source identities separately from canonical context; recovery offers inspection/copy, never automatic delivery or retargeting. The interface discloses the autosave interval and does not claim unflushed keystrokes are crash-durable.
    Broken: An unsent input becoming submitted on return violates intent.
    Affected: the boundary's clients and the person relying on them.
 
@@ -64,6 +64,7 @@ How does a replacement context manager preserve canonical history independently 
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Extend P2's source-scoped retention to other local dialog editors. | Steward authorized crash-edge editor work; queue edits, file selectors and searches currently disappear when their dialog closes. |
 | 2026-09-14 | Clarify structured recovery's uncertainty in P5. | Steward requested interrupted-context and delegated recovery; replaying incomplete calls or inferring successful effects would violate retained intent. |
 | 2026-09-14 | Clarify P1's nested-parent and routing preservation. | Steward authorized deeper delegated continuity; durable child records must not become implicit ancestor execution. |
 | 2026-09-13 | Specify P1's guarded completed-child continuation. | Steward requested durable delegated workflows; existing receipts retain context but lose executable composition across restart. |

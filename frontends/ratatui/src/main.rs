@@ -12,10 +12,11 @@ use ratatui::{
 use ratatui_textarea::TextArea;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::os::unix::process::CommandExt;
 use std::{
     collections::HashMap,
     io::{self, BufRead, Read, Write},
-    process::{Child, ChildStdin, Command, Stdio},
+    process::{Child, Command, Stdio},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -97,7 +98,7 @@ struct App {
     request: u64,
     pending: HashMap<String, String>,
     child: Child,
-    input: ChildStdin,
+    input: mpsc::SyncSender<String>,
     output: Receiver<Value>,
     disconnected: bool,
     ready: bool,
@@ -149,13 +150,29 @@ impl App {
     fn new(command: Vec<String>) -> io::Result<Self> {
         let mut child = Command::new(&command[0])
             .args(&command[1..])
+            .process_group(0)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
             .spawn()?;
-        let input = child.stdin.take().unwrap();
+        let mut pipe = child.stdin.take().unwrap();
         let stdout = child.stdout.take().unwrap();
         let (tx, output) = mpsc::sync_channel(1024);
+        // A non-reading host must not block key handling or the exit deadline.
+        // Eight bounded records plus one in-flight write; never retry partial JSON.
+        let (input, writes) = mpsc::sync_channel::<String>(8);
+        let failure = tx.clone();
+        std::thread::spawn(move || {
+            while let Ok(record) = writes.recv() {
+                if writeln!(pipe, "{record}")
+                    .and_then(|_| pipe.flush())
+                    .is_err()
+                {
+                    let _ = failure.send(json!({"type":"disconnected"}));
+                    return;
+                }
+            }
+        });
         std::thread::spawn(move || {
             let mut reader = io::BufReader::new(stdout);
             loop {
@@ -506,7 +523,10 @@ impl App {
                 self.flow.rows = v["rows"].as_array().cloned().unwrap_or_default();
                 self.flow.paused = v["paused"] == true;
             }
-            "workspace_changes" | "workspace_diff" => self.review_result(&v),
+            "workspace_changes"
+            | "workspace_diff"
+            | "workspace_edit_prepare"
+            | "workspace_edit_apply" => self.review_result(&v),
             "inspection" => self.inspection_result(v),
             "provider_validation" if v["session_id"] == self.nav.session => {
                 self.status = safe(&string(&v, "message"));
@@ -638,10 +658,8 @@ impl App {
             }
             self.pending.insert(id, string(&request, "text"));
         }
-        if writeln!(self.input, "{request}")
-            .and_then(|_| self.input.flush())
-            .is_err()
-        {
+        let record = request.to_string();
+        if record.len() > 1024 * 1024 || self.input.try_send(record).is_err() {
             self.receive(json!({"type":"disconnected"}));
         }
     }
@@ -773,17 +791,53 @@ impl Drop for App {
         if self.durable && !self.disconnected {
             self.send(json!({"op":"draft","text":self.draft.lines().join("\n")}));
         }
-        let _ = writeln!(self.input, "{{\"version\":1,\"op\":\"shutdown\"}}");
-        let _ = self.input.flush();
+        let _ = self
+            .input
+            .try_send("{\"version\":1,\"op\":\"shutdown\"}".into());
         let start = Instant::now();
+        let mut finished = None;
         while start.elapsed() < Duration::from_secs(3) {
-            if matches!(self.child.try_wait(), Ok(Some(_))) {
-                return;
+            if let Ok(Some(status)) = self.child.try_wait() {
+                finished = Some(status);
+                break;
             }
             std::thread::sleep(Duration::from_millis(10));
         }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        // CommandExt created this group, never the terminal/user's group. Detached
+        // descendants and remote effects are deliberately outside this claim.
+        unsafe {
+            libc::kill(-(self.child.id() as i32), libc::SIGKILL);
+        }
+        if finished.is_none() {
+            // Also target the direct child if it changed its own process group.
+            // Never turn a failed kill or an uninterruptible OS task into another
+            // unlimited terminal wait; report lack of confirmation instead.
+            let _ = self.child.kill();
+            let reap = Instant::now();
+            let mut reaped = false;
+            while reap.elapsed() < Duration::from_millis(500) {
+                if matches!(self.child.try_wait(), Ok(Some(_))) {
+                    reaped = true;
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            if !reaped {
+                eprintln!(
+                    "Host termination could not be confirmed (owned PID {}). Inspect local processes; cleanup is incomplete.",
+                    self.child.id()
+                );
+            }
+        }
+        if finished.is_none() {
+            eprintln!(
+                "Amplifier host forced to exit after 3 seconds. Module cleanup and outstanding effects are uncertain; nothing was retried or undone. Detached or remote work may remain."
+            );
+        } else if finished.is_some_and(|status| !status.success()) {
+            eprintln!(
+                "Amplifier host exited with an error. Cleanup/outcomes may be uncertain; inspect retained history before recovery."
+            );
+        }
     }
 }
 

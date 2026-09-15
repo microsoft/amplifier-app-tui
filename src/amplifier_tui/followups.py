@@ -74,9 +74,9 @@ class Followups:
                 return False, "Queue full (20); draft retained"
             row = {"id": uuid.uuid4().hex, "text": text, "state": "queued"}
             if request.get("image_id"):
-                if not self.host.supports_images():
-                    return False, "Mounted provider/context does not advertise image input"
                 value = self.host.images.value if self.host.images else None
+                if not self.host.supports_attachments(value):
+                    return False, "Mounted provider/context does not support these attachments"
                 if (
                     not value
                     or sum(r.get("image", {}).get("bytes", 0) for r in self.rows) + value["bytes"]

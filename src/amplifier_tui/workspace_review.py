@@ -1,8 +1,9 @@
-"""Bounded read-only Git observations. Never stage, restore, execute filters or call AI."""
+"""Bounded Git observations and separately confirmed, source-checked conflict edits."""
 
 import asyncio
 import hashlib
 import os
+import stat
 import time
 import uuid
 from pathlib import Path
@@ -27,6 +28,7 @@ class GitReview:
         self.rows = {}
         self.token = None
         self.options = []
+        self.edit = None
 
     async def git(self, *args, allowed=(0,)):
         env = {
@@ -159,7 +161,7 @@ class GitReview:
             text = (
                 "Untracked path only; contents are not read or followed."
                 if scope == "untracked"
-                else "Unmerged path; resolve conflicts outside this read-only view."
+                else "Unmerged path. Prepare conflict edit captures a proposal; only a separately confirmed Apply writes the file. Git staging remains explicit and separate."
             )
             base = "not compared"
         else:
@@ -193,10 +195,122 @@ class GitReview:
             if len(text.encode("utf-8")) > LIMIT:
                 raise ValueError("Decoded diff exceeds 1 MiB; no partial text returned")
         return {
+            "id": identity,
+            "token": token,
             "root": display_path(self.root),
             "path": display_path(row["path"]),
             "scope": scope,
             "base": base,
             "text": text,
             "notice": NOTICE + " Invalid UTF-8 is displayed with replacement characters.",
+        }
+
+    async def prepare_edit(self, identity, token):
+        """Capture only an explicitly selected conflict; do not alter its index."""
+        from .file_input import snapshot
+
+        await self.diff(identity, token)
+        row = self.rows[identity]
+        if row["scope"] != "conflict" or ".git" in Path(row["path"]).parts:
+            raise ValueError("Choose an unmerged regular text file; no other path is editable here")
+        captured = snapshot(self.root, row["path"])
+        self.edit = {**captured, "id": uuid.uuid4().hex, "token": token}
+        return {
+            **self.edit,
+            "notice": "Edit a proposal, then explicitly Apply. Original bytes are backed up privately before replacement. Git index is never staged or marked resolved. Newer detected file versions refuse Apply. This is not a lock against unrelated external writers; stop other writers first.",
+        }
+
+    async def apply_edit(self, identity, text, backup_dir):
+        """One-use proposal, descriptor-relative writes, backup before replacement.
+
+        Other applications do not participate in our lock: detect version changes
+        immediately before replace, but never claim a cross-process CAS transaction.
+        """
+        from .conversations import atomic_json
+        from .file_input import MAX_FILE, snapshot
+
+        value = self.edit
+        if not value or identity != value["id"]:
+            raise ValueError("Edit proposal expired; capture the conflict again")
+        if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_FILE:
+            raise ValueError("Replacement must be UTF-8 text of at most 64 KiB")
+        if any(ord(c) < 32 and c not in "\n\r\t" for c in text) or "\x7f" in text:
+            raise ValueError("Replacement contains terminal-control characters")
+        if (await self.status())[1] != value["token"]:
+            raise ValueError("Workspace status or HEAD changed; capture the conflict again")
+        current = snapshot(self.root, value["path"])
+        if current["sha256"] != value["sha256"]:
+            raise ValueError("Conflict file changed; proposal retained, no write performed")
+        path = Path(value["path"])
+        directory = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        temporary = None
+        try:
+            for part in path.parts[:-1]:
+                child = os.open(
+                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory
+                )
+                os.close(directory)
+                directory = child
+            fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+            with os.fdopen(fd, "rb") as stream:
+                before = os.fstat(stream.fileno())
+                if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+                    raise ValueError("Conflict target must be a regular file with one hard link")
+                raw = stream.read(MAX_FILE + 1)
+                if hashlib.sha256(raw).hexdigest() != value["sha256"]:
+                    raise ValueError("Conflict file changed; no write performed")
+                backup_dir = Path(backup_dir)
+                backup_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+                backup = backup_dir / f"{identity}.json"
+                # This receipt is a backup, not a claim that replacement succeeded.
+                atomic_json(
+                    backup,
+                    {
+                        **value,
+                        "replacement_sha256": hashlib.sha256(text.encode()).hexdigest(),
+                        "status": "backup before attempted write; outcome not certified",
+                    },
+                )
+                temporary = f".amplifier-review-{uuid.uuid4().hex}.tmp"
+                out = os.open(
+                    temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=directory
+                )
+                with os.fdopen(out, "wb") as replacement:
+                    replacement.write(text.encode("utf-8"))
+                    replacement.flush()
+                    os.fchmod(replacement.fileno(), stat.S_IMODE(before.st_mode) & 0o777)
+                    os.fsync(replacement.fileno())
+                after = os.stat(path.name, dir_fd=directory, follow_symlinks=False)
+
+                def stamp(s):
+                    return (
+                        s.st_dev,
+                        s.st_ino,
+                        s.st_size,
+                        s.st_mtime_ns,
+                        s.st_ctime_ns,
+                        s.st_mode,
+                        s.st_nlink,
+                    )
+
+                if stamp(before) != stamp(after) or stamp(before) != stamp(
+                    os.fstat(stream.fileno())
+                ):
+                    raise ValueError(
+                        "Conflict file changed before replacement; backup retained, no write performed"
+                    )
+                # Consume before the effect: even an fsync failure must never retry.
+                self.edit = None
+                os.replace(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory)
+                temporary = None
+                os.fsync(directory)
+        finally:
+            if temporary is not None:
+                os.unlink(temporary, dir_fd=directory)
+            os.close(directory)
+        return {
+            "path": value["path"],
+            "sha256": hashlib.sha256(text.encode()).hexdigest(),
+            "backup": str(backup),
+            "text": "Conflict file replaced. Original retained in the private backup; Git index unchanged. Review the file and stage explicitly outside this action.",
         }

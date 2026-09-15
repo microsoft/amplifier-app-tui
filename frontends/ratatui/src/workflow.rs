@@ -10,6 +10,7 @@ pub struct Workflow {
     pub rows: Vec<Value>,
     pub paused: bool,
     pub prompt: Option<Prompt>,
+    pub conflict: Option<Arc<Value>>,
 }
 
 pub struct Prompt {
@@ -34,7 +35,10 @@ impl App {
         input.set_placeholder_text(match kind {
             "Rename conversation" => "New name (up to 100 characters)…",
             "Insert text file" => "Workspace-relative path · UTF-8 text, at most 64 KiB…",
-            "Attach image" => "Workspace-relative PNG/JPEG path · at most 2 MiB…",
+            "Attach image" => "Workspace-relative PNG/JPEG/static GIF/WebP path · at most 2 MiB…",
+            "Attach file reference" => {
+                "Workspace-relative file[:line or :start-end] · UTF-8, at most 64 KiB…"
+            }
             "Find in conversation" => "Find message text…",
             "Search saved conversations" => "Saved message text, title, directory or ID…",
             "Correct active turn" => "Correction for this turn only (Alt+Enter newline)…",
@@ -89,17 +93,48 @@ impl App {
             KeyCode::Enter if key.kind == KeyEventKind::Press => {
                 let mut prompt = self.flow.prompt.take().unwrap();
                 let value = prompt.editor.lines().join("\n");
+                if prompt.kind == "Edit conflict proposal" {
+                    if let Some(snapshot) = self.flow.conflict.clone() {
+                        self.menu(
+                            "Apply conflict proposal? · workspace write",
+                            vec![
+                                choice(
+                                    "Apply exact proposal · backup original, do not stage",
+                                    Action::WorkspaceEditApply(snapshot.clone(), value.clone()),
+                                    "",
+                                ),
+                                choice("Copy proposed text", Action::CopyText(value.clone()), ""),
+                            ],
+                        );
+                        self.ui.menu.as_mut().unwrap().detail = format!(
+                            "Path: {}\nCaptured SHA-256: {}\n{}\n\nProposed replacement:\n{}",
+                            safe(&string(&snapshot, "path")),
+                            string(&snapshot, "sha256"),
+                            safe(&string(&snapshot, "notice")),
+                            safe(&value)
+                        );
+                    }
+                    return Some(true);
+                }
                 if prompt.kind == "Search saved conversations" {
                     self.conversation_page(0, value);
                     return Some(true);
                 }
-                if prompt.kind == "Insert text file" || prompt.kind == "Attach image" {
+                if matches!(
+                    prompt.kind.as_str(),
+                    "Insert text file" | "Attach image" | "Attach file reference"
+                ) {
                     self.insights.file_request = Some((
                         (self.request + 1).to_string(),
                         self.draft.lines().join("\n"),
                     ));
                     self.menu("Text file · reading", vec![]);
-                    self.send(json!({"op":if prompt.kind == "Attach image" {"image_snapshot"} else {"file_snapshot"},"path":value}));
+                    let op = match prompt.kind.as_str() {
+                        "Attach image" => "image_snapshot",
+                        "Attach file reference" => "reference_snapshot",
+                        _ => "file_snapshot",
+                    };
+                    self.send(json!({"op":op,"path":value}));
                     return Some(true);
                 }
                 if let Some((id, _)) = &prompt.question
@@ -254,12 +289,12 @@ impl App {
                 .cloned()
                 .unwrap_or_else(|| vec![row["image"].clone()]);
             format!(
-                "\n\nFrozen images travel with this queued message; editing text retains them.\n{}",
+                "\n\nFrozen attachments travel with this queued message; editing text retains them.\n{}",
                 images
                     .iter()
                     .map(|image| format!(
                         "{} · {} bytes\nSHA-256 {}",
-                        safe(&string(image, "path")),
+                        insights::attachment_location(image),
                         image["bytes"],
                         string(image, "sha256")
                     ))

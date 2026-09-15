@@ -53,7 +53,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: people sending corrections and builders replacing a host or transport.
 
 8. **Keep execution independent of painting.** A slow or disconnected view cannot stall controls or erase authoritative outcomes; cleanup covers startup, active work and exit.
-   Repeated stop/exit requests do not cancel owned finalization, duplicate cleanup or claim that cleanup still in progress has finished.
+   Repeated stop/exit requests do not cancel owned finalization or duplicate cleanup. A blocked local transport cannot trap the terminal; forced exit identifies its owned process boundary and reports uncertain effects, never completed module cleanup or rollback.
    Broken: A blocked renderer delays stop indefinitely, or partial initialization leaves an unowned live session.
    Affected: people controlling work and hosts responsible for resource cleanup.
 
@@ -77,6 +77,7 @@ What terminal outcome can a host prove when a third-party operation ignores canc
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Specify P8's bounded local transport and truthful forced exit. | Steward authorized reliability work; synchronous client pipe writes can block before the existing shutdown deadline, which kills only the direct host. |
 | 2026-09-14 | Clarify P8's finalization ownership under repeated controls. | Continued steward authorization; deterministic Stop/Stop and Stop/exit tests interrupt checkpoint persistence in the current host. |
 | 2026-09-13 | Clarify P5's observed tool-outcome summary. | Steward's agent test session ended with broad success claims despite failed commands and skipped verification gates. |
 | 2026-09-12 | Specify correlated correction evidence in P6. | Public steering queue accepts strings and clears at turn start; insertion needs an observed runtime acknowledgement. |

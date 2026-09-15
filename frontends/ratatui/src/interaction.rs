@@ -41,6 +41,9 @@ pub(super) enum Action {
     Questions,
     WorkspaceChanges,
     WorkspaceDiff(String, String),
+    WorkspaceEditPrepare(String, String),
+    WorkspaceEdit(Arc<Value>),
+    WorkspaceEditApply(Arc<Value>, String),
     WorkspaceHunks(Arc<Value>),
     WorkspaceHunk(Arc<Value>, usize),
     WorkspaceSide(Arc<Value>, usize),
@@ -79,6 +82,10 @@ pub(super) enum Action {
     LocalDrafts,
     FileInput,
     ImageInput,
+    ReferenceInput,
+    RequestDiagnostic,
+    RequestCapture,
+    RequestClear,
     ClipboardImage,
     ImageDraft,
     ImageSelect(String),
@@ -233,12 +240,15 @@ impl App {
                     choice("Activity evidence — tools and runtime observations", Action::Inspect("activity".into(), None)),
                     choice("Context intelligence — usage, compaction and logging", Action::Inspect("context".into(), None)),
                     choice("Stored context — inspect current module messages", Action::Inspect("stored_context".into(), None)),
+                    choice("Provider request diagnostic — explicit one-shot capture", Action::RequestDiagnostic),
                     choice("Instruction sources — inspect resolved context origins", Action::Inspect("instructions".into(), None)),
                     choice("Attach image — PNG/JPEG snapshot", Action::ImageInput),
+                    choice("Attach file reference — path and line range", Action::ReferenceInput),
                     choice("Paste image — read host desktop clipboard", Action::ClipboardImage),
-                    choice("Attached images — inspect or remove", Action::ImageDraft),
+                    choice("Attached images / references — inspect or remove", Action::ImageDraft),
                     choice("Search saved conversations — local content search", Action::FindSaved),
                     choice("Recipe activity — inspect runs and prepare a review request", Action::Inspect("recipes".into(), None)),
+                    choice("Recovered work — historical child and action evidence", Action::Inspect("recovery".into(), None)),
                     choice("Model catalog — discover configured providers' model IDs", Action::Models),
                     choice("Pending follow-ups — inspect / pause / run / remove", Action::QueueList),
                     choice("Corrections — inspect insertion status / copy text", Action::Corrections),
@@ -314,6 +324,23 @@ impl App {
                 self.status = "Recipe review request added to draft · edit and Send explicitly".into();
             }
             Action::ImageInput => self.prompt("Attach image"),
+            Action::ReferenceInput => self.prompt("Attach file reference"),
+            Action::RequestDiagnostic => {
+                self.menu("Provider request · private diagnostic", vec![
+                    choice("Arm one-shot capture (private context in memory)", Action::RequestCapture),
+                    choice("Inspect captured provider request", Action::Inspect("wire_request".into(), None)),
+                    choice("Clear capture and disarm", Action::RequestClear),
+                ]);
+                self.ui.menu.as_mut().unwrap().detail = "Explicit diagnostic: may expose private prompts, tool schemas and source content. The next root provider request is captured only if its module exposes raw fields; this never enables provider raw logging or sends a request. Capture stays in memory, not the app journal; module-authored logging is independent. Media/auth/oversize fields omitted. Not exact wire serialization or delivery proof. Escape changes nothing.".into();
+            },
+            Action::RequestCapture => {
+                self.send(json!({"op":"request_capture", "confirm_private_context":true}));
+                self.inspect("wire_request".into(), None);
+            },
+            Action::RequestClear => {
+                self.send(json!({"op":"request_clear"}));
+                self.inspect("wire_request".into(), None);
+            },
             Action::ClipboardImage => {
                 self.insights.file_request = Some(((self.request + 1).to_string(), self.draft.lines().join("\n")));
                 self.menu("Text file · reading", vec![]);
@@ -411,6 +438,27 @@ impl App {
             Action::Questions => self.question_list(),
             Action::WorkspaceChanges => self.review_lookup(None),
             Action::WorkspaceDiff(id, token) => self.review_lookup(Some((id, token))),
+            Action::WorkspaceEditPrepare(id, token) => {
+                self.review_request = Some((self.request + 1).to_string());
+                self.menu("Conflict file · capturing proposal", vec![]);
+                self.send(json!({"op":"workspace_edit_prepare","id":id,"token":token}));
+            }
+            Action::WorkspaceEdit(snapshot) => {
+                self.ui.menu = None;
+                self.prompt("Edit conflict proposal");
+                let prompt = self.flow.prompt.as_mut().unwrap();
+                prompt.identity = Some(string(&snapshot, "id"));
+                prompt.editor.insert_str(string(&snapshot, "text"));
+                self.flow.conflict = Some(snapshot);
+            }
+            Action::WorkspaceEditApply(snapshot, text) => {
+                self.review_request = Some((self.request + 1).to_string());
+                let mut retained = (*snapshot).clone();
+                retained["text"] = json!(text);
+                self.flow.conflict = Some(Arc::new(retained));
+                self.menu("Conflict file · applying confirmed proposal", vec![]);
+                self.send(json!({"op":"workspace_edit_apply","id":snapshot["id"],"text":text,"confirm_write":true}));
+            }
             Action::QuestionGroup(id) => self.question_group(id),
             Action::QuestionEdit(id, qid) => self.question_edit(id, qid),
             Action::QuestionText(id, qid) => self.question_text(id, qid),
@@ -944,9 +992,13 @@ impl App {
             || menu.title.starts_with("Observed evidence")
             || menu.title.starts_with("Context intelligence")
             || menu.title.starts_with("Text file snapshot")
+            || menu.title.starts_with("File reference ·")
+            || menu.title.starts_with("Provider request ·")
             || menu.title.starts_with("Saved draft ·")
             || menu.title.starts_with("Code block ·")
-            || menu.title.starts_with("Workspace diff");
+            || menu.title.starts_with("Workspace diff")
+            || menu.title.starts_with("Conflict file")
+            || menu.title.starts_with("Apply conflict proposal");
         let height = if roomy {
             (lines.len() + choices.len() + 5)
                 .min(available as usize)

@@ -9,6 +9,78 @@ from amplifier_tui.conversations import ConversationStore
 from amplifier_tui.host import SessionHost
 
 
+@pytest.mark.parametrize("phase", ["messages", "cleanup"])
+async def test_child_repeated_cancellation_retains_finalization(
+    prepared, tmp_path, monkeypatch, phase
+):
+    from amplifier_tui import composition
+
+    store = ConversationStore(tmp_path / "state", {})
+    host = SessionHost(store)
+    await host.open(*prepared, tmp_path)
+    entered, release = asyncio.Event(), asyncio.Event()
+    original = composition.create_owned_session
+    calls = []
+
+    async def owned(*args, **kwargs):
+        session = await original(*args, **kwargs)
+        cleanup = session.cleanup
+        context = session.coordinator.get("context")
+        get_messages = context.get_messages
+        reads = 0
+
+        async def gated_messages():
+            nonlocal reads
+            reads += 1
+            if phase == "messages" and reads == 2:
+                entered.set()
+                await release.wait()
+            return await get_messages()
+
+        async def gated_cleanup():
+            calls.append("cleanup started")
+            if phase == "cleanup":
+                entered.set()
+                await release.wait()
+            await cleanup()
+            calls.append("cleanup ended")
+
+        monkeypatch.setattr(context, "get_messages", gated_messages)
+
+        # Public session handle proxy: no kernel internals replaced.
+        class Handle:
+            def __getattr__(self, name):
+                return getattr(session, name)
+
+            async def cleanup(self):
+                await gated_cleanup()
+
+        return Handle()
+
+    monkeypatch.setattr(composition, "create_owned_session", owned)
+    task = asyncio.create_task(host.children.spawn("probe", "check", host.session, {"probe": {}}))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        identity = next(iter(host.children.active))
+        task.cancel()
+        await asyncio.sleep(0)
+        task.cancel()
+        await asyncio.sleep(0)
+        assert not task.done()
+        assert identity in host.children.active
+        release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert calls == ["cleanup started", "cleanup ended"]
+        saved = json.loads((store.path / "children" / f"{identity}.json").read_text())
+        assert saved["status"] == "interrupted"
+        assert not host.children.active and not host.children.tasks
+    finally:
+        release.set()
+        await asyncio.gather(task, return_exceptions=True)
+        await host.close()
+
+
 @pytest.mark.parametrize("second_control", ["stop", "close", "cancelled_close"])
 async def test_repeated_control_does_not_cancel_interrupted_checkpoint(
     prepared, tmp_path, monkeypatch, second_control

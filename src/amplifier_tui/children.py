@@ -506,33 +506,57 @@ class Children:
             self.publish(identity, row["status"], str(exc) or "Stopped; partial effects may remain")
             raise
         finally:
+            # Delegate callers can cancel more than once. They own their wait,
+            # not the acquired session's cleanup or final durable receipt.
+            finalizer = asyncio.create_task(self.finalize(identity, session))
+            cancelled = None
+            while not finalizer.done():
+                try:
+                    await asyncio.shield(finalizer)
+                except asyncio.CancelledError as exc:
+                    cancelled = exc
+                    if row["status"] != "failed":
+                        row["status"] = "interrupted"
             try:
-                if session:
-                    try:
-                        context = session.coordinator.get("context")
-                        if context:
-                            row["messages"] = await context.get_messages()
-                    finally:
-                        await session.cleanup()
-            except BaseException:
-                row["status"] = "failed"
-                self.host.ready = False
-                self.publish(identity, "failed", "Child cleanup failed; partial effects may remain")
-                raise
+                finalizer.result()
+                if cancelled is not None:
+                    # Cancellation can race the finalizer's last synchronous save.
+                    self.save(identity)
+                    self.publish(
+                        identity, "interrupted", "Stopped during finalization; effects remain"
+                    )
+                    raise cancelled
             finally:
                 self.active.pop(identity, None)
                 self.parents.pop(identity, None)
                 self.tasks.pop(identity, None)
-            if self.host.store:
-                try:
-                    self.save(identity)
-                except BaseException:
-                    row["status"] = "failed"
-                    self.host.ready = False
-                    self.publish(identity, "failed", "Child record could not be saved")
-                    raise
         self.publish(identity, "succeeded", output)
         return {"session_id": identity, "output": output, "metadata": outcome}
+
+    async def finalize(self, identity, session):
+        row = self.records[identity]
+        try:
+            if session:
+                try:
+                    context = session.coordinator.get("context")
+                    if context:
+                        row["messages"] = await context.get_messages()
+                finally:
+                    await session.cleanup()
+        except BaseException:
+            row["status"] = "failed"
+            self.host.ready = False
+            self.publish(identity, "failed", "Child cleanup failed; partial effects may remain")
+            raise
+        finally:
+            # Retain task ownership until both cleanup and receipt persistence end.
+            try:
+                self.save(identity)
+            except BaseException:
+                row["status"] = "failed"
+                self.host.ready = False
+                self.publish(identity, "failed", "Child record could not be saved")
+                raise
 
     def stop(self):
         for session in self.active.values():

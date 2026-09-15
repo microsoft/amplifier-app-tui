@@ -4,12 +4,143 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import stat
 import uuid
 from pathlib import Path
 
 from .conversations import ConversationStore, atomic_json, resolve_resume
 from .events import Event, Transcript
+
+
+def child_references(source, root_id):
+    """Bounded public-context excerpts, never executable child reconstruction."""
+    from .inspection import bounded
+
+    rows, partial, budget = [], False, 8 * 1024 * 1024
+    try:
+        directory = os.open(source / "children", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        return rows, partial
+    try:
+        with os.scandir(directory) as entries:
+            names = []
+            for entry in entries:
+                if len(names) == 32:
+                    partial = True
+                    break
+                if re.fullmatch(r"[A-Za-z0-9_-]{1,160}\.json", entry.name):
+                    names.append(entry.name)
+                else:
+                    partial = True
+        identities = {name[:-5] for name in names}
+        for name in sorted(names):
+            value = {"id": name[:-5], "source": root_id, "label": "Historical child", "live": False}
+            try:
+                fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+                with os.fdopen(fd, "rb") as stream:
+                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                        raise ValueError("Not a regular child receipt")
+                    raw = stream.read(min(budget, 1024 * 1024) + 1)
+                budget -= len(raw)
+                if budget < 0 or len(raw) > 1024 * 1024:
+                    raise ValueError("Child receipt exceeds recovery read budget")
+                row = json.loads(raw)
+                if not isinstance(row, dict) or row.get("parent") not in identities | {root_id}:
+                    raise ValueError("Child parent identity is outside the captured source")
+                messages = row.get("messages")
+                if not isinstance(messages, list) or any(not isinstance(m, dict) for m in messages):
+                    raise ValueError("Public child messages unavailable")
+                public = []
+                for message in messages[-100:]:
+                    content = message.get("content")
+                    if isinstance(content, list):
+                        content = [
+                            block
+                            if isinstance(block, dict) and block.get("type") == "text"
+                            else {"notice": "Non-text block omitted from historical recovery"}
+                            for block in content
+                        ]
+                    public.append(
+                        {
+                            "role": message.get("role"),
+                            "content": content,
+                            "tool_call_id": message.get("tool_call_id"),
+                        }
+                    )
+                detail, clipped = bounded(
+                    {
+                        "agent": row.get("agent"),
+                        "parent": row["parent"],
+                        "instruction": row.get("instruction"),
+                        "recorded_status": row.get("status"),
+                        "messages": public,
+                    }
+                )
+                value.update(
+                    label=f"Historical child · {row.get('agent', 'unknown')}",
+                    status="historical only; unfinished effects unknown",
+                    source_sha256=hashlib.sha256(raw).hexdigest(),
+                    detail=detail,
+                    partial=clipped or len(messages) > 100,
+                )
+            except (OSError, ValueError, TypeError) as exc:
+                value.update(
+                    status="historical child unavailable",
+                    detail=f"{type(exc).__name__}: child receipt unavailable or outside recovery bounds; original retained",
+                    partial=True,
+                )
+            rows.append(value)
+            partial |= value["partial"]
+            if budget <= 0:
+                partial = True
+                break
+    finally:
+        os.close(directory)
+    return rows, partial
+
+
+def recovery_catalog(store):
+    """Inspect saved recovery evidence without importing it into model context."""
+    from .inspection import bounded
+
+    rows, partial = [], False
+    if store and (store.path / "recovery.json").exists():
+        with (store.path / "recovery.json").open("rb") as stream:
+            raw = stream.read(16 * 1024 * 1024 + 1)
+        if len(raw) > 16 * 1024 * 1024:
+            raise ValueError("Recovery evidence exceeds inspection budget")
+        value = json.loads(raw)
+        rows.extend(value.get("children", []))
+        partial = value.get("children_partial", False)
+        for item in value.get("items", [])[: 100 - len(rows)]:
+            detail, clipped = bounded(item)
+            rows.append(
+                {
+                    "id": item["id"],
+                    "label": f"Historical action · {item['id']}",
+                    "source": value.get("source_session"),
+                    "status": item.get("status", "unknown"),
+                    "detail": detail,
+                    "partial": clipped,
+                    "live": False,
+                }
+            )
+            partial |= clipped
+        partial |= len(value.get("items", [])) + len(value.get("children", [])) > 100
+    kept, remaining = [], 1024 * 1024
+    for row in rows[:100]:
+        remaining -= len(json.dumps(row, ensure_ascii=False).encode())
+        if remaining < 0:
+            partial = True
+            break
+        kept.append(row)
+    rows = kept
+    return {
+        "rows": rows,
+        "partial": partial,
+        "scope": "Historical recovery evidence only; no child, recipe, tool, queue or private module state is resumed. Child receipts: at most 32 / 8 MiB read, 1 MiB each; last 100 public messages and 16 KiB detail per child. Non-text blocks omitted. Original files retained. Copying is not instruction delivery.",
+    }
 
 
 def import_reference(path):
@@ -146,6 +277,7 @@ def recover(state_dir, identity):
             "policy": "Historical observations only. No pending execution, child continuation, private module state, or recipe effects are restored. Absent outcomes remain unknown.",
             "items": list(observations.values()),
         }
+        evidence["children"], evidence["children_partial"] = child_references(source, entry["id"])
         checkpoint = json.loads((source / "checkpoint.json").read_text())
         if not isinstance(checkpoint.get("fingerprint"), str):
             raise ValueError("Missing composition fingerprint; recovery refused")
