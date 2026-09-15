@@ -31,9 +31,16 @@ def main():
         action="store_true",
         help="Shape only this probe's generated persistent receipt like an older record before adoption",
     )
+    parser.add_argument(
+        "--nested",
+        action="store_true",
+        help="Generate a real intermediate parent before persistent-child adoption; two additional billed parent turns",
+    )
     args = parser.parse_args()
     if args.legacy_receipt and not args.adopt_persistent:
         parser.error("--legacy-receipt requires --adopt-persistent")
+    if args.nested and not args.adopt_persistent:
+        parser.error("--nested requires --adopt-persistent")
     if not os.environ.get("ANTHROPIC_API_KEY"):
         parser.error("Supply the live provider credential explicitly")
     state = ROOT / ".state/lifecycle-live" / uuid.uuid4().hex
@@ -55,6 +62,23 @@ def main():
                 json.dumps(
                     {
                         "bundle": {"name": "persistent-recovery-probe", "version": "1.0.0"},
+                        # Foundation deliberately excludes delegate from children by
+                        # default. Opt in only for this controlled nested fixture.
+                        **(
+                            {
+                                "tools": [
+                                    {
+                                        "module": "tool-delegate",
+                                        # List overlays concatenate, so [] cannot
+                                        # clear a preset list. This module treats
+                                        # null as no exclusion in the fixture.
+                                        "config": {"settings": {"exclude_tools": None}},
+                                    }
+                                ]
+                            }
+                            if args.nested
+                            else {}
+                        ),
                         "agents": {
                             "persistent-probe": {
                                 "description": "Controlled persistent-context recovery verification",
@@ -108,6 +132,12 @@ def main():
             )
             if args.adopt_persistent:
                 instruction = instruction.replace(b'agent "self"', b'agent "persistent-probe"')
+            if args.nested:
+                instruction = (
+                    'Use delegate exactly once with agent "self", context_depth "none", instruction '
+                    + json.dumps(instruction.decode().strip())
+                    + ". Omit provider_preferences, model_role and orchestrator overrides. Do no other work.\r"
+                ).encode()
             probe.send(instruction)
             questions = observed(probe, path, "question.updated")
             assert questions[-1]["payload"]["source"].startswith("Child ")
@@ -130,16 +160,27 @@ def main():
         assert questions[-1]["payload"]["status"] == "stopped"
         assert not any(e["payload"].get("answers") for e in questions)
         children = [json.loads(p.read_text()) for p in (path / "children").glob("*.json")]
-        assert len(children) == 1 and children[0]["status"] == "interrupted"
+        assert len(children) == (2 if args.nested else 1)
+        # A nested cancellation may surface as a wrapped execution error in
+        # its ancestor. Keep that observed failure, never relabel it success.
+        assert all(child["status"] in ("interrupted", "failed") for child in children)
         assert json.loads((path / "checkpoint.json").read_text())["status"] == "uncertain"
         if args.adopt_persistent:
             child_path = next((path / "children").glob("*.json"))
+            if args.nested:
+                child_path = next(
+                    p
+                    for p in (path / "children").glob("*.json")
+                    if json.loads(p.read_text())["parent"] != record["id"]
+                )
             if args.legacy_receipt:
                 # This is our just-created probe fixture, never a user conversation.
                 legacy = json.loads(child_path.read_bytes())
                 legacy.pop("recovery_fingerprint")
                 child_path.write_text(json.dumps(legacy))
             original = child_path.read_bytes()
+            assert json.loads(original)["status"] == "interrupted"
+            original_receipts = {p: p.read_bytes() for p in (path / "children").glob("*.json")}
             original_context_path = path / "child-context" / child_path.stem / "messages.jsonl"
             original_context = original_context_path.read_bytes()
             probe = Probe([*command, "--recover", record["id"]], cols=160)
@@ -150,7 +191,7 @@ def main():
                 assert recovered["id"] != record["id"]
                 assert not any(e["kind"] == "turn.accepted" for e in read_events(target))
                 action(probe, "Recovered work", "Recovered work · inspect before adopting")
-                probe.send(b"Historical child\r")
+                probe.send(b"persistent-probe\r" if args.nested else b"Historical child\r")
                 probe.wait("Continue captured child under")
                 probe.send(b"Continue captured child\r")
                 probe.wait("Continue captured child · Enter apply")
@@ -166,6 +207,8 @@ def main():
                 adopted = json.loads(captured.read_text())
                 assert captured.stem != child_path.stem and adopted["status"] == "completed"
                 assert adopted["metadata"]["recovery"]["child"] == child_path.stem
+                assert adopted["metadata"]["recovery"]["reparented"] == args.nested
+                assert adopted["parent"] == recovered["id"]
                 assert (target / "child-context" / captured.stem / "messages.jsonl").is_file()
                 assert not any(
                     e["kind"] == "child.observed" and e["payload"].get("event") == "tool:pre"
@@ -175,18 +218,20 @@ def main():
             finally:
                 probe.close()
             assert child_path.read_bytes() == original
+            assert all(p.read_bytes() == raw for p, raw in original_receipts.items())
             assert original_context_path.read_bytes() == original_context
         results.append(
             {
                 "preset": preset,
                 "completed_read_then_resume_without_replay": True,
                 "stop_then_exit_during_child_question": True,
-                "one_interrupted_parent_and_child": True,
+                "stopped_child_statuses": sorted(child["status"] for child in children),
                 "question_stopped_without_answer": True,
                 "uncertain_checkpoint_retained": True,
                 "clean_terminal_exit": True,
                 "native_persistent_child_adoption": args.adopt_persistent,
                 "generated_legacy_receipt": args.legacy_receipt,
+                "nested_reparenting": args.nested,
             }
         )
         print(json.dumps(results[-1]), flush=True)

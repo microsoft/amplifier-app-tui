@@ -10,6 +10,18 @@ remain bounded workspace snapshots, not semantic coverage or exclusive attributi
 recipe state and verifies the real runner refuses unsafe resume without repeating the
 completed write. Native gates test Stop-and-draft confirmation/cancel and pasted-draft
 persistence before ordinary debounce, with no submission. Inspect the captures.
+After integration, `lifecycle_probe.py --live --adopt-persistent --nested --output PATH`
+exercises a real intermediate parent, Stop/exit during the nested question, and new-root
+adoption through native menus; it verifies both original receipts remain byte-identical.
+Its isolated overlay explicitly clears delegate's child-tool exclusion. Foundation's
+default intentionally excludes delegation from children; do not silently change that
+product policy or mistake an unavailable child tool for a recovery failure.
+Foundation list overlays concatenate: an empty exclusion list does not clear the
+preset's list. This controlled probe uses the delegate module's falsy-null behavior;
+it is not a general configuration-replacement contract.
+The runtime may wrap nested cancellation as an ancestor execution failure. Require
+the selected child to be interrupted and every ancestor to be interrupted/failed;
+retain each observed status rather than relabelling the whole tree as interrupted.
 
 The runtime benchmark requires `--output NEW_PRIVATE_PATH --policy-comparison RECEIPT`;
 `--native-only` omits historical OpenTUI and `--pairs 30` is the full run. Run it alone,

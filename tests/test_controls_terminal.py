@@ -70,6 +70,9 @@ def test_pasted_draft_persists_before_typing_debounce_without_submission(tmp_pat
         assert json.loads(path.read_text())["text"] == text
         assert time.monotonic() - started < 0.20
         assert not any(e["kind"] == "turn.accepted" for e in events(tmp_path))
+        # Persistence may precede paint; inspect the rendered paste separately.
+        probe.wait("Pasted first line")
+        probe.wait("Pasted second line")
         capture(probe, "rc5-pasted-draft")
     finally:
         probe.close()
