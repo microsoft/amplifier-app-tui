@@ -168,6 +168,57 @@ async def test_modes_model_decision_native_change_restore_and_child_policy(ecosy
         await restored.close()
 
 
+@pytest.mark.parametrize("phase", ["active", "checkpoint"])
+async def test_mode_change_stop_scope_after_completed_turn(ecosystem, monkeypatch, phase):
+    host, _, _ = ecosystem
+    assert host.submit("Complete a fixture turn")[0]
+    assert await host.task == "completed"
+    entered, release, ended = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    original_apply = host.modes.apply
+    context = host.session.coordinator.get("context")
+    original_messages = context.get_messages
+    original_emit = host.emit
+
+    async def apply(value):
+        result = await original_apply(value)
+        if phase == "active":
+            entered.set()
+            await release.wait()
+        return result
+
+    def emit(kind, *args, **kwargs):
+        original_emit(kind, *args, **kwargs)
+        if kind == "modes.updated":
+            ended.set()
+
+    async def messages():
+        if phase == "checkpoint" and ended.is_set():
+            entered.set()
+            await release.wait()
+        return await original_messages()
+
+    monkeypatch.setattr(host.modes, "apply", apply)
+    monkeypatch.setattr(context, "get_messages", messages)
+    monkeypatch.setattr(host, "emit", emit)
+    try:
+        assert host.modes.select({"current": None, "mode": "plan"})[0]
+        await asyncio.wait_for(entered.wait(), 5)
+        assert host.stop() is (phase == "active")
+        release.set()
+        if phase == "active":
+            with pytest.raises(asyncio.CancelledError):
+                await host.task
+            assert not host.ready
+        else:
+            await host.task
+            assert host.modes.current() == "plan"
+        saved = json.loads((host.store.path / "checkpoint.json").read_text())
+        assert saved["status"] == ("uncertain" if phase == "active" else "ready")
+    finally:
+        release.set()
+        await asyncio.gather(host.task, return_exceptions=True)
+
+
 async def test_delegate_child_questions_route_and_stop_cleans_up(ecosystem):
     host, _, _ = ecosystem
     provider = host.session.coordinator.get("providers")["fixture"]

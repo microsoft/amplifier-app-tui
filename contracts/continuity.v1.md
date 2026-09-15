@@ -41,7 +41,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: the boundary's clients and the person relying on them.
 
 5. **Separate stopping and undo.** Interruption records partial effects without claiming rollback.
-   An uncertain session remains inspectable/exportable. Explicit recovery creates a new identity with disclosed historical context, keeps the original intact and never replays unfinished tools or releases queued work.
+   An uncertain session remains inspectable/exportable. Explicit recovery creates a new identity with disclosed historical context, keeps the original intact and never replays unfinished tools or releases queued work. Supported structured recovery preserves observed tool identities, labels absent outcomes unknown and requires acknowledgement; unavailable module-private state is never invented.
    Broken: A cancelled operation presented as undone misstates workspace state.
    Affected: the boundary's clients and the person relying on them.
 
@@ -64,6 +64,7 @@ How does a replacement context manager preserve canonical history independently 
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Clarify structured recovery's uncertainty in P5. | Steward requested interrupted-context and delegated recovery; replaying incomplete calls or inferring successful effects would violate retained intent. |
 | 2026-09-14 | Clarify P1's nested-parent and routing preservation. | Steward authorized deeper delegated continuity; durable child records must not become implicit ancestor execution. |
 | 2026-09-13 | Specify P1's guarded completed-child continuation. | Steward requested durable delegated workflows; existing receipts retain context but lose executable composition across restart. |
 | 2026-09-13 | Clarify P2's retained answer/correction drafts and non-delivery on recovery. | Steward authorized daily-replacement work; these editors currently exist only in client memory. |

@@ -1,5 +1,129 @@
 # First vertical slice — acceptance evidence
 
+## Rich inputs, discovery and explicit context controls (2026-09-14)
+
+The current eight-group authorization drives this slice; it does not close all eight
+groups. VISION and the interaction, presentation, continuity and ecosystem promises
+were amended before implementation. Contracts remain DRAFT. The convention skill
+required a fresh-context review of new source, fixtures and evidence before publication.
+
+- Up to four frozen PNG/JPEG snapshots per draft or queued message, per-item removal,
+  bounded local thumbnails and explicit Linux desktop clipboard acquisition. Attachment
+  identity and bytes survive reopen, rejection and source-file replacement. Clipboard
+  acquisition is not remote-terminal clipboard support. Semantic file references remain open.
+- Saved-message search uses a private incremental SQLite trigram cache, retaining source
+  journals as authority and disclosing partial results. Filtering precedes paging, including
+  startup full-content search. Timestamped recall merges directory sessions chronologically;
+  older records disclose legacy ordering instead of inventing timestamps.
+- Stored public messages are inspectable without a model request; image bytes are omitted
+  from the view. Allowlisted provider-dispatch observations are separate from exact wire
+  payloads. An explicitly confirmed standalone provider probe may bill, but adds no
+  conversation turn, tools, workspace content, model selection change or response text.
+- Explicit UTF-8 historical import creates a new composition with a hashed reference,
+  preserving the original and performing no replay. Recovery also retains a structured
+  historical tool/child/question ledger; uncertain effects stay unknown. Completed child
+  restart now supports captured custom JSON orchestrator configuration under existing
+  parent/policy/context guards. Interrupted/private-state and subprocess recovery remain open.
+- Wide diff inspection can pair removed/added lines side by side; narrow terminals fall
+  back to unified text. Copy still returns the original captured unified source. This is
+  not agent attribution, conflict editing, or test-state causality.
+
+Integrated gate: **403 Python tests passed**, with native candidates, both presets and
+independent swaps enabled (187.42 seconds). The preceding 402-case run emitted two
+unawaited logging-callback warnings; the final run emitted none, but the reproducible
+cancellation defect remains open. No warning filter or kernel patch hides it.
+**33 Rust tests passed** normally and with
+NO_COLOR; all-target Clippy, Cargo format, Ruff, direction structure (581 contract lines,
+49 production files), and diff checks passed. A first full run exposed premature Ready
+publication while directory recall was loading; advertised readiness now waits for recall,
+and failed startup releases that guard. A new explicitly gated initial-readiness regression
+also preserves early drafts, refuses premature Send and verifies zero automatic execution.
+The focused cases and final full run pass.
+
+The [live rich-input receipt](evidence/approachability-live.json) covers both real presets:
+capture two images, queue without submission, close, resume without replay, and explicitly
+run the queue after replacing source files. Both original colours and exact canonical bytes
+were retained. Stored-context inspection and a separately confirmed remote access probe
+preserved the checkpoint and unsent draft. Two conversation turns and two standalone probes
+were billed; no tools were called. An initial probe command incorrectly combined resume
+with a cwd override and was correctly refused before a provider turn; the corrected probe
+restores recorded cwd and passes. Private native previews, queues, replies and controls
+were captured; no transcript, credential or machine-path literal belongs in this receipt.
+
+The [current lifecycle receipt](evidence/approachability-lifecycle-live.json) repeats both
+live preset checks against this revision: completed file read, close/reopen without replay,
+then Stop/exit while a delegated child awaits a question. One parent and child remain
+interrupted, the question has no answer, and the checkpoint stays uncertain. Each PTY
+exited cleanly. Four parent and two child turns are separate from the image/probe gate.
+
+The [synthetic index measurement](evidence/history-index-benchmark.json) covers 200 sessions,
+100,000 messages and 61,645,095 journal bytes. Four incremental refreshes indexed the store
+in 1,985 ms total (largest call 550 ms). Thirty warm search samples measured median 18.6 ms
+and p95 23.6 ms, with all first-message matches found and every journal hash unchanged.
+This excludes metadata catalog work, UI, model, CLI policy and cold installation. It is
+not a CLI-parity result or a maximum-latency guarantee.
+
+The 0.3.0rc2 Linux ARM64 candidate passes isolated compiler-free installation, native
+byte/load verification and an independent review of every wheel member and its receipt.
+The [installed live gate](evidence/approachability-installed-live.json) exercises both
+presets outside the checkout with remote sources: real delegated file read, close/reopen
+without replay, second-turn retained-context reply, and non-submitting help. Four parent
+and two child turns pass. Other-platform candidate checks and publication remain separate
+from these local measurements; existing 0.3.0rc1 release assets are not overwritten.
+
+Remaining: callback/uncooperative shutdown ownership, semantic references, interrupted
+child/private-state/subprocess and uncertain recipe recovery, attributed change/test evidence,
+conflict editing, exact request/provider conversion, matched CLI-policy and broader platform
+proof. The eight current PLAN rows remain the authoritative open-work record.
+
+## Finalization ownership (2026-09-14)
+
+Continued steward authorization drove LIFE-03. The per-repo-conventions skill kept
+the VISION/session P8 amendment ahead of implementation and routed the ownership
+lessons into ENGINE-BOUNDARY and SMOKE_TESTS. Contracts remain DRAFT.
+
+Repeated Stop and Stop/exit previously cancelled a stopped turn's awaited checkpoint.
+They now preserve finalization; first Stop during a completed turn's checkpoint does
+not relabel completion or cancel persistence. Close owns one shared, shielded cleanup
+task, rejects admission, joins startup before returning and propagates caller cancellation
+only after cleanup drains. Cleanup failures remain visible without an automatic retry.
+The startup exception path avoids a recursive open/close wait cycle. Mode transitions
+reset the same task-state flags and protect their checkpoint; the new actual-preset
+regressions caught stale finalization state after a completed root turn before handoff.
+The broader run also exposed an ordering gap in the new cleanup handoff: immediate
+close allowed a just-admitted turn to enter execution before cancellation. A strengthened
+existing regression now counts actual session.execute calls, rather than accepting an
+interrupted ending alone. Stop applies synchronously before the cleanup task is scheduled.
+
+Eight deterministic host cases and four actual-preset mode cases use controlled await
+gates around real mounted sessions, not timing guesses or a mocked successful engine.
+The [live terminal receipt](evidence/lifecycle-live.json) covers both presets: successful
+read_file, exit/reopen with no replay, then delegation to a child asking a structured
+question. Selecting Stop and immediately exiting preserves one interrupted parent and
+child, stops the question without an answer and retains an uncertain checkpoint. The
+four-parent/two-child probe ran twice, including after the last ordering fix: eight
+parent and four child turns total. Private completed/waiting terminal captures were
+inspected; each isolated PTY exited cleanly and restored terminal modes.
+
+Rust/Python callback cancellation warnings remain unresolved. The earlier full run
+passed 380 tests with two unawaited callback warnings; deeper tracing also exposed
+orchestrator/raw-field callback allocations but slowed the child-question test beyond
+its existing timeout. Those tracing failures are not normal-run failures or evidence
+of a general fix. No kernel changes, warning suppression, automatic recovery, cleanup
+timeout guarantee or CLI-performance claim is included in this slice.
+
+Final integrated gate after the ordering fix: **384 Python tests passed**, native
+candidates/both presets/independent swaps enabled, with **two remaining module-hook
+callback warnings** in delegated cancellation. **30 Rust tests passed** both normally
+and with NO_COLOR. Clippy warnings-denied, Cargo format, Ruff/format (124 files),
+direction/archive integrity (577 contract lines, 48 production files), and diff checks
+passed. The live receipt fingerprints match that tested host/mode revision. Temporary
+PTY/tmux probe resources were reaped.
+
+Wheel and sdist build; every decompressed wheel member passes the existing privacy
+scan, and embedded host/mode sources match the checkout. This is a separate local
+candidate, not replacement assets for the published 0.3.0rc1 release.
+
 ## Whole-backlog implementation and release candidate (2026-09-14)
 
 The steward authorized all seven backlog groups. The per-repo-conventions skill drove

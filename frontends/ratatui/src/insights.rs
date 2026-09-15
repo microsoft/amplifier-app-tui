@@ -14,6 +14,57 @@ pub struct Insights {
     pub watching: Option<(String, Option<String>, Instant)>,
 }
 
+pub fn thumbnail_lines(value: &Value, width: usize) -> Vec<Line<'static>> {
+    let w = value["width"].as_u64().unwrap_or(0) as usize;
+    let h = value["height"].as_u64().unwrap_or(0) as usize;
+    let Some(pixels) = value["pixels"].as_array() else {
+        return vec![];
+    };
+    if w == 0 || h == 0 || w > 32 || h > 16 || pixels.len() != w * h {
+        return vec![];
+    }
+    let Some(rgb): Option<Vec<[u8; 3]>> = pixels
+        .iter()
+        .map(|pixel| {
+            let values = pixel.as_array()?;
+            if values.len() != 3 {
+                return None;
+            }
+            Some([
+                u8::try_from(values[0].as_u64()?).ok()?,
+                u8::try_from(values[1].as_u64()?).ok()?,
+                u8::try_from(values[2].as_u64()?).ok()?,
+            ])
+        })
+        .collect()
+    else {
+        return vec![];
+    };
+    let mut lines = Vec::new();
+    for y in (0..h).step_by(2) {
+        let mut spans = Vec::new();
+        for x in 0..w.min(width) {
+            let a = rgb[y * w + x];
+            let b = rgb[y.saturating_add(1).min(h - 1) * w + x];
+            if std::env::var_os("NO_COLOR").is_some() {
+                let light = (u32::from(a[0]) * 3 + u32::from(a[1]) * 6 + u32::from(a[2])) / 10;
+                spans.push(Span::raw(
+                    [" ", "░", "▒", "▓", "█"][(light * 4 / 255) as usize],
+                ));
+            } else {
+                spans.push(Span::styled(
+                    "▀",
+                    Style::default()
+                        .fg(Color::Rgb(a[0], a[1], a[2]))
+                        .bg(Color::Rgb(b[0], b[1], b[2])),
+                ));
+            }
+        }
+        lines.push(Line::from(spans));
+    }
+    lines
+}
+
 impl App {
     pub fn model_catalog_result(&mut self, value: Value) {
         if value["session_id"] != self.nav.session
@@ -82,18 +133,19 @@ impl App {
         self.menu(
             "Image snapshot · confirm attachment",
             vec![Choice {
-                label: "Attach captured image (replaces any previous image)".into(),
+                label: "Add captured image to draft (up to four)".into(),
                 action: Action::ImageSelect(string(&value, "id")),
                 detail: String::new(),
             }],
         );
         self.ui.menu.as_mut().unwrap().detail = format!(
-            "{} · {} · {} bytes\nSHA-256: {}\nMetadata preview, not an image rendering. One immutable image per idle Send. Later file changes do not change these captured bytes. Sending shares the image with the configured provider. Escape leaves the current attachment unchanged.",
+            "{} · {} · {} bytes\nSHA-256: {}\nCoarse thumbnail; original captured bytes are sent, not this preview. Up to four images per Send or queued message. Sending shares images with the configured provider. Escape leaves current attachments unchanged.",
             safe(&string(&value, "path")),
             string(&value, "media_type"),
             value["bytes"],
             string(&value, "sha256")
         );
+        self.ui.menu.as_mut().unwrap().image = value.get("thumbnail").cloned();
     }
 
     pub fn image_draft_menu(&mut self) {
@@ -115,6 +167,19 @@ impl App {
             string(&image, "state"),
             string(&image, "sha256")
         );
+        if image["state"] == "attached" {
+            for item in image["images"].as_array().unwrap_or(&vec![]) {
+                self.ui.menu.as_mut().unwrap().choices.push(Choice {
+                    label: format!("Remove {}", safe(&string(item, "path"))),
+                    action: Action::ImageRemoveItem(string(&image, "id"), string(item, "id")),
+                    detail: format!(
+                        "{} bytes · SHA-256 {}",
+                        item["bytes"],
+                        string(item, "sha256")
+                    ),
+                });
+            }
+        }
     }
 
     pub fn file_snapshot_result(&mut self, value: Value) {
@@ -255,6 +320,7 @@ impl App {
             match category.as_str() {
                 "children" => "Delegated work · scoped child observations",
                 "context" => "Context intelligence · observed diagnostics",
+                "stored_context" => "Stored context · module snapshot, not wire request",
                 "instructions" => "Instruction sources · last observed resolution",
                 "recipes" => "Recipe activity · observed tool calls",
                 _ => "Activity evidence · identified runtime observations",
@@ -429,6 +495,21 @@ impl App {
             string(&row, "source"),
             string(&row, "id"),
             safe(&string(&row, "text"))
+        );
+    }
+}
+
+#[cfg(test)]
+mod thumbnail_tests {
+    use super::*;
+    #[test]
+    fn bounded_thumbnail_rejects_invalid_channels_and_respects_width() {
+        let value =
+            json!({"width":2, "height":2, "pixels":[[255,0,0],[0,0,255],[255,0,0],[0,0,255]]});
+        assert_eq!(thumbnail_lines(&value, 1)[0].width(), 1);
+        assert_eq!(thumbnail_lines(&value, 80).len(), 1);
+        assert!(
+            thumbnail_lines(&json!({"width":1,"height":1,"pixels":[[999,0,0]]}), 80).is_empty()
         );
     }
 }

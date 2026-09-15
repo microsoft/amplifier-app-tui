@@ -15,6 +15,13 @@ Read [current direction](docs/VISION.md), [derived work](notes/PLAN.md), and
 [what the comparison evaluates](notes/FRONTEND-EVALUATION.md).
 The [workflow coverage map](notes/PARITY.md) separates working paths from remaining parity gaps.
 
+The 0.3.0rc2 development candidate adds multi-image drafts/queues with thumbnails, explicit
+Linux host-clipboard images, indexed saved-message search, chronological directory recall,
+stored-context inspection and side-by-side diff viewing. Restart the development command
+to load changes; the published 0.3.0rc1 assets do not contain this pending slice.
+See [explicit migration and provider checks](docs/MIGRATION.md) for historical text import
+into a new composition without replay or a compatibility-guard bypass.
+
 ## Work with Amplifier
 
 ### Install the native product

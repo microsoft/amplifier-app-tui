@@ -18,6 +18,24 @@ as documented in [Converge practice](notes/CONVERGE.md). Verify distributions om
 Changes limited to direction/check tooling do not require new billed provider runs;
 execution-path changes still owe the relevant live and integration evidence below.
 
+Lifecycle ownership: `tests/test_lifecycle.py` gates real checkpoint/startup/cleanup awaits.
+Exercise Stop twice, Stop then exit, cancellation of close waiters, natural completion while
+saving, concurrent close, and cleanup failure. Assert one outcome/cleanup and no new execution.
+Do not rely on sleeps to hit these races, suppress callback warnings, or call cleanup finished
+while its handle is still live. Track startup separately so closing an opening host cannot
+return early or wait recursively on itself. After the full suite, run
+`PYTHONDONTWRITEBYTECODE=1 uv run --no-sync python scripts/lifecycle_probe.py --live` serially:
+four billed root/two child turns across both presets, completed read/resume without replay,
+then Stop immediately followed by exit during a child question. Inspect private captures;
+verify stopped questions, one interrupted parent/child and an uncertain checkpoint.
+Mode changes also use the host's task slot: reset its finalization state for a new mode
+operation and protect that operation's checkpoint. The actual-preset regressions in
+`tests/test_ecosystem_workflows.py` catch stale state inherited from a completed turn.
+Immediate close after submit must make zero calls into session execution, not merely
+end with an interrupted status. Apply Stop before handing off to the cleanup task;
+otherwise the scheduler can enter the runtime during that handoff. Keep the explicit
+call counter in `test_close_before_first_execution_step_cleans_up`.
+
 Direct Codex adoption gate: build Ratatui, then run `TUI_TEST_CANDIDATES=1` with
 `tests/test_compact_terminal.py`, `tests/test_tmux_scrollback.py` and the complete native
 suite. Verify a fresh primary-screen page, bottom-aligned five-row ordinary idle chrome plus an empty cursor-anchor separator,
@@ -43,6 +61,16 @@ step and retry only the explicitly requested unfinished work on both presets.
 two billed controlled-image turns through both presets; compare exact canonical image bytes,
 colour identification, zero tool calls, source inspection and private native captures.
 Never use a fixture's image transport as proof of real vision capability.
+`scripts/approachability_probe.py --live` adds two billed image-set turns and two confirmed
+standalone provider probes across both presets. Queue two captured images, replace their
+source files, close/reopen, then explicitly Run. Check exact canonical bytes, no implicit
+replay, colour identification, retained draft, and unchanged checkpoint after context/probe
+inspection. Resume must restore recorded cwd, never combine it with a cwd override.
+`scripts/benchmark_history.py` measures synthetic incremental indexing and warm search;
+keep its catalog/UI/model/CLI exclusions visible beside any reported timings.
+Initial startup, not only conversation switching, must withhold advertised Ready while
+directory-history loading still rejects Submit. On failed startup, release that history
+guard so the actual startup failure remains visible instead of a permanent loading message.
 `PYTHONDONTWRITEBYTECODE=1 uv run --no-sync python scripts/release_wheel.py` verifies an
 isolated compiler-free wheel install. `.github/workflows/release-wheels.yml` is manual,
 produces private candidate artifacts and does not publish a release; unrun platforms stay unverified.
@@ -414,6 +442,21 @@ Pilot covers correlated approval clicks and stale button identity; host tests co
 before execution, during a tool and during an approval. Windows/macOS and real IME remain untested.
 
 ## Lessons that own future checks
+
+- Indexed search must find content before the old tail window and beyond page one.
+  Exercise append, truncation, corrupt cache, malformed/oversized records and Unicode
+  literal queries. Partial indexing is not “no matches.” Timestamp recall needs interleaved
+  sessions, current-session replacement and arrivals during an active history browse.
+- Media tests compare original provider-request bytes after source files change, queue
+  admission, rejection and reopen. Preview pixels must serialize identically across disk;
+  thumbnail tuples versus JSON lists caused a real regression. No fixture proves vision.
+- Standalone provider probes require explicit confirmation, no conversation/tools, queue
+  hold and redacted failures. Observe real native confirmation/result paths; text can wrap
+  between terminal rows. Stored-context inspection must not build the next request.
+- Historical import must preserve its source, validate the captured digest and make zero
+  provider/tool calls before an explicit new submission. It is not cross-vendor canonical
+  resume. Completed-child custom settings must be retained exactly, not replaced by the
+  current parent's defaults. Interrupted/private-state reconstruction remains separate.
 
 - Git installation must be exercised from the actual private URL, outside the checkout,
   with no sibling source map. A local editable install or successful wheel build is not

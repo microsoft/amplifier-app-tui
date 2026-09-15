@@ -29,7 +29,7 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
 
 2. **Honor composition policy.** Selected sources, overlays, provider selection and effective configuration remain attributable; exclusions and incompatibilities are explicit. Conversation-provider changes use a supported module capability while idle, retain its compatibility guards, and disclose whether other routing is unaffected.
    Mode changes retain transition/tool guards and their durable state. Explicit model discovery is advisory, never an implicit selection or credential-validity claim. Local capture, remote dispatch, observed context usage and unavailable diagnostics are disclosed separately.
-   Broken: A replacement silently omits a policy hook or substitutes a provider to make a demonstration work.
+   Broken: A replacement silently omits a policy hook, treats offline credential checks as remote validation, or bypasses compatibility guards; explicit conversion must preserve the original and require adoption.
    Affected: operators relying on the configured behavior and its provenance.
 
 3. **Preserve independent extension seams.** Orchestrator, context, provider, tool and hook remain replaceable without importing the terminal frontend.
@@ -70,6 +70,7 @@ Which authored CLI policies need explicit TUI equivalents rather than configurat
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Distinguish explicit remote validation and deliberate composition conversion in P2. | Steward authorized remaining newcomer/provider work; offline checks cannot validate credentials and existing pins intentionally preserve vendor guards. |
 | 2026-09-14 | Clarify advisory model discovery in P2. | Steward authorized provider/model setup; module catalogs must not bypass selection guards or imply a successful model request. |
 | 2026-09-14 | Specify compiler-free supported release wheels in P1. | Steward authorized the installation backlog; source installation currently requires Rust/Cargo and a linker. Source builds remain explicit. |
 | 2026-09-14 | Clarify P1's actionable, privacy-conscious setup checks. | Steward requested newcomer approachability; local diagnosis should not require sharing machine paths or trial model calls. |

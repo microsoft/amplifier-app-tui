@@ -43,6 +43,7 @@ pub(super) enum Action {
     WorkspaceDiff(String, String),
     WorkspaceHunks(Arc<Value>),
     WorkspaceHunk(Arc<Value>, usize),
+    WorkspaceSide(Arc<Value>, usize),
     CopySource(Arc<str>),
     QuestionGroup(String),
     QuestionOpen(String),
@@ -53,6 +54,8 @@ pub(super) enum Action {
     QuestionCancel(String),
     Providers,
     ProviderHistory,
+    ProviderValidateChoice(String),
+    ProviderValidate(String),
     ProviderChoice(Option<String>, u64, Option<String>),
     ProviderApply(Option<String>, u64, Option<String>),
     CancelSwitch,
@@ -76,9 +79,11 @@ pub(super) enum Action {
     LocalDrafts,
     FileInput,
     ImageInput,
+    ClipboardImage,
     ImageDraft,
     ImageSelect(String),
     ImageRemove(String),
+    ImageRemoveItem(String, String),
     InsertFile(Arc<Value>, String),
     ExternalEditor,
     Inspect(String, Option<String>),
@@ -105,7 +110,9 @@ pub(super) struct Menu {
     pub selected: usize,
     pub choices: Vec<Choice>,
     pub diff: bool,
+    pub side_by_side: bool,
     pub code: Option<Arc<code_blocks::CodeBlock>>,
+    pub image: Option<Value>,
     pub detail_cache: Option<(u16, bool, String, Vec<Line<'static>>)>,
 }
 
@@ -128,6 +135,8 @@ pub(super) struct Interaction {
     pub history: Vec<String>,
     pub prior_history: Option<Vec<String>>,
     pub history_partial: bool,
+    pub history_legacy: bool,
+    pub history_replace_count: Option<usize>,
     pub diagnostics: Vec<String>,
     pub diagnostic_view: bool,
     pub skills: Vec<String>,
@@ -140,6 +149,9 @@ impl Interaction {
             return;
         }
         if let Some(mut prior) = self.prior_history.take() {
+            if let Some(count) = self.history_replace_count.take() {
+                self.history.drain(..count.min(self.history.len()));
+            }
             prior.append(&mut self.history);
             if prior.len() > 1000 {
                 prior.drain(..prior.len() - 1000);
@@ -167,7 +179,9 @@ impl App {
             selected: 0,
             choices,
             diff: false,
+            side_by_side: false,
             code: None,
+            image: None,
             detail_cache: None,
         });
     }
@@ -218,9 +232,11 @@ impl App {
                     choice("Delegated work — inspect agents and recipe children", Action::Inspect("children".into(), None)),
                     choice("Activity evidence — tools and runtime observations", Action::Inspect("activity".into(), None)),
                     choice("Context intelligence — usage, compaction and logging", Action::Inspect("context".into(), None)),
+                    choice("Stored context — inspect current module messages", Action::Inspect("stored_context".into(), None)),
                     choice("Instruction sources — inspect resolved context origins", Action::Inspect("instructions".into(), None)),
                     choice("Attach image — PNG/JPEG snapshot", Action::ImageInput),
-                    choice("Attached image — inspect or remove", Action::ImageDraft),
+                    choice("Paste image — read host desktop clipboard", Action::ClipboardImage),
+                    choice("Attached images — inspect or remove", Action::ImageDraft),
                     choice("Search saved conversations — local content search", Action::FindSaved),
                     choice("Recipe activity — inspect runs and prepare a review request", Action::Inspect("recipes".into(), None)),
                     choice("Model catalog — discover configured providers' model IDs", Action::Models),
@@ -298,9 +314,15 @@ impl App {
                 self.status = "Recipe review request added to draft · edit and Send explicitly".into();
             }
             Action::ImageInput => self.prompt("Attach image"),
+            Action::ClipboardImage => {
+                self.insights.file_request = Some(((self.request + 1).to_string(), self.draft.lines().join("\n")));
+                self.menu("Text file · reading", vec![]);
+                self.send(json!({"op":"clipboard_image"}));
+            }
             Action::ImageDraft => self.image_draft_menu(),
             Action::ImageSelect(id) => self.send(json!({"op":"image_select", "id":id})),
             Action::ImageRemove(id) => self.send(json!({"op":"image_remove", "id":id})),
+            Action::ImageRemoveItem(id, item_id) => self.send(json!({"op":"image_remove", "id":id, "item_id":item_id})),
             Action::RecoverChoice(id) => {
                 self.menu("Recover into a new conversation?",vec![choice("Create recovered conversation — no replay",Action::Recover(id))]);
                 self.ui.menu.as_mut().unwrap().detail="The original stays unchanged. Historical transcript becomes reference context, not pending execution. No tools or queued work are replayed. Partial external effects may remain. Escape cancels.".into();
@@ -346,6 +368,13 @@ impl App {
             Action::CopyCode(block) => self.copy = Some(block.content.clone()),
             Action::WorkspaceHunks(snapshot) => self.workspace_hunks(snapshot),
             Action::WorkspaceHunk(snapshot, at) => self.workspace_hunk(snapshot, at),
+            Action::WorkspaceSide(snapshot, at) => {
+                self.workspace_hunk(snapshot, at);
+                if let Some(menu) = self.ui.menu.as_mut() {
+                    menu.side_by_side = true;
+                    menu.title = "Workspace diff · side by side (unified below 80 columns)".into();
+                }
+            }
             Action::CopySource(source) => self.copy = Some(source.to_string()),
             Action::Message(id) => self.message_menu(id),
             Action::Jump(id) => { if let Some(&i) = self.index.get(&id) { self.reveal_item(i); } }
@@ -415,6 +444,14 @@ impl App {
             }
             Action::ProviderChoice(name, revision, current) => self.provider_confirm(name, revision, current),
             Action::ProviderHistory => self.provider_history(),
+            Action::ProviderValidateChoice(name) => {
+                self.menu("Validate provider access?", vec![choice(format!("Send standalone probe to {}", safe(&name)), Action::ProviderValidate(name))]);
+                self.ui.menu.as_mut().unwrap().detail = "This makes a remote request using the provider's configured model and credentials. Charges may apply. Sends only ‘Reply OK.’, no conversation, workspace or tools. Requests 16 output tokens; provider policy may differ. Cooperative 20-second timeout; provider retries may apply. No selection change. Escape cancels.".into();
+            }
+            Action::ProviderValidate(name) => {
+                self.menu("Provider validation · waiting", vec![]);
+                self.send(json!({"op":"validate_provider", "provider":name, "confirm_remote":true}));
+            }
             Action::ProviderApply(name, revision, current) => {
                 self.controls.requests.insert((self.request + 1).to_string());
                 self.send(json!({"op":"provider_select", "provider":name, "revision":revision, "current":current}));
@@ -496,7 +533,7 @@ impl App {
                     .map(|s| choice(safe(s).replace('\n', " ↵ "), Action::Recall(s.clone())))
                     .collect();
                 self.menu(
-                    if self.ui.history_partial { "Directory history · recent subset · selecting never sends" } else { "Directory history · selecting restores text, never sends" },
+                    if self.ui.history_partial { "Directory history · recent subset · selecting never sends" } else if self.ui.history_legacy { "Directory history · legacy rows use session activity order · text only" } else { "Directory history · chronological submissions · text only, never sends" },
                     choices,
                 );
             }
@@ -863,7 +900,7 @@ impl App {
                 *w != content_width || *diff != menu.diff || source != detail
             })
         {
-            let lines = if let Some(code) = &menu.code {
+            let mut lines = if let Some(code) = &menu.code {
                 let mut lines = wrap(detail, content_width as usize)
                     .into_iter()
                     .map(|s| Line::styled(s, Style::default().fg(INK)))
@@ -877,6 +914,8 @@ impl App {
                 };
                 lines.extend(markdown::reflow(code_lines, content_width as usize));
                 lines
+            } else if menu.side_by_side {
+                workspace::side_by_side_lines(detail, content_width as usize)
             } else if menu.diff {
                 workspace::diff_lines(detail, content_width as usize)
             } else {
@@ -885,6 +924,11 @@ impl App {
                     .map(|s| Line::styled(s, Style::default().fg(INK)))
                     .collect()
             };
+            if let Some(image) = &menu.image {
+                let mut preview = insights::thumbnail_lines(image, content_width as usize);
+                preview.append(&mut lines);
+                lines = preview;
+            }
             menu.detail_cache = Some((content_width, menu.diff, detail.clone(), lines));
         }
         let lines = &menu.detail_cache.as_ref().unwrap().3;
@@ -895,6 +939,7 @@ impl App {
         };
         let help_topic = menu.title.starts_with("Help ·") && !menu.detail.is_empty();
         let roomy = help_topic
+            || menu.image.is_some()
             || menu.title.starts_with("Questions · review")
             || menu.title.starts_with("Observed evidence")
             || menu.title.starts_with("Context intelligence")

@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 import logging
+import time
 import uuid
 from importlib.metadata import version
 from pathlib import Path
@@ -55,6 +56,10 @@ class SessionHost:
         self.blocks: dict[str, str] = {}
         self._execution_started = False
         self._closed = False
+        self._opening = None
+        self._close_task = None
+        self.validation_active = False
+        self._finalizing = False
         self.auto_deny_approvals = False
         self._pending = {}
         self._tool_ids = set()
@@ -79,7 +84,13 @@ class SessionHost:
     def emit(self, kind, item_id, **payload):
         self.sequence += 1
         event = Event(
-            self.session_id, self.sequence, self.turn_id, kind, item_id, copy.deepcopy(payload)
+            self.session_id,
+            self.sequence,
+            self.turn_id,
+            kind,
+            item_id,
+            copy.deepcopy(payload),
+            timestamp_ns=time.time_ns(),
         )
         if self.store:
             self.store.record(event)
@@ -115,6 +126,10 @@ class SessionHost:
     async def open(self, prepared, report, cwd: Path):
         from dataclasses import replace
 
+        if self._closed:
+            raise RuntimeError("Session is closed")
+        if self._opening is not None or self.session is not None:
+            raise RuntimeError("Session is already opening or open")
         prepared = replace(
             prepared,
             mount_plan=copy.deepcopy(prepared.mount_plan),
@@ -129,6 +144,7 @@ class SessionHost:
         diagnostics = InitializationDiagnostics()
         initializer = logging.getLogger("amplifier_core._session_init")
         initializer.addHandler(diagnostics)
+        self._opening = asyncio.current_task()
         try:
             from .composition import create_owned_session
 
@@ -166,6 +182,23 @@ class SessionHost:
                         raise RuntimeError(
                             "Context module did not restore canonical history; resume refused"
                         )
+                elif (self.store.path / "imported-reference.json").exists():
+                    from .recovery import reference_messages
+
+                    with (self.store.path / "imported-reference.json").open("rb") as stream:
+                        raw = stream.read(7 * 1024 * 1024 + 1)
+                    if len(raw) > 7 * 1024 * 1024:
+                        raise ValueError("Imported reference exceeds storage limit")
+                    imported = json.loads(raw)
+                    messages = reference_messages(imported)
+                    await context.set_messages(messages)
+                    if portable_history(await context.get_messages()) != portable_history(messages):
+                        raise RuntimeError("Context module did not preserve imported reference")
+                    self.emit(
+                        "display.message",
+                        "imported-reference",
+                        text=imported["notice"] + "\nSource SHA-256: " + imported["sha256"],
+                    )
             mounted = coordinator.get("tools") or {}
             required = set(report.get("required_tools", []))
             if prepared.mount_plan.get("tools") and not mounted:
@@ -184,6 +217,7 @@ class SessionHost:
                 "orchestrator:complete",
                 "orchestrator:steering_injected",
                 "llm:response",
+                "llm:request",
                 "context:compaction",
                 "context:tool_result_ingress_truncated",
             ):
@@ -244,15 +278,22 @@ class SessionHost:
                     await context.get_messages(), self.sequence, self.fingerprint, True
                 )
         except BaseException:
-            await self.close()
+            # An external close owns this opening task and waits for it. Do not
+            # recursively join that close; on local failure detach before joining.
+            self._opening = None
+            if not self._closed:
+                await self.close()
             raise
         finally:
+            self._opening = None
             initializer.removeHandler(diagnostics)
 
-    def submit(self, text: str, input_id=None, image_id=None) -> tuple[bool, str]:
+    def submit(
+        self, text: str, input_id=None, image_id=None, queued_image=None
+    ) -> tuple[bool, str]:
         if not text.strip():
             return False, "Write a message first."
-        if not self.ready:
+        if self._closed or not self.ready:
             return False, "The session is not ready. Your draft is retained."
         if self.task is not None and not self.task.done():
             return (
@@ -261,12 +302,17 @@ class SessionHost:
             )
         image = None
         try:
-            if image_id and not self.supports_images():
+            if (image_id or queued_image) and not self.supports_images():
                 return (
                     False,
                     "Mounted provider/context does not advertise image input; draft retained",
                 )
-            if self.images:
+            if queued_image:
+                from .file_input import ImageDraft
+
+                ImageDraft.validate(queued_image)
+                image = queued_image
+            elif self.images:
                 image = self.images.admit(image_id)
             elif image_id:
                 return False, "Image input unavailable"
@@ -278,6 +324,7 @@ class SessionHost:
         self.observed_tools = {"root": {}, "children": {}}
         self.blocks = {}
         self._execution_started = False
+        self._finalizing = False
         self._tool_ids = set()
         self._stop_requested = False
         self._request_index = 0
@@ -288,7 +335,7 @@ class SessionHost:
             f"{self.turn_id}:user",
             text=text,
             input_id=input_id,
-            image={k: v for k, v in image.items() if k != "data"} if image else None,
+            image=self.images.metadata(image) if image else None,
         )
         if self.store and self.store.draft == text:
             self.store.save_draft("")
@@ -324,23 +371,28 @@ class SessionHost:
             if self._stop_requested:
                 raise asyncio.CancelledError
             if image:
-                await self.session.coordinator.get("context").add_message(
-                    {
-                        "role": "user",
-                        "content": [
+                content = []
+                for item in image.get("images", [image]):
+                    content.extend(
+                        [
                             {
                                 "type": "text",
-                                "text": f"Explicit image snapshot: {image['path']} · SHA-256 {image['sha256']}",
+                                "text": f"Explicit image snapshot: {item['path']} · SHA-256 {item['sha256']}",
                             },
                             {
                                 "type": "image",
                                 "source": {
                                     "type": "base64",
-                                    "media_type": image["media_type"],
-                                    "data": image["data"],
+                                    "media_type": item["media_type"],
+                                    "data": item["data"],
                                 },
                             },
-                        ],
+                        ]
+                    )
+                await self.session.coordinator.get("context").add_message(
+                    {
+                        "role": "user",
+                        "content": content,
                     }
                 )
             reply = await self.session.execute(text)
@@ -370,6 +422,7 @@ class SessionHost:
         except Exception as exc:
             status, message = "failed", f"{type(exc).__name__}: {exc}"
         finally:
+            self._finalizing = True
             if self.children and self.children.active:
                 if status == "completed":
                     status, message = (
@@ -425,10 +478,38 @@ class SessionHost:
         return status
 
     async def _observe(self, event, data):
+        if self.validation_active:
+            # Standalone access probes cannot masquerade as conversation activity.
+            return HookResult()
         # Child activity must never impersonate the root conversation.
         if data.get("session_id") not in (None, "", self.session_id):
             return HookResult()
         block_id = str(data.get("block_index", data.get("block_id", "0")))
+        if event == "llm:request":
+            # Observe the provider's actual dispatch event, not orchestrator intent.
+            # Raw wire payloads can contain secrets/images and are never copied here.
+            fields = (
+                "provider",
+                "model",
+                "message_count",
+                "has_system",
+                "thinking_enabled",
+                "thinking_budget",
+                "request_id",
+            )
+            self.emit(
+                "context.observed",
+                f"{self.turn_id}:wire:{self.sequence + 1}",
+                event=event,
+                name="Provider dispatch observation",
+                status="dispatch observed; delivery not proven",
+                observation={
+                    k: data[k]
+                    for k in fields
+                    if k in data and isinstance(data[k], (str, int, bool, type(None)))
+                },
+            )
+            return HookResult()
         if event == "mentions:resolved":
             for row in data.get("resolutions", [])[:256]:
                 if not isinstance(row, dict):
@@ -552,6 +633,14 @@ class SessionHost:
     def stop(self):
         if self.task is None or self.task.done():
             return False
+        if self._stop_requested:
+            # Repeated controls must not inject cancellation into the first
+            # Stop's checkpoint, child draining or other finalization awaits.
+            return True
+        if self._finalizing:
+            # A completed execution is no longer cancellable work. Its checkpoint
+            # and child accounting must finish even if Stop arrives at this await.
+            return False
         self._stop_requested = True
         if self.children:
             self.children.stop()
@@ -572,6 +661,31 @@ class SessionHost:
     async def close(self):
         self._closed = True
         self.ready = False
+        if self._close_task is None:
+            # Apply intent before yielding to the cleanup owner. Otherwise a
+            # freshly admitted turn can enter the runtime before Stop takes effect.
+            self.stop()
+            self._close_task = asyncio.create_task(self._close())
+        cancelled = None
+        while not self._close_task.done():
+            try:
+                await asyncio.shield(self._close_task)
+            except asyncio.CancelledError as exc:
+                # Keep the handle and lock until cleanup finishes. Cancellation of
+                # a caller is reported afterwards, never forwarded into cleanup.
+                cancelled = exc
+        self._close_task.result()
+        if cancelled is not None:
+            raise cancelled
+
+    async def _close(self):
+        opening = self._opening
+        if opening is not None and not opening.done():
+            if not opening.cancelling():
+                opening.cancel()
+            result = (await asyncio.gather(opening, return_exceptions=True))[0]
+            if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+                raise result
         if self.task and not self.task.done():
             self.stop()
             await asyncio.gather(self.task, return_exceptions=True)

@@ -124,3 +124,52 @@ class Inspection:
             if category == "context"
             else "",
         }
+
+    async def context_snapshot(self, host):
+        """Read the public stored messages, never construct a provider request."""
+        import asyncio
+
+        async with asyncio.timeout(3):
+            messages = await host.session.coordinator.get("context").get_messages()
+        if not isinstance(messages, list):
+            raise ValueError("Context module returned no supported message list")
+        rows, remaining = [], 1024 * 1024
+        partial = len(messages) > 100
+        for index, message in enumerate(messages[-100:], max(0, len(messages) - 100)):
+            if hasattr(message, "model_dump"):
+                message = message.model_dump()
+            if not isinstance(message, dict):
+                partial = True
+                continue
+            value = dict(message)
+            content = value.get("content")
+            if isinstance(content, list):
+                value["content"] = [
+                    {"type": "image", "notice": "Image bytes omitted from inspection"}
+                    if isinstance(block, dict) and block.get("type") == "image"
+                    else block
+                    for block in content
+                ]
+            detail, clipped = bounded(value)
+            remaining -= len(detail.encode())
+            if remaining < 0:
+                partial = True
+                break
+            partial |= clipped
+            rows.append(
+                {
+                    "id": f"context-message:{index}",
+                    "label": f"Stored message {index + 1} · {value.get('role', 'unknown')}",
+                    "status": "local context snapshot",
+                    "source": host.session_id,
+                    "detail": detail,
+                    "partial": clipped,
+                    "live": False,
+                }
+            )
+        return {
+            "rows": rows,
+            "partial": partial,
+            "scope": "Public context-module messages at inspection time; last 100 messages / 1 MiB, 16 KiB per message. Images omitted. No provider call or compaction.",
+            "context_note": "This is stored context, NOT the exact next provider request. System prompts, routing, provider conversions and hooks may change what is sent. Inspect dispatch observations separately; absent observations mean unavailable, never zero.",
+        }

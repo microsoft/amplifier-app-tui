@@ -159,6 +159,36 @@ class RuntimeControls:
             "scope": "Provider-reported IDs, possibly a static catalog; not credential, access, image support or selection validation. Up to 8 mounted providers / 128 IDs each; cooperative 3-second timeout per provider. Copy an ID for --setup / a new overlay. Current conversation and routing are unchanged.",
         }
 
+    async def validate_provider(self, name):
+        """An explicit standalone probe, not a conversation turn or model change."""
+        from amplifier_core import ChatRequest, Message
+
+        provider = (self.host.session.coordinator.get("providers") or {}).get(name)
+        if provider is None:
+            return {"ok": False, "message": "Provider is not mounted; nothing sent"}
+        self.host.validation_active = True
+        try:
+            request = ChatRequest(
+                messages=[Message(role="user", content="Reply OK.")],
+                tools=None,
+                max_output_tokens=16,
+                stream=False,
+                timeout=15,
+                metadata={"purpose": "explicit credential/access validation"},
+            )
+            await asyncio.wait_for(provider.complete(request), timeout=20)
+            return {
+                "ok": True,
+                "message": "Provider returned a response to the standalone probe. This proves only this configured request succeeded now; not other models, routing, tools, quotas or future access.",
+            }
+        except Exception as exc:
+            return {
+                "ok": False,
+                "message": f"Provider probe failed ({type(exc).__name__}). Check credentials, model access and provider settings privately. Error text/response withheld; no automatic retry by the app.",
+            }
+        finally:
+            self.host.validation_active = False
+
     def select(self, request):
         host = self.host
         if not host.ready or (host.task and not host.task.done()):

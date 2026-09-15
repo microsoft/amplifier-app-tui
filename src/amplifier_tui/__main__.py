@@ -30,6 +30,11 @@ def parser():
     result.add_argument("--state-dir", type=Path, default=Path(".state"))
     result.add_argument("--cwd", type=Path, default=Path.cwd())
     result.add_argument(
+        "--import-transcript",
+        type=Path,
+        help="Explicit text reference import into a new conversation; requires --bridge",
+    )
+    result.add_argument(
         "--resume", help="Saved conversation ID (bridge only; use scripts/run.py --resume)"
     )
     result.add_argument(
@@ -57,6 +62,10 @@ def main():
         parser().error("--bridge and --headless are mutually exclusive")
     if args.resume and not args.bridge:
         parser().error("--resume requires --bridge")
+    if args.import_transcript and (args.resume or not args.bridge):
+        parser().error(
+            "--import-transcript requires a new --bridge conversation; cannot combine with --resume or --headless"
+        )
     if bool(args.bundle) == args.fixture:
         parser().error("Choose exactly one of --fixture or --bundle")
     # Explicit process-level storage policy, before importing Foundation. Library
@@ -110,7 +119,12 @@ def main():
                 required = resolve_resume(args.state_dir, args.resume)["launch"].get(
                     "required_tools", []
                 )
-            return ConversationStore(
+            imported = None
+            if args.import_transcript:
+                from .recovery import import_reference
+
+                imported = import_reference(args.import_transcript)
+            store = ConversationStore(
                 args.state_dir,
                 {
                     "fixture": args.fixture,
@@ -122,6 +136,15 @@ def main():
                 },
                 args.resume,
             )
+            if imported:
+                from .conversations import atomic_json
+
+                try:
+                    atomic_json(store.path / "imported-reference.json", imported)
+                except BaseException:
+                    store.close()
+                    raise
+            return store
 
         async def open_launch(target, launch):
             fixture = launch["fixture"]

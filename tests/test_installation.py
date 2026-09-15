@@ -48,6 +48,15 @@ def test_packaged_question_source_exists():
     assert Path(value["tools"][0]["source"]).is_absolute() is False
 
 
+def test_explicit_transcript_import_is_a_new_launch_not_resume(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _, command = arguments(["--fixture", "--import-transcript", "old.md"])
+    assert command[command.index("--import-transcript") + 1] == str(tmp_path / "old.md")
+    assert "--resume" not in command
+    with pytest.raises(SystemExit):
+        arguments(["--resume", "a" * 32, "--import-transcript", "old.md"])
+
+
 async def test_tool_failure_summary_does_not_override_turn_completion(host):
     host.session.coordinator.get("tools")["fixture_probe"].config["fail"] = True
     host.submit("Compute")

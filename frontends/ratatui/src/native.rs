@@ -749,7 +749,7 @@ mod tests {
         log.prepare(80);
         let first: String = log.rows.drain(..).map(|l| l.to_string()).collect();
         assert!(first.contains("First."));
-        item.text.push_str(".");
+        item.text.push('.');
         log.observe(&item, true);
         log.prepare(40);
         let last: String = log.rows.drain(..).map(|l| l.to_string()).collect();

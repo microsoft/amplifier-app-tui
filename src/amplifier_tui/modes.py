@@ -169,6 +169,7 @@ class Modes:
             return False, "Choose a discovered mode"
         host._stop_requested = False
         host._execution_started = True
+        host._finalizing = False
         host.task = asyncio.create_task(self.change(name, request.get("request_id")))
         return True, "Applying your mode choice through module policy"
 
@@ -186,6 +187,7 @@ class Modes:
         except Exception as exc:
             self.host.show_message(f"Mode change failed: {exc}")
         finally:
+            self.host._finalizing = True
             self.host.emit("modes.updated", "modes", **self.catalog(), request_id=request_id)
             if self.host.store:
                 context = self.coordinator.get("context")

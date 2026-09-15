@@ -248,6 +248,27 @@ impl App {
             return;
         };
         let body = string(row, "text");
+        let media_detail = if row["image"].is_object() {
+            let images = row["image"]["images"]
+                .as_array()
+                .cloned()
+                .unwrap_or_else(|| vec![row["image"].clone()]);
+            format!(
+                "\n\nFrozen images travel with this queued message; editing text retains them.\n{}",
+                images
+                    .iter()
+                    .map(|image| format!(
+                        "{} · {} bytes\nSHA-256 {}",
+                        safe(&string(image, "path")),
+                        image["bytes"],
+                        string(image, "sha256")
+                    ))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        } else {
+            String::new()
+        };
         let mut choices = vec![choice(
             "Copy follow-up text",
             Action::CopyText(body.clone()),
@@ -280,7 +301,7 @@ impl App {
             ));
         }
         self.menu("Follow-up · inspect before changing", choices);
-        self.ui.menu.as_mut().unwrap().detail = safe(&body);
+        self.ui.menu.as_mut().unwrap().detail = safe(&(body + &media_detail));
     }
 
     pub fn draw_prompt(&mut self, f: &mut Frame) {

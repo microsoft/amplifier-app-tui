@@ -121,6 +121,18 @@ class Children:
             raise ValueError(
                 "Subprocess-isolated recipe steps are not supported; use in-process spawn"
             )
+        if orchestrator_config is not None:
+            if not isinstance(orchestrator_config, dict):
+                raise ValueError("Child orchestrator configuration must be a JSON object")
+            try:
+                encoded = json.dumps(orchestrator_config, allow_nan=False)
+            except (ValueError, TypeError) as exc:
+                raise ValueError(
+                    "Child orchestrator configuration must be JSON-compatible"
+                ) from exc
+            if len(encoded.encode()) > 65536:
+                raise ValueError("Child orchestrator configuration exceeds 64 KiB")
+            orchestrator_config = json.loads(encoded)
         parent_id = parent_session.session_id
         if parent_id not in self.parents or self.host._stop_requested or not self.host.ready:
             raise ValueError("Child request has no active parent in this conversation")
@@ -246,13 +258,14 @@ class Children:
             "restart_policy": {
                 "tools": tool_inheritance,
                 "hooks": hook_inheritance,
-                "orchestrator": "parent" if orchestrator_config else None,
-            }
-            if (
-                not orchestrator_config
-                or orchestrator_config == parent_orchestrator(parent_session)
-            )
-            else None,
+                "orchestrator": (
+                    "parent"
+                    if orchestrator_config == parent_orchestrator(parent_session)
+                    else copy.deepcopy(orchestrator_config)
+                )
+                if orchestrator_config
+                else None,
+            },
         }
         return await self.execute(identity, instruction, parent_session)
 
@@ -305,7 +318,10 @@ class Children:
         if (
             not isinstance(policy, dict)
             or set(policy) != {"tools", "hooks", "orchestrator"}
-            or policy["orchestrator"] not in (None, "parent")
+            or (
+                policy["orchestrator"] not in (None, "parent")
+                and not isinstance(policy["orchestrator"], dict)
+            )
             or model_role
         ):
             raise ValueError("Child restart policy is unsupported; create a new delegation")
@@ -333,7 +349,7 @@ class Children:
                 hook_inheritance=policy["hooks"],
                 orchestrator_config=parent_orchestrator(parent)
                 if policy["orchestrator"] == "parent"
-                else None,
+                else policy["orchestrator"],
                 parent_messages=row["messages"],
                 provider_preferences=preferences or None,
                 session_metadata=row.get("metadata", {}),

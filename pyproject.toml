@@ -1,6 +1,6 @@
 [project]
 name = "amplifier-app-tui"
-version = "0.3.0rc1"
+version = "0.3.0rc2"
 description = "A modular terminal host for Amplifier"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -8,6 +8,7 @@ dependencies = [
   "amplifier-core==1.6.1",
   "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@e210edabd947af82d5121a240d6934283ac540b9",
   "textual==8.2.8",
+  "pillow==12.1.1",
 ]
 
 [project.scripts]

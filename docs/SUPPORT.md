@@ -37,7 +37,17 @@ Do not attach API keys, raw state directories, transcripts, full environment dum
 unreviewed screenshots. `--doctor` contains local paths and is **not** the path-free
 support report. Exports and screenshots can contain private work even without a key.
 
-The app is still early: cancellation warnings, uncooperative module cleanup, multiple or
-clipboard image input, broader state migration and matched CLI performance remain open.
-Single confirmed workspace PNG/JPEG attachment is supported. See the maintained
+The development slice supports up to four confirmed PNG/JPEG snapshots, thumbnails and
+queued images. Explicit host-clipboard acquisition needs Wayland/wl-paste or X11/xclip;
+SSH does not imply access to the user's desktop clipboard. Save the image locally and
+use Attach image when unavailable. No automatic clipboard polling occurs.
+
+Saved-message search maintains a private, rebuildable `history-index.sqlite3` cache in
+the selected state directory. Journals remain authoritative. A partial result is not an
+exhaustive search; repeat the query to continue indexing. Tool output is not indexed.
+Legacy input-history rows lack timestamps and retain disclosed activity-based ordering.
+
+The app is still early: cancellation warnings, uncooperative module cleanup, semantic
+file references, canonical cross-provider migration and matched CLI performance remain open.
+For safe text-only migration see [Migration](MIGRATION.md). See the maintained
 [coverage map](../notes/PARITY.md) and [verification evidence](../notes/ACCEPTANCE.md).

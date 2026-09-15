@@ -99,6 +99,93 @@ def test_image_attachment_and_saved_content_search_are_explicit(tmp_path):
         probe.close()
 
 
+def test_multiple_queued_images_and_stored_context_keep_native_intent(tmp_path):
+    originals = []
+    for color in ("red", "blue"):
+        path = tmp_path / f"{color}.png"
+        Image.new("RGB", (8, 8), color).save(path)
+        originals.append(path.read_bytes())
+    overlay = tmp_path / "vision.yaml"
+    overlay.write_text(
+        json.dumps(
+            {
+                "bundle": {"name": "media-transport-fixture", "version": "1.0.0"},
+                "providers": [
+                    {"module": "provider-fixture", "config": {"capabilities": ["vision"]}}
+                ],
+            }
+        )
+    )
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--overlay",
+            str(overlay),
+            "--cwd",
+            str(tmp_path),
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=160,
+    )
+    try:
+        wait_ready(probe)
+        probe.send(b"Describe both snapshots")
+        for color in ("red", "blue"):
+            action(probe, "Attach image", "Workspace-relative PNG/JPEG")
+            probe.send(f"{color}.png\r".encode())
+            probe.wait("Image snapshot · confirm attachment")
+            probe.send(b"\r")
+            probe.wait("[Image attached]")
+        action(probe, "Attached images", "Image draft · inspect")
+        probe.wait("2 image snapshots")
+        capture(probe, "approachability-multiple-images")
+        dismiss(probe, "Image draft · inspect")
+        action(probe, "Queue current draft", "[Pending 1] (paused)")
+        action(probe, "Pending follow-ups", "Pending follow-ups · paused")
+        probe.send(b"queued\r")
+        probe.wait("Follow-up · inspect before changing")
+        probe.wait("Frozen images travel")
+        capture(probe, "approachability-queued-images")
+        dismiss(probe, "Follow-up · inspect")
+        action(probe, "Pending follow-ups", "Pending follow-ups · paused")
+        probe.send(b"Run pending\r")
+        probe.wait("Completed")
+        root = next((tmp_path / "state/conversations").glob("*/metadata.json")).parent
+        messages = json.loads((root / "checkpoint.json").read_text())["messages"]
+        images = [
+            block
+            for message in messages
+            if isinstance(message.get("content"), list)
+            for block in message["content"]
+            if block.get("type") == "image"
+        ]
+        assert [base64.b64decode(block["source"]["data"]) for block in images] == originals
+        probe.send(b"Unsent correction")
+        action(probe, "Stored context", "Stored context · module snapshot")
+        probe.wait("NOT the exact next provider request")
+        capture(probe, "approachability-stored-context")
+        dismiss(probe, "Stored context · module snapshot")
+        draft_is(probe, "Unsent correction")
+        action(probe, "Conversation provider", "Conversation provider · choose then confirm")
+        probe.send(b"Validate fixture\r")
+        probe.wait("Validate provider access?")
+        probe.wait("Charges may")
+        probe.send(b"\r")
+        probe.wait("Provider validation · observed result")
+        probe.wait("Provider returned a response")
+        capture(probe, "approachability-provider-validation-fixture")
+        dismiss(probe, "Provider validation · observed result")
+        draft_is(probe, "Unsent correction")
+        events = [json.loads(line) for line in (root / "events.jsonl").read_text().splitlines()]
+        assert sum(e["kind"] == "turn.accepted" for e in events) == 1
+    finally:
+        probe.close()
+
+
 def test_recipe_review_draft_and_live_child_refresh_keep_intent():
     # Identified protocol fixture exercises UI only. Actual runner continuation is
     # covered by test_ecosystem_workflows against both real prepared presets.

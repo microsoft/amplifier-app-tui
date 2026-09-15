@@ -16,8 +16,8 @@ The conversation outlives screens and engines; returning offers a picker and sam
 Follow-up work has a visible waiting place; stopping never starts another task behind the person.
 Corrections distinguish being accepted from reaching active work; neither implies a new turn.
 Conversation provider choices have a visible scope and survive returning to the same work.
-Questions invite deliberate answers without granting permission; workspace review distinguishes observations from attribution.
-People can name, find and copy work across their saved conversations without involving a model.
+Questions invite deliberate answers without granting permission; workspace review distinguishes observations from attribution and explicit version-checked edits from inspection.
+People can name, find and copy work across indexed saved conversations without involving a model; incomplete indexing remains visible.
 The ordinary conversation accumulates native terminal history; selection and tmux scrolling need no special view.
 Exiting leaves readable work behind; a compact live composer coexists with transcript-aware terminal previews.
 Export and retained conversation state remain distinct from terminal rows and never execute history.
@@ -25,7 +25,7 @@ Waiting questions offer an answer where the question is shown, including at narr
 Delegation and recipes expose child progress, waiting reasons, scoped evidence and explicit continuation limits.
 The current mode stays visible; mode changes retain module enforcement and returning restores their policy.
 Interrupted work remains readable and can seed an explicitly acknowledged new conversation without replay.
-Markdown and syntax-coloured code stay readable without changing copied source; history, file snapshots and external editing preserve the unsent draft.
+Markdown and syntax-coloured code stay readable without changing copied source; chronological recall, immutable attachment sets, semantic file references and external editing preserve unsent intent.
 Bundles bring instructions, tools, providers and behaviors without owning the interface.
 Installation delivers an identifiable native client without a development workspace or local compiler for supported release platforms; newcomers configure providers deliberately, without silent policy migration or exposing private conversation data.
 The [composition contract](../contracts/composition.v1.md) names the replaceable seams.
@@ -71,7 +71,7 @@ Historical events explain previous work without initiating it again.
 ### 6. Control has a truthful scope
 A correction names the work it changes.
 A decision names the action it permits.
-Stopping work does not claim to reverse its effects.
+Stopping work does not claim to reverse its effects; repeated controls preserve final accounting and cleanup.
 Delegated work makes its access and result inspectable.
 
 ### 7. One rendering owner
@@ -122,6 +122,8 @@ Rendering and transport do not monopolize input or cancellation; process and lan
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Extend the destination to indexed discovery, richer retained inputs and deliberate review edits. | Steward requested all eight remaining backlog groups; bounded tail scans, one-image admission and read-only diffs leave named workflow gaps. |
+| 2026-09-14 | Clarify repeated-control ownership during finalization. | Continued steward authorization; repeated Stop or exit during a stopped turn's checkpoint cancels that checkpoint in a deterministic real-runtime reproduction. |
 | 2026-09-14 | Extend discovery across saved conversations and make compiler-free release installation explicit. | Steward requested the entire reviewed replacement-readiness backlog; the current picker stops at 100 records and Git installation requires local Rust tooling. |
 | 2026-09-14 | Clarify source-preserving code colour. | Continued steward authorization; READ-02's monochrome code remains a visible reading gap. Unknown languages and bounded highlighting must retain readable source. |
 | 2026-09-14 | Specify zero outer horizontal gutters. | Steward identified the remaining three-column side padding and explicitly requested its removal. |

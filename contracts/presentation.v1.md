@@ -53,7 +53,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: An unexplained width cap, default widget chrome or raw diagnostic dump replaces the design without an accepted adaptation.
    Affected: the person reading the conversation and the steward evaluating the product.
 
-7. **Reveal detail without taking over.** Routine tools collapse to concise summaries; exact evidence is expandable, copyable and independently scrollable. Workspace review names its repository and comparison scope, is read-only, labels limits and concurrent-change uncertainty, and never attributes a diff to the agent without evidence.
+7. **Reveal detail without taking over.** Routine tools collapse to concise summaries; exact evidence is expandable, copyable and independently scrollable. Workspace inspection names its repository and comparison scope, defaults to read-only, labels limits/concurrent-change uncertainty, and never attributes a diff to the agent without evidence. Separately confirmed edits validate the captured file version and refuse stale writes; test evidence names the source state actually observed.
    Broken: Output floods the conversation, scroll jumps away from the reader, or opening detail destroys their draft or selection.
    Affected: people inspecting work while composing their next instruction.
 
@@ -82,6 +82,7 @@ Which input/selection behavior first requires an explicit terminal-support restr
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Permit separately confirmed version-checked edits beside read-only review in P7. | Steward explicitly requested all backlog items, including conflict editing and source-attributed change/test review. Inspection itself remains non-mutating. |
 | 2026-09-14 | Extend P3's code readability to source-preserving syntax colour. | READ-02 leaves every code token monochrome; steward requested continued progress. Colour is a projection, not execution or a source rewrite. |
 | 2026-09-14 | Clarify P6's edge-to-edge width. | Steward requested removing the remaining three-column outer inset; content indentation and local dialog structure remain meaningful. |
 | 2026-09-14 | Amend P5/P6 for full-height startup, open input and quiet live labels. | Explicit steward request supersedes cursor-anchored startup and the bottom-20-row short-preview guarantee; history retention and complete-pane previews remain mandatory. |

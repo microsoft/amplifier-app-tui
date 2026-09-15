@@ -1,5 +1,31 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Indexed discovery, media and reference migration
+
+Search uses a derived 0600 SQLite trigram cache, not rewritten journals. Incremental
+refresh reads up to 16 MiB / one second; query work has a cooperative SQLite progress
+deadline. Oversized/invalid/incomplete records and budget exhaustion remain partial.
+Replacement/truncation invalidates cached rows; corrupt caches are preserved before
+rebuilding. Content matching precedes 100-result paging. Timestamped admissions order
+directory recall globally; legacy timestamps are unknown, never synthesized on reopening.
+Snapshot replacement waits for active recall to finish and retains later submissions.
+
+Image drafts hold at most four immutable 2 MiB PNG/JPEG snapshots. Pillow makes a bounded
+32×16 coarse thumbnail (16 megapixels / 8192 per-side input limit); original bytes, not
+the preview, enter the public image blocks. Queue image storage is capped at 16 MiB;
+claiming draft ownership precedes queue persistence, and dispatched rows never auto-retry.
+Local clipboard acquisition is explicit, bounded and process-group-owned, supporting
+only available Wayland/wl-paste or X11/xclip. No inferred SSH clipboard access or OSC52 read.
+
+Stored-context inspection reads public messages while idle, with bounded excerpts and
+image bytes omitted. Provider llm:request summaries are separate dispatch observations;
+raw wire payloads are never copied by the observer. Neither proves exact future context.
+Standalone confirmed provider probes pause the queue and cannot become transcript turns.
+Text import creates a new composition with a hashed historical reference, not executable
+tool messages or module-private state. Recovery also retains a typed source-event ledger.
+Completed children may retain bounded JSON orchestrator overrides across guarded reopen;
+root/effective fingerprints, active parent, routing and inherited-mode checks still apply.
+
 ## Local newcomer guidance
 
 The launcher offers offline guidance and local prerequisite checks before saved-state
@@ -79,6 +105,19 @@ startup exception/cancellation, drain acquired-handle cleanup even through repea
 Factory equivalence is tested against Foundation. No private lifecycle monkeypatch or UI policy
 was added to the kernel. Third-party cleanup that never returns and cancellation-time hook
 coroutine warnings remain unresolved, distinct from owning the partially initialized handle.
+
+Root finalization is not a second execution: repeated Stop is idempotent, and a first Stop
+after execution has already ended cannot cancel its checkpoint. Close rejects admission,
+joins in-progress startup/turn work, and owns one shielded cleanup task shared by all callers.
+Cancelling a close waiter is reported only after cleanup drains; cleanup failure remains
+observable on later close requests, without automatic retry or releasing an owned store early.
+Startup's exception path detaches before joining close to avoid a startup/close wait cycle.
+This does not impose a timeout on uncooperative modules or fix Rust/Python callback warnings.
+Close during finalization can conservatively retain an uncertain checkpoint; it never upgrades
+interrupted work to resumable success merely because cleanup finished.
+Explicit mode operations reset the same task-state flags on admission and enter finalization
+before checkpointing; a previous completed conversation turn cannot make a new mode operation
+immune to Stop. An interrupted mode transition still fails closed rather than claiming rollback.
 
 Text input reads one descriptor-relative workspace file with no symlink traversal, a 64 KiB
 bound and before/after metadata check. Preview owns captured bytes and digest. Insertion adds

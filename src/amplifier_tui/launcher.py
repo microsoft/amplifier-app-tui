@@ -78,6 +78,11 @@ def arguments(argv=None, workspace=None, require_terminal=False):
     parser.add_argument("--sources", type=Path)
     parser.add_argument("--cwd", type=Path)
     parser.add_argument(
+        "--import-transcript",
+        type=Path,
+        help="Copy a UTF-8 transcript (up to 1 MiB) as historical reference into a NEW conversation; never canonical resume or implicit Send",
+    )
+    parser.add_argument(
         "--state-dir",
         type=Path,
         default=workspace / ".state/work" if workspace else state_directory(),
@@ -112,6 +117,12 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         help="Create a new conversation from historical context; original unchanged, no replay",
     )
     args = parser.parse_args(argv)
+    if args.import_transcript and (
+        args.resume or args.recover or args.export or args.list_sessions or args.setup
+    ):
+        parser.error(
+            "--import-transcript requires a new conversation; do not combine with resume/recover/export/list/setup"
+        )
     if args.setup:
         from .onboarding import setup_provider
 
@@ -234,6 +245,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
             or args.cwd
             or args.sources
             or args.no_questions
+            or args.import_transcript
         ):
             parser.error(
                 "--resume restores composition and cwd; do not supply preset/bundle/overlay/cwd/sources"
@@ -291,6 +303,8 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         host.append("--no-install")
     if args.resume:
         host += ["--resume", args.resume]
+    if args.import_transcript:
+        host += ["--import-transcript", str(args.import_transcript.absolute())]
     return parser, host
 
 

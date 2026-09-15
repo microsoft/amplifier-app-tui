@@ -5,6 +5,7 @@ import json
 import uuid
 
 from .conversations import atomic_json
+from .file_input import ImageDraft
 
 
 class Followups:
@@ -14,7 +15,11 @@ class Followups:
         self.path = host.store.path / "followups.json"
         self.rows = []
         if self.path.exists():
-            value = json.loads(self.path.read_text())
+            with self.path.open("rb") as stream:
+                raw = stream.read(24 * 1024 * 1024 + 1)
+            if len(raw) > 24 * 1024 * 1024:
+                raise ValueError("Follow-up storage exceeds limit; original retained")
+            value = json.loads(raw)
             if value.get("version") != 1 or value.get("session_id") != host.session_id:
                 raise ValueError("Invalid follow-up identity/version")
             self.rows = value["rows"]
@@ -32,6 +37,9 @@ class Followups:
                 or len({r["id"] for r in self.rows}) != len(self.rows)
             ):
                 raise ValueError("Invalid follow-up records; no work retried")
+            for row in self.rows:
+                if row.get("image"):
+                    ImageDraft.validate(row["image"])
         self.paused = bool(self.rows)  # Reopening is never consent to execute.
         self.closed = False
         self.watching = None
@@ -48,7 +56,10 @@ class Followups:
             {
                 "type": "followups",
                 "session_id": self.host.session_id,
-                "rows": copy.deepcopy(self.rows),
+                "rows": [
+                    {**r, "image": ImageDraft.metadata(r["image"])} if r.get("image") else dict(r)
+                    for r in self.rows
+                ],
                 "paused": self.paused,
             }
         )
@@ -62,6 +73,22 @@ class Followups:
             if len(self.rows) >= 20:
                 return False, "Queue full (20); draft retained"
             row = {"id": uuid.uuid4().hex, "text": text, "state": "queued"}
+            if request.get("image_id"):
+                if not self.host.supports_images():
+                    return False, "Mounted provider/context does not advertise image input"
+                value = self.host.images.value if self.host.images else None
+                if (
+                    not value
+                    or sum(r.get("image", {}).get("bytes", 0) for r in self.rows) + value["bytes"]
+                    > 16 * 1024 * 1024
+                ):
+                    return False, "Queued image budget exceeded (16 MiB); draft retained"
+                # Claim before persistence/admission: a crash may leave uncertain
+                # intent, but cannot resurrect a queued image as an unsent draft.
+                try:
+                    row["image"] = self.host.images.admit(request["image_id"])
+                except (ValueError, OSError) as exc:
+                    return False, str(exc)
             self.save([*self.rows, row])
         elif op == "queue_pause":
             self.paused = True
@@ -140,7 +167,8 @@ class Followups:
         next(r for r in changed if r["id"] == row["id"])["state"] = "dispatched"
         try:
             self.save(changed)
-            accepted, _ = self.host.submit(row["text"], input_id=row["id"])
+            media = {"queued_image": row["image"]} if row.get("image") else {}
+            accepted, _ = self.host.submit(row["text"], input_id=row["id"], **media)
             if not accepted:
                 self.paused = True
         except Exception:

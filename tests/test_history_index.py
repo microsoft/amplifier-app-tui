@@ -1,0 +1,125 @@
+import json
+import stat
+
+from test_input_history import journal
+
+from amplifier_tui.conversations import catalog
+from amplifier_tui.history_index import open_index, refresh, search
+from amplifier_tui.navigation import session_choices
+
+
+def append(path, identity, text, stamp=1):
+    with (path / "events.jsonl").open("a") as stream:
+        stream.write(
+            json.dumps(
+                {
+                    "session_id": identity,
+                    "sequence": stamp,
+                    "timestamp_ns": stamp,
+                    "kind": "text.final",
+                    "payload": {"text": text},
+                }
+            )
+            + "\n"
+        )
+
+
+def test_index_appends_replaces_deletes_without_mutating_journals(tmp_path):
+    identity = "a" * 32
+    path = journal(tmp_path, tmp_path, identity, ["old needle"], 1)
+    original = (path / "events.jsonl").read_bytes()
+    assert identity in search(tmp_path, catalog(tmp_path), "needle")[0]
+    assert (path / "events.jsonl").read_bytes() == original
+    assert stat.S_IMODE((tmp_path / "history-index.sqlite3").stat().st_mode) == 0o600
+    append(path, identity, "newest needle", 42)
+    assert "newest" in search(tmp_path, catalog(tmp_path), "needle")[0][identity]
+    (path / "events.jsonl").write_text("")
+    append(path, identity, "replacement", 43)
+    assert not search(tmp_path, catalog(tmp_path), "needle")[0]
+    assert search(tmp_path, catalog(tmp_path), "replacement")[0]
+    (path / "events.jsonl").unlink()
+    matches, partial = search(tmp_path, catalog(tmp_path), "replacement")
+    assert not matches and partial
+
+
+def test_corrupt_cache_is_preserved_and_rebuilt(tmp_path):
+    identity = "a" * 32
+    journal(tmp_path, tmp_path, identity, ["recoverable"], 1)
+    (tmp_path / "history-index.sqlite3").write_bytes(b"not a sqlite database")
+    assert search(tmp_path, catalog(tmp_path), "recoverable")[0]
+    saved = list(tmp_path.glob("history-index.corrupt-*.sqlite3"))
+    assert len(saved) == 1 and saved[0].read_bytes() == b"not a sqlite database"
+
+
+def test_incomplete_and_oversized_records_progress_with_disclosure(tmp_path):
+    identity = "a" * 32
+    path = journal(tmp_path, tmp_path, identity, ["first"], 1)
+    with (path / "events.jsonl").open("a") as stream:
+        stream.write("x" * (4 * 1024 * 1024) + "\n")
+    append(path, identity, "after oversized")
+    db = open_index(tmp_path)
+    try:
+        for _ in range(6):
+            assert refresh(db, tmp_path, catalog(tmp_path), budget=1500000)
+        assert (
+            db.execute("SELECT text FROM messages ORDER BY position DESC").fetchone()[0]
+            == "after oversized"
+        )
+    finally:
+        db.close()
+    # An unfinished append is not indexed until the newline arrives.
+    incomplete = json.dumps(
+        {"session_id": identity, "kind": "text.final", "payload": {"text": "later"}}
+    )
+    with (path / "events.jsonl").open("a") as stream:
+        stream.write(incomplete)
+    assert not search(tmp_path, catalog(tmp_path), "later")[0]
+    with (path / "events.jsonl").open("a") as stream:
+        stream.write("\n")
+    assert search(tmp_path, catalog(tmp_path), "later")[0]
+
+
+def test_unicode_and_query_syntax_are_literal(tmp_path):
+    identity = "a" * 32
+    journal(tmp_path, tmp_path, identity, ['ÉTÉ Straße "quoted" OR other'], 1)
+    for query in ("é", "ÉTÉ", "STRASSE", '"quoted"', '" OR'):
+        assert identity in search(tmp_path, catalog(tmp_path), query)[0]
+    assert not search(tmp_path, catalog(tmp_path), "missing OR Straße")[0]
+
+
+def test_search_filters_before_paging_and_reads_old_messages(tmp_path):
+    wanted = "a" * 32
+    path = journal(tmp_path, tmp_path, wanted, ["needle at the beginning"], 1)
+    for index in range(101):
+        journal(tmp_path, tmp_path, f"{index + 1:032x}", ["unrelated"], index + 2)
+    # The former tail-only search could not find this message.
+    for _ in range(20):
+        append(path, wanted, "padding " * 10000)
+    result = session_choices(tmp_path, None, query="needle")
+    assert [row["id"] for row in result["sessions"]] == [wanted]
+    assert result["next_offset"] is None and not result["partial"]
+
+
+def test_timestamped_recall_ignores_catalog_activity_order(tmp_path):
+    from amplifier_tui.input_history import recall
+
+    for identity, activity, values in (
+        ("a" * 32, 100, [(1, "one"), (3, "three")]),
+        ("b" * 32, 1, [(2, "two"), (4, "four")]),
+    ):
+        path = journal(tmp_path, tmp_path, identity, [], activity)
+        (path / "events.jsonl").write_text(
+            "".join(
+                json.dumps(
+                    {
+                        "session_id": identity,
+                        "kind": "turn.accepted",
+                        "timestamp_ns": stamp,
+                        "payload": {"text": text},
+                    }
+                )
+                + "\n"
+                for stamp, text in values
+            )
+        )
+    assert recall(tmp_path, tmp_path, "current")["entries"] == ["one", "two", "three", "four"]

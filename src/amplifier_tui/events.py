@@ -14,6 +14,7 @@ class Event:
     kind: str
     item_id: str
     payload: dict[str, Any]
+    timestamp_ns: int = 0  # Zero means legacy/unknown, not the time history was reopened.
 
 
 @dataclass

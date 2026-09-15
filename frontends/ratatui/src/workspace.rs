@@ -48,6 +48,63 @@ pub fn hunks(text: &str) -> (Vec<(usize, usize)>, bool) {
     (result, false)
 }
 
+pub fn side_by_side_lines(source: &str, width: usize) -> Vec<Line<'static>> {
+    if width < 80 {
+        return diff_lines(source, width);
+    }
+    let column = (width - 3) / 2;
+    let mut output = Vec::new();
+    let mut removed = Vec::new();
+    let mut added = Vec::new();
+    let flush =
+        |left: &mut Vec<String>, right: &mut Vec<String>, output: &mut Vec<Line<'static>>| {
+            for index in 0..left.len().max(right.len()) {
+                let l = markdown::reflow(
+                    vec![Line::styled(
+                        left.get(index).cloned().unwrap_or_default(),
+                        Style::default().fg(RED),
+                    )],
+                    column,
+                );
+                let r = markdown::reflow(
+                    vec![Line::styled(
+                        right.get(index).cloned().unwrap_or_default(),
+                        Style::default().fg(GREEN),
+                    )],
+                    column,
+                );
+                for row in 0..l.len().max(r.len()) {
+                    let a = l.get(row).cloned().unwrap_or_default();
+                    let b = r.get(row).cloned().unwrap_or_default();
+                    let padding = " ".repeat(column.saturating_sub(a.width()));
+                    let mut spans = a.spans;
+                    spans.push(Span::raw(padding));
+                    spans.push(Span::styled(" │ ", Style::default().fg(MUTED)));
+                    spans.extend(b.spans);
+                    output.push(Line::from(spans));
+                }
+            }
+            left.clear();
+            right.clear();
+        };
+    let cleaned = safe(source);
+    for line in cleaned.lines() {
+        if line.starts_with('-') && !line.starts_with("--- ") {
+            if !added.is_empty() {
+                flush(&mut removed, &mut added, &mut output);
+            }
+            removed.push(line.to_owned());
+        } else if line.starts_with('+') && !line.starts_with("+++ ") {
+            added.push(line.to_owned());
+        } else {
+            flush(&mut removed, &mut added, &mut output);
+            output.extend(diff_lines(line, width));
+        }
+    }
+    flush(&mut removed, &mut added, &mut output);
+    output
+}
+
 impl App {
     pub fn review_lookup(&mut self, selection: Option<(String, String)>) {
         if !self.nav.enabled {
@@ -179,6 +236,12 @@ impl App {
                     detail: String::new(),
                 },
                 Choice {
+                    label: "Side-by-side removed / added lines".into(),
+                    action: Action::WorkspaceSide(snapshot.clone(), at),
+                    detail: "Read-only layout; copying always uses the original unified diff."
+                        .into(),
+                },
+                Choice {
                     label: "Refresh Workspace changes".into(),
                     action: Action::WorkspaceChanges,
                     detail: String::new(),
@@ -193,6 +256,17 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn side_by_side_is_width_safe_and_preserves_original_copy_source() {
+        let source = "@@ -1 +1 @@\n-界界old\n+new🙂\n context";
+        let rows = side_by_side_lines(source, 80);
+        assert!(rows.iter().all(|line| line.width() <= 80));
+        assert!(rows.iter().any(
+            |line| line.to_string().contains("-界界old") && line.to_string().contains("+new🙂")
+        ));
+        assert_eq!(side_by_side_lines(source, 40), diff_lines(source, 40));
+        assert_eq!(source, "@@ -1 +1 @@\n-界界old\n+new🙂\n context");
+    }
     #[test]
     fn hunk_slices_keep_source_and_stop_at_file_boundaries() {
         let text =

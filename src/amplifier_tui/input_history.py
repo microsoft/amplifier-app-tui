@@ -6,7 +6,7 @@ from pathlib import Path
 from .conversations import catalog
 
 
-def recall(state_dir, cwd, current):
+def recall(state_dir, cwd, current, *, include_current=False):
     root, cwd = Path(state_dir), Path(cwd).resolve()
     rows, budget, partial = [], 16 * 1024 * 1024, False
     entries = catalog(root)
@@ -16,9 +16,9 @@ def recall(state_dir, cwd, current):
         except (KeyError, TypeError, ValueError, OSError):
             partial = True
             continue
-        if entry["id"] == current or not matches:
+        if (entry["id"] == current and not include_current) or not matches:
             continue
-        if budget <= 0 or len(rows) >= 1000:
+        if budget <= 0:
             partial = True
             break
         try:
@@ -46,18 +46,25 @@ def recall(state_dir, cwd, current):
                     ):
                         text = event["payload"]["text"]
                         if isinstance(text, str) and len(text) <= 65536:
-                            messages.append(text)
+                            stamp = event.get("timestamp_ns", 0)
+                            stamp = stamp if type(stamp) is int and stamp > 0 else 0
+                            messages.append((stamp, text))
                 except (ValueError, KeyError, TypeError):
                     partial = True
             rows.extend(reversed(messages))
         except OSError:
             partial = True
-    # Newest conversations first; within each, original submission order.
+    # Known timestamps order interleaved conversations globally. Legacy rows keep
+    # the former activity-based ordering and never acquire an invented timestamp.
+    rows.sort(key=lambda row: row[0], reverse=True)
     selected, size = [], 0
-    for text in rows[:1000]:
+    for _, text in rows[:1000]:
         size += len(text.encode())
         if size > 2 * 1024 * 1024:
             partial = True
             break
         selected.append(text)
-    return {"entries": list(reversed(selected)), "partial": partial or len(rows) > 1000}
+    result = {"entries": list(reversed(selected)), "partial": partial or len(rows) > 1000}
+    if include_current:
+        result.update(replace=True, legacy=any(stamp == 0 for stamp, _ in rows[:1000]))
+    return result

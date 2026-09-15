@@ -98,7 +98,12 @@ impl App {
                         ""
                     }
                 ),
-                action: Action::ProviderChoice(Some(name), revision, current.clone()),
+                action: Action::ProviderChoice(Some(name.clone()), revision, current.clone()),
+                detail: String::new(),
+            });
+            choices.push(Choice {
+                label: format!("Validate {} access — standalone remote probe", safe(&name)),
+                action: Action::ProviderValidateChoice(name),
                 detail: String::new(),
             });
         }

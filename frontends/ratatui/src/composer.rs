@@ -212,6 +212,28 @@ mod tests {
         assert_eq!(ui.history, vec!["previous session", "current"]);
     }
     #[test]
+    fn chronological_snapshot_keeps_later_submissions_during_recall() {
+        let mut ui = Interaction {
+            history: vec!["current old".into()],
+            ..Default::default()
+        };
+        let mut draft = editor();
+        draft.insert_str("unsent");
+        ui.recall.navigate(&mut draft, &ui.history, true);
+        ui.prior_history = Some(vec!["current old".into(), "other newer".into()]);
+        ui.history_replace_count = Some(1);
+        ui.history.push("just submitted".into());
+        ui.merge_history();
+        assert!(ui.prior_history.is_some());
+        ui.recall.cancel(&mut draft);
+        ui.merge_history();
+        assert_eq!(
+            ui.history,
+            vec!["current old", "other newer", "just submitted"]
+        );
+        assert_eq!(draft.lines(), &["unsent"]);
+    }
+    #[test]
     fn history_round_trip_restores_cursor_and_original_draft() {
         let mut draft = TextArea::from(["original", "second"]);
         draft.move_cursor(CursorMove::Jump(0, 3));

@@ -7,6 +7,29 @@ Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
 ## Current wave: direction and verification scaffolding
 
+Steward authorized all eight remaining backlog groups (2026-09-14).
+These rows are implementation work, not
+formal Converge verdicts; unsupported recovery must not become implicit replay.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| LIFE-04 | session.v1:8, continuity.v1:5 | Callback cancellation ownership and uncooperative shutdown | Reproducible cancellation warnings addressed at their owning seam; owned processes reaped, unknown remote effects remain unknown | Inspecting |
+| MEDIA-04 | interaction.v1:3, continuity.v1:2 | Attachment sets, clipboard images, references and queued media | Frozen bytes/identities survive rejection, queue and reopen; no hidden reads or submissions | Four-image sets, bounded thumbnails, explicit Linux desktop clipboard and queued images. Full/native/byte tests and both-preset live changed-source queue/reopen pass. Semantic file references remain |
+| CHILD-04 | ecosystem.v1:6, continuity.v1:5 | Interrupted child/recipe recovery and alternate execution policy | Explicit source-preserving recovery, no completed-step replay or invented effect outcomes | Implemented locally: structured historical recovery ledger and completed-child custom JSON configuration restart with existing guards. Interrupted/private-state and subprocess execution remain |
+| REVIEW-04 | presentation.v1:7, continuity.v1:4 | Change/test evidence, side-by-side diffs and conflict editing | Source identities/digests, bounded review, explicit stale-write refusal, no invented authorship | Implemented locally: width-aware side-by-side changed lines with original unified-source copying. Native/unit tests pass; attribution and conflict editing remain |
+| CONTEXT-02 | ecosystem.v1:2, composition.v1:3 | Request/source visibility and deliberate provider conversion | Actual observed request state, explicit unknowns, preserved original composition/context | Stored public messages, separate provider dispatch summaries and explicit historical-text import into a new composition. Native/module and both-preset live inspection pass; exact wire/private-state conversion remains unsupported |
+| FIND-03 | interaction.v1:1, interaction.v1:3, performance.v1:5 | Indexed full-history discovery and chronological recall | Incremental bounded scans, source-correlated matches beyond tail bounds, ordered recall, corrupt-cache recovery | Incremental private trigram cache, matches before paging, startup full-content search, global timestamp recall with legacy disclosure. Corruption/append/Unicode/native regressions pass. Synthetic 100k-message index complete in four refreshes; warm search p95 23.6 ms (excludes catalog/UI/model/CLI) |
+| READY-03 | performance.v1:1, performance.v1:2, ecosystem.v1:6 | Equivalent CLI policy measurement, independent seams and terminal breadth | Matched policy fingerprints, reproducible measurements, no hidden skipped enforcement or unrun-platform pass | Planned |
+| INSTALL-03 | ecosystem.v1:1, ecosystem.v1:2 | Updated private release, credential validation and explicit migration | Clean compiler-free install/live gate, reviewed artifacts, private source-preserving opt-in configuration | Confirmed standalone provider probe and explicit text-reference migration. Full and both-preset live gates pass; 0.3.0rc2 Linux ARM64 candidate passes compiler-free install, installed-live delegation/resume and fresh-context artifact review. Four-platform candidate/publication gates pending; existing release assets unchanged |
+
+Continued steward-authorized lifecycle wave (2026-09-14), toward session P8 and
+continuity P2/P5. Separate host finalization defects from runtime-boundary warnings;
+do not suppress warnings or represent uncooperative cleanup as complete.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| LIFE-03 | session.v1:8, continuity.v1:2, continuity.v1:5 | Preserve owned finalization across repeated Stop/exit and cancelled close waiters | Controlled checkpoint/cleanup gates retain one terminal outcome, uncertain state and cleanup ownership; repeated controls never trigger another effect | Implemented: eight gated host cases and four actual-preset mode cases; both live presets pass completed read/resume and child-question Stop/exit. Generic callback warnings and uncooperative cleanup remain separate |
+
 Steward-authorized whole-backlog wave (2026-09-14): implement all seven groups from
 the backlog review. Existing local changes and upgrade notes remain preserved. These
 are work items, not completion claims or formal Converge verdicts. Run terminal gates

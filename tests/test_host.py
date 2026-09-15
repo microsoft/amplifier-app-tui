@@ -144,10 +144,23 @@ async def test_stop_before_first_execution_step_still_ends(host):
 
 
 async def test_close_before_first_execution_step_cleans_up(host):
+    session = host.session
+    executions = []
+
+    class ObservedSession:
+        def __getattr__(self, name):
+            return getattr(session, name)
+
+        def execute(self, text):
+            executions.append(text)
+            return session.execute(text)
+
+    host.session = ObservedSession()
     assert host.submit("Close immediately")[0]
     await host.close()
     assert host.session is None
     assert (await ending(host))[-1].payload["status"] == "interrupted"
+    assert executions == []
 
 
 async def test_failed_hook_refuses_readiness(prepared, tmp_path):

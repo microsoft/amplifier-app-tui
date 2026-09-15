@@ -224,7 +224,7 @@ def test_saved_content_search_pages_and_preserves_source(tmp_path):
     assert set(r["id"] for r in first["sessions"]).isdisjoint(r["id"] for r in second["sessions"])
     assert all("excerpt" in r["match"] for r in first["sessions"])
     assert not session_choices(tmp_path, None, query="absent")["sessions"]
-    assert session_choices(tmp_path, None, query="absent")["next_offset"] == 100
+    assert session_choices(tmp_path, None, query="absent")["next_offset"] is None
     with pytest.raises(ValueError):
         session_choices(tmp_path, None, offset=-1)
 
@@ -439,10 +439,10 @@ async def test_switch_finishes_history_lookup_before_exposing_ready_target(
     original = input_history.recall
     entered, release = threading.Event(), threading.Event()
 
-    def delayed(*args):
+    def delayed(*args, **kwargs):
         entered.set()
         assert release.wait(5)
-        return original(*args)
+        return original(*args, **kwargs)
 
     monkeypatch.setattr(input_history, "recall", delayed)
     try:

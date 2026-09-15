@@ -367,6 +367,9 @@ impl App {
                         .collect(),
                 );
                 self.ui.history_partial = v["partial"] == true;
+                self.ui.history_legacy = v["legacy"] == true;
+                self.ui.history_replace_count =
+                    (v["replace"] == true).then_some(self.ui.history.len());
             }
             "mode_status" if v["session_id"] == self.nav.session => {
                 self.policy = if v["supported"] == true {
@@ -505,6 +508,18 @@ impl App {
             }
             "workspace_changes" | "workspace_diff" => self.review_result(&v),
             "inspection" => self.inspection_result(v),
+            "provider_validation" if v["session_id"] == self.nav.session => {
+                self.status = safe(&string(&v, "message"));
+                if self
+                    .ui
+                    .menu
+                    .as_ref()
+                    .is_some_and(|m| m.title == "Provider validation · waiting")
+                {
+                    self.menu("Provider validation · observed result", vec![]);
+                    self.ui.menu.as_mut().unwrap().detail = self.status.clone();
+                }
+            }
             "model_catalog" => self.model_catalog_result(v),
             "image_snapshot" => self.image_snapshot_result(v),
             "image_draft" => {
@@ -589,15 +604,9 @@ impl App {
         }
         if let Some(image) = &self.insights.image
             && image["state"] == "attached"
+            && (request["op"] == "submit" || request["op"] == "queue")
         {
-            if request["op"] == "queue" {
-                self.status =
-                    "Image retained · wait for idle Send; image queuing is unsupported".into();
-                return;
-            }
-            if request["op"] == "submit" {
-                request["image_id"] = image["id"].clone();
-            }
+            request["image_id"] = image["id"].clone();
         }
         if !self.ready
             && !matches!(

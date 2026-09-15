@@ -65,7 +65,10 @@ same unsent draft. Optional shortcut: F4 opens Actions.
 | Copy or scroll | Normal terminal selection / tmux copy mode; Transcript for reflow |
 | Change tool policy | Modes; the current mode stays visible |
 | Find previous work | Resume, or Actions → Search saved conversations |
-| Include an image | Actions → Attach image; confirm one workspace PNG/JPEG snapshot |
+| Include images | Actions → Attach image; preview and confirm up to four workspace PNG/JPEG snapshots |
+| Use a desktop clipboard image | Actions → Paste clipboard image; requires a supported clipboard on the host |
+| Inspect saved model context | Actions → Stored context; public messages, not the exact wire request |
+| Check provider access | Actions → Conversation provider → Validate access; separately confirmed remote probe, may bill |
 | Inspect instruction provenance | Actions → Instruction sources; last observed resolutions, not a complete prompt |
 | Look up model IDs | Actions → Model catalog; explicit advisory lookup, not a model change |
 
@@ -73,6 +76,12 @@ Stop requests cancellation and holds queued work. It cannot undo effects already
 The normal view leaves mouse selection to the terminal; menus and inspection own their
 own mouse controls. In tmux, copy mode is normally prefix then `[`. No special scrollback
 view is needed, and output stays in the terminal after exit.
+
+Images stay attached when you queue a draft. Open Pending follow-ups to inspect the
+captured set; selecting Run explicitly releases a paused queue. Changing the source file
+does not change an already captured image. Each image is limited to 2 MiB; large dimensions
+are rejected before thumbnail decoding. Over SSH, save an image into the workspace and
+use Attach image—the host's desktop clipboard is not your remote terminal's clipboard.
 
 ## Return tomorrow
 
@@ -88,6 +97,8 @@ This rebuilds the tool environment, so the next normal launch may reinstall modu
 dependencies; allow network access and omit `--no-install` then. Saved state is separate.
 Keep recorded local bundle/overlay paths available for older conversations. An upgrade
 does not silently add new overlays to them.
+For a new provider/composition, see [historical-text migration](MIGRATION.md): explicit
+import preserves earlier reference text without importing credentials or replaying work.
 
 Need help? [Troubleshooting and safe reports](SUPPORT.md). Full advanced configuration
 and developer setup remain in the [README](../README.md).
