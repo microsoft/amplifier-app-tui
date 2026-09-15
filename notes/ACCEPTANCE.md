@@ -1,5 +1,30 @@
 # First vertical slice — acceptance evidence
 
+## Post-rc4 seven-area development increment (2026-09-15)
+
+Development source `d45f913d654246feb4e76d136341577d910c4011`, version `0.3.0rc5.dev0`;
+published rc4 assets remain unchanged. [Post-rc4 validation](evidence/post-rc4-validation.md)
+records the exact scope, measured outcomes, artifact hashes and remaining boundaries.
+
+All seven derived increments are implemented: exact legacy child-policy verification,
+confirmed uncertain-correction reuse as an unsent draft, strict prepared-policy comparison,
+bounded public model limits, prior-edit provenance across resume, Linux clipboard MIME
+fallback and named credential environment references with loadable setup paths. Session
+P6 was amended before its new draft-copy path; the destination vision remains unchanged.
+This is progress toward the contracts, not seven universal parity verdicts.
+
+Final integrated suite: **498 passed in 223.79 seconds**, candidates/presets/swaps enabled,
+no warnings. Both live presets pass legacy persistent-child adoption with original bytes
+preserved. All five platform CI gates and both-preset installed-live checks on the exact
+CI ARM wheel pass. Native recovery/correction/model-detail captures were inspected.
+The isolated native benchmark reports first usable composer p95 **62.1 ms**, editing
+p95 **19.4–21.0 ms** across nine history/rate cells. Actual prepared CLI/TUI policies still
+differ, so these renderer measurements establish no matched end-to-end latency claim.
+Fresh-context source/artifact privacy review passed; raw runtime receipts remain private.
+
+Historical records below describe their tested revisions; newer legacy-recovery and
+resume-provenance support above supersedes those particular earlier limitations.
+
 ## rc4 continuity, evidence and delivery (2026-09-15)
 
 Published private candidate: 0.3.0rc4 at `c6817f2351bf0e19ab29fa578d9ee48d347e8260`.

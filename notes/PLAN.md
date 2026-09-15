@@ -12,22 +12,26 @@ steps move toward existing promises; they do not assert universal recovery or pa
 
 | Item | Source promises | Gap and action | Observable completion / falsifier | State |
 |---|---|---|---|---|
-| RECOVER-05 | continuity.v1:5 | Verify legacy persistent policy using its original app-owned store location before new-store adoption | Original bytes preserved; altered policies still refuse | Implementing |
-| STEER-03 | session.v1:6, continuity.v1:2 | Explicit stopped/unconfirmed correction reuse into an empty idle draft | Unchanged original status and no send; occupied composer refuses | Implementing |
-| PERF-05 | performance.v1:1, performance.v1:2 | Machine-check prepared-policy differences with credential-redaction uncertainty | Changed/invalid evidence cannot produce a matching-policy latency verdict | Implementing |
-| CONTEXT-06 | composition.v1:3, ecosystem.v1:2 | Bounded provider-reported model limits/capabilities through explicit discovery | No request sent; catalog limit never labelled current occupancy | Implementing |
-| REVIEW-08 | presentation.v1:7, continuity.v1:3 | Restore bounded prior-edit provenance on resume | Link only unchanged versions; no evidence execution | Implementing |
-| INPUT-08 | interaction.v1:3, presentation.v1:5 | Negotiate supported Linux clipboard image formats | Bounded acquisition, original bytes retained, mismatched/animated data refused | Implementing |
-| SETUP-02 | ecosystem.v1:1, ecosystem.v1:2 | Named credential environment references and loadable overlay paths | Reject invalid references/suffixes without writing or reading secret values | Implementing |
+| RECOVER-05 | continuity.v1:5 | Verify legacy persistent policy using its original app-owned store location before new-store adoption | Original bytes preserved; altered policies still refuse | Implemented: eight real-module combinations and both live presets pass legacy/new receipt adoption. Records without adequate original policy, arbitrary nested/private recovery and crash-uncertain recipes remain |
+| STEER-03 | session.v1:6, continuity.v1:2 | Explicit stopped/unconfirmed correction reuse into an empty idle draft | Unchanged original status and no send; occupied composer refuses | Implemented: native Stop, refusal, confirmation/cancel and saved unsent-copy gates pass. No automatic replacement or reversal of earlier effects |
+| PERF-05 | performance.v1:1, performance.v1:2 | Machine-check prepared-policy differences with credential-redaction uncertainty | Changed/invalid evidence cannot produce a matching-policy latency verdict | Implemented: fresh actual CLI/TUI captures differ in session, instructions and tool/hook counts. Matched-policy end-to-end latency remains unproven |
+| CONTEXT-06 | composition.v1:3, ecosystem.v1:2 | Bounded provider-reported model limits/capabilities through explicit discovery | No request sent; catalog limit never labelled current occupancy | Implemented: invalid limits omitted, native detail retains draft with zero turn admissions. Effective request budget and current occupancy remain separate |
+| REVIEW-08 | presentation.v1:7, continuity.v1:3 | Restore bounded prior-edit provenance on resume | Link only unchanged versions; no evidence execution | Implemented: real host switch/resume restores historical observations; later matching digests link, external changes do not. No exclusive attribution or semantic coverage claim |
+| INPUT-08 | interaction.v1:3, presentation.v1:5 | Negotiate supported Linux clipboard image formats | Bounded acquisition, original bytes retained, mismatched/animated data refused | Implemented: JPEG/WebP/GIF through both utility-process fixtures, single deadline, format-mismatch refusal. Physical desktop/SSH breadth remains unverified |
+| SETUP-02 | ecosystem.v1:1, ecosystem.v1:2 | Named credential environment references and loadable overlay paths | Reject invalid references/suffixes without writing or reading secret values | Implemented: reviewed name-only configuration, exclusive private write and exact lowercase YAML suffix gates. OAuth/keychain migration remains outside this path |
 
 Physical desktops, detached remote processes and arbitrary provider/module-private state
 cannot be certified by these local changes. Record actual gates and remaining boundaries.
+All seven increments have scoped implementation evidence in
+[post-rc4 validation](evidence/post-rc4-validation.md): 498 integrated tests, both live
+recovery presets, exact installed CI ARM live runs, five platform jobs and isolated
+renderer timing. The boundaries in each row remain real backlog, not completed parity.
 
 ## Historical wave — rc4 release and deeper continuity
 
 The steward authorized all seven groups again on 2026-09-15, with judgment for
-reversible decisions. This table owns current sequencing; all following wave tables
-are historical delivery records, not additional unresolved copies of these tasks.
+reversible decisions. This and all following wave tables are historical delivery
+records, not additional unresolved copies of the active tasks above.
 Work moves toward the existing contracts; unsupported effects must remain explicit.
 
 | Item | Source promises | Gap and action | Observable completion / falsifier | State |

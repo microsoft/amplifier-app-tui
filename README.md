@@ -21,6 +21,8 @@ reuse into an empty unsent draft, prior-edit evidence across resume, model catal
 limits, Linux JPEG/WebP/static GIF clipboard fallback, and named credential environment
 references in setup. Relaunch the development command to load it; existing releases
 and conversations are not rewritten. These are scoped improvements, not full parity.
+See the [development validation](notes/evidence/post-rc4-validation.md) for the 498-test,
+live-recovery, installed-package and five-platform evidence with explicit limits.
 
 The 0.3.0rc4 candidate adds confirmed fresh-store adoption of supported interrupted
 persistent children, source-version links from commands to preceding agent edits,
