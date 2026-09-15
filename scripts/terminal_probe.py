@@ -15,6 +15,7 @@ import select
 import signal
 import struct
 import subprocess
+import sys
 import termios
 import time
 from datetime import datetime, timezone
@@ -72,7 +73,16 @@ class Screen(pyte.Screen):
 
 
 class Probe:
-    def __init__(self, command, cols=120, rows=40, env=None, alternate_screen=True, cwd=None):
+    def __init__(
+        self,
+        command,
+        cols=120,
+        rows=40,
+        env=None,
+        alternate_screen=True,
+        cwd=None,
+        guard_terminal_modes=False,
+    ):
         self.alternate_screen = alternate_screen
         self.cols, self.rows = cols, rows
         self.master, self.slave = pty.openpty()
@@ -90,6 +100,23 @@ class Probe:
         }
         environment.pop("NO_COLOR", None)
         environment.update(env or {})
+        self.guard_terminal_modes = guard_terminal_modes
+        if guard_terminal_modes:
+            # Keep the controlling session alive until its child restores the tty.
+            # Darwin revokes slave access when the session leader exits, so checking
+            # from the parent afterwards produces ENOTTY, not restoration evidence.
+            # The guard never repairs modes and propagates the child's failure.
+            command = [
+                sys.executable,
+                "-I",
+                "-c",
+                "import subprocess, sys, termios; "
+                "original = termios.tcgetattr(0); "
+                "result = subprocess.run(sys.argv[1:]); "
+                "assert termios.tcgetattr(0) == original, 'Terminal modes were not restored'; "
+                "sys.exit(result.returncode)",
+                *command,
+            ]
 
         def controlling_terminal():
             os.setsid()
@@ -172,9 +199,10 @@ class Probe:
             for _ in range(5):
                 self.read(0)
             assert self.process.returncode == 0, self.text
-            assert termios.tcgetattr(self.slave) == self.original, (
-                "Terminal modes were not restored"
-            )
+            if not self.guard_terminal_modes:
+                assert termios.tcgetattr(self.slave) == self.original, (
+                    "Terminal modes were not restored"
+                )
             if self.alternate_screen and b"\x1b[?1049h" in self.raw:
                 assert b"\x1b[?1049l" in self.raw, "Alternate screen was not released"
         finally:

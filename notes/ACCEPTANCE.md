@@ -65,6 +65,16 @@ Exact interrupted/private-state reconstruction, crash-uncertain recipe effects,
 causal agent/test attribution, character-exact resize anchors, broad provider conversion,
 matched-policy CLI latency and real desktop/older Linux coverage remain open.
 
+The isolated local rc3 wheel also passes both-preset installed-live delegation, actual
+read-only child tools, Help without submission, exit and no-replay resume followed by
+a second turn ([installed receipt](evidence/readiness-installed-live.json)); four root
+and two child turns billed. No source map or source-checkout imports were used.
+The first four-platform CI attempt exposed an observer defect on macOS: checking the
+slave after its controlling session exits raises ENOTTY. The gate now checks modes in
+a surviving controlling-session guard; three added regressions pass, including raw-mode
+leakage and nonzero app exit. Product source is unchanged by this observer correction.
+Only a successful corrected CI run can support the new platform release claim.
+
 ## Continuation: references, diagnostics and transport ownership (2026-09-14)
 
 This is ongoing checkout work, not a replacement of the published 0.3.0rc2 assets or

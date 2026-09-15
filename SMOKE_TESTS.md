@@ -21,6 +21,15 @@ The observer requires pyte; run through `uv run --no-project --with pyte==0.8.2 
 CI requests this gate on each wheel platform. An unrun/failed job is not coverage; this
 does not verify real desktops, tmux, clipboard acquisition or billed live providers.
 
+macOS observer lesson: the first rc3 CI run reached exit but failed a post-exit slave
+`tcgetattr` with ENOTTY. Darwin revokes the controlling terminal when its session leader
+exits ([XNU exit implementation](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_exit.c)).
+The installed gate now retains a controlling-session guard to compare the actual modes
+before that revocation. It never repairs them and propagates nonzero app exits.
+`test_terminal_guard.py` proves clean restoration, deliberate raw-mode leakage and
+nonzero-exit handling. Default Linux performance probes keep their original topology;
+do not substitute guard timings for historical renderer measurements.
+
 Read AGENTS.md, current contracts, notes/PLAN.md and notes/ACCEPTANCE.md when entering verification. Do not use live
 credentials in deterministic tests. Run from the project directory after README setup.
 

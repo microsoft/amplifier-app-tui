@@ -65,6 +65,7 @@ def terminal_smoke(command, stage, env):
             cwd=stage,
             env=env,
             cols=120,
+            guard_terminal_modes=True,
         )
         try:
             # Current status row, not a Ready word in a historical reply.
