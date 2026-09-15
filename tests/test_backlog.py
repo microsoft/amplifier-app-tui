@@ -378,6 +378,33 @@ async def test_explicit_model_discovery_is_bounded_advisory_and_redacts_errors(p
         await bridge.close()
 
 
+def test_native_wheel_target_does_not_inherit_universal_python_tag(monkeypatch):
+    import runpy
+    import sys
+    import types
+    from pathlib import Path
+
+    # Only the build framework interface is stubbed; the actual wheel hook is
+    # also executed by the isolated local build and the four-platform CI gate.
+    interface = types.ModuleType("hatchling.builders.hooks.plugin.interface")
+    interface.BuildHookInterface = object
+    monkeypatch.setitem(sys.modules, interface.__name__, interface)
+    target = runpy.run_path(str(Path(__file__).resolve().parents[1] / "hatch_build.py"))[
+        "wheel_target"
+    ]
+    assert target("darwin", "arm64", "14.8.1") == (
+        "macosx_14_0_arm64",
+        {"MACOSX_DEPLOYMENT_TARGET": "14.0"},
+    )
+    assert target("darwin", "x86_64", "15.7.1") == (
+        "macosx_15_0_x86_64",
+        {"MACOSX_DEPLOYMENT_TARGET": "15.0"},
+    )
+    assert target("linux", "aarch64", "") == ("linux_aarch64", {})
+    with pytest.raises(RuntimeError, match="support"):
+        target("darwin", "universal2", "15.7.1")
+
+
 def test_release_privacy_guard_rejects_paths_credentials_and_runtime_identity(monkeypatch):
     import runpy
     from pathlib import Path

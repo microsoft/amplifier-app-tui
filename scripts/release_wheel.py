@@ -61,6 +61,10 @@ def main():
         stage = Path(temporary)
         checked([uv, "build", "--wheel", "--out-dir", str(stage)], cwd=ROOT)
         (wheel,) = stage.glob("*.whl")
+        if platform.system() == "Darwin":
+            # A universal2 Python does not make our Rust executable universal.
+            floor = platform.mac_ver()[0].split(".")[0] + "_0"
+            assert wheel.name.endswith(f"-macosx_{floor}_{platform.machine()}.whl")
         with ZipFile(wheel) as archive:
             binary = archive.read("amplifier_tui/_bin/amplifier-ratatui")
             assert not any(
@@ -94,6 +98,9 @@ def main():
         assert not (stage / "state").exists()
         installed_binary = Path(report["native_binary"]).read_bytes()
         assert installed_binary == binary
+        if platform.system() == "Darwin":
+            arches = checked(["lipo", "-archs", report["native_binary"]]).stdout.split()
+            assert arches == [platform.machine()]
         # Doctor verifies presence, not whether the OS can load the executable.
         # With no host command the native client refuses before opening a terminal.
         loaded = subprocess.run(
@@ -106,6 +113,9 @@ def main():
             "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
             "platform": platform.system(),
             "architecture": platform.machine(),
+            "build_os_release": platform.mac_ver()[0]
+            if platform.system() == "Darwin"
+            else platform.freedesktop_os_release().get("VERSION_ID", "unknown"),
             "version": report["version"],
             "wheel": wheel.name,
             "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),

@@ -52,6 +52,13 @@ and no extra execution on both presets. Actual private captures were inspected. 
 billed root turns use isolated state; the steward's conversations and local upgrade files
 remain untouched.
 
+The [installed-wheel live receipt](evidence/backlog-installed-live.json) separately verifies
+the isolated 0.3.0rc1 product outside this checkout, resolving remote bundle sources without
+a workspace source map. Both presets executed a real delegated read, then reopened without
+submission and answered a second turn from retained context. Offline guidance and allowlisted
+support checks created no session state; in-app help added no submission. This gate adds four root
+and two child turns; no shared CLI environment was changed.
+
 The final [renderer receipt](evidence/backlog-benchmark.json) contains 30 startup pairs and
 18 history/stream cells through 100,000 retained items. Worst Ratatui editing p95 was
 **20.402 ms**, stream p95 **21.036 ms**, peak RSS **136040 KiB**. The separate six-grammar,
@@ -70,6 +77,13 @@ The corrected build remaps compiler paths; the release gate scans every decompre
 member and its receipt, withholds raw build/install logs, and uploads only exact verified
 artifacts. Independent review found no remaining blocker for the corrected candidate.
 The unsafe local 0.2.1 wheel and receipt were quarantined recoverably, not published.
+
+The first remote matrix also exposed a release-tag defect: Python's universal2 platform
+tag was copied onto a single-architecture Rust executable. The macOS artifacts from that
+run were rejected despite passing same-machine installation. The corrected hook pins
+the build-host macOS major deployment floor and actual architecture, validates `lipo`
+output, and the release gate independently checks filename and installed architecture.
+A regression test covers both macOS architectures and rejects universal2 as a native target.
 
 Remaining work is explicit in the seven current PLAN rows: uncooperative module cleanup,
 interrupted/custom-orchestrator/subprocess child recovery, broader media/references,

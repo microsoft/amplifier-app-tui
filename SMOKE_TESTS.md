@@ -52,6 +52,12 @@ The workflow uploads only the current verified wheel and receipt. A prior wheel 
 build-home paths despite source-level checks passing: source-only scanning is insufficient.
 The per-repo-conventions fresh-context review found this before publication; retain the
 regression guard and independently inspect newly introduced artifact formats.
+Wheel platform tags must describe the embedded executable, not Python's build tag.
+A universal2 Python on macOS produced a falsely universal wheel containing a single
+Rust architecture. Set an explicit macOS deployment floor and architecture, verify
+the binary with `lipo`, and check both filename and installed executable in the release
+gate. Same-machine installation alone cannot falsify a universal2 mislabel. See the
+[packaging tag specification](https://packaging.python.org/en/latest/specifications/platform-compatibility-tags/).
 Delayed history recall must not expose Ready before conversation switching accepts input;
 the explicit delayed-switch native regression covers that lifecycle window.
 The benchmark measures the first editable composer separately from scene readiness;

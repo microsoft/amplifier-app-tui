@@ -37,6 +37,7 @@ Do not attach API keys, raw state directories, transcripts, full environment dum
 unreviewed screenshots. `--doctor` contains local paths and is **not** the path-free
 support report. Exports and screenshots can contain private work even without a key.
 
-The app is still early: cancellation warnings, initialization ownership, image input,
-broader state migration and matched CLI performance remain open. See the maintained
+The app is still early: cancellation warnings, uncooperative module cleanup, multiple or
+clipboard image input, broader state migration and matched CLI performance remain open.
+Single confirmed workspace PNG/JPEG attachment is supported. See the maintained
 [coverage map](../notes/PARITY.md) and [verification evidence](../notes/ACCEPTANCE.md).
