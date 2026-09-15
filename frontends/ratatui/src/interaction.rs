@@ -56,6 +56,8 @@ pub(super) enum Action {
     QuestionSubmit(String),
     QuestionCancel(String),
     Providers,
+    ForkComposition,
+    ForkCompositionApply(String),
     ProviderHistory,
     ProviderValidateChoice(String),
     ProviderValidate(String),
@@ -65,6 +67,8 @@ pub(super) enum Action {
     Switch(String),
     RecoverChoice(String),
     Recover(String),
+    RecoverChild(Arc<Value>),
+    RecoverChildApply(Arc<Value>, String),
     Latest,
     View(usize),
     Section(String),
@@ -249,7 +253,9 @@ impl App {
                     choice("Search saved conversations — local content search", Action::FindSaved),
                     choice("Recipe activity — inspect runs and prepare a review request", Action::Inspect("recipes".into(), None)),
                     choice("Recovered work — historical child and action evidence", Action::Inspect("recovery".into(), None)),
+                    choice("Change and command evidence — agent, call and source versions", Action::Inspect("changes".into(), None)),
                     choice("Model catalog — discover configured providers' model IDs", Action::Models),
+                    choice("New provider composition — fork captured public context", Action::ForkComposition),
                     choice("Pending follow-ups — inspect / pause / run / remove", Action::QueueList),
                     choice("Corrections — inspect insertion status / copy text", Action::Corrections),
                     choice("Questions — answer / review / cancel clarification requests", Action::Questions),
@@ -353,6 +359,14 @@ impl App {
             Action::RecoverChoice(id) => {
                 self.menu("Recover into a new conversation?",vec![choice("Create recovered conversation — no replay",Action::Recover(id))]);
                 self.ui.menu.as_mut().unwrap().detail="The original stays unchanged. Historical transcript becomes reference context, not pending execution. No tools or queued work are replayed. Partial external effects may remain. Escape cancels.".into();
+            }
+            Action::RecoverChild(row) => {
+                self.flow.recovery = Some(row);
+                self.prompt("Continue captured child");
+            }
+            Action::RecoverChildApply(row, instruction) => {
+                self.send(json!({"op":"recover_child", "source":row["source"], "child":row["id"], "sha256":row["source_sha256"], "text":instruction, "confirm":true}));
+                self.ui.menu = None;
             }
             Action::Recover(id) => {
                 self.nav.switching=Some((self.request+1).to_string());
@@ -480,6 +494,12 @@ impl App {
                     .map(|i| choice(format!("{} · {}", i.status, safe(&i.text.chars().take(100).collect::<String>()).replace('\n', " ↵ ")), Action::Message(i.id.clone()))).collect();
                 self.menu("Corrections · latest 100 · applied means inserted, not task success", choices);
                 self.ui.menu.as_mut().unwrap().detail = "Pending waits for runtime insertion. Unconfirmed means no insertion acknowledgement; never retried or queued automatically. Open to inspect / copy the original correction.".into();
+            }
+            Action::ForkComposition => self.prompt("New provider overlay"),
+            Action::ForkCompositionApply(overlay) => {
+                self.nav.switching = Some((self.request + 1).to_string());
+                self.send(json!({"op":"switch", "target":"new", "conversion_overlay":overlay, "confirm_conversion":true, "draft":self.draft.lines().join("\n")}));
+                self.ui.menu = None;
             }
             Action::Providers => {
                 if self.controls.providers["supported"] != true {

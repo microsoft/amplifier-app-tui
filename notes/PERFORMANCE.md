@@ -5,6 +5,30 @@ exist in the [review packet](TERMINAL-REVIEW.md); matched CLI policy parity is u
 This protocol makes the draft promises testable; it is not a performance receipt.
 The comparison includes the entire path, not just IPC microbenchmarks or renderer FPS.
 
+## Current measurement and policy gap
+
+The AFK continuation measured full catalog/search/checkpoint-page lookup and actual native
+Resume paint over 200 synthetic conversations / 100,000 messages (30 warm samples):
+p95 37.0 ms and 68.3 ms respectively. The latter includes F4, action search, selection and
+observed picker output. `scripts/benchmark_history.py --terminal` reproduces the experiment;
+it does not measure a model request or CLI parity. Raw captures remain private; sanitized
+scope and results are in [ACCEPTANCE](ACCEPTANCE.md).
+
+The inspected CLI remains source `772bdb42f135fa310e217d6634dd727039d2d840`.
+Its `runtime/config.py` composes modes, packaged CLI expertise, curated skills, model
+routing and wayfinder even for a minimal fixture bundle; notification and user app
+behaviors add conditional policy. `lib/bundle_loader/prepare.py` also appends optional
+global/project AGENTS instruction references after composition. Its prompt/control,
+logging and persistence paths differ from this host. Merely supplying the same bundle
+name and fixture provider therefore does not produce equivalent work.
+
+Next matched-policy gate must capture and compare effective module configuration,
+resolved request instructions/tool schemas, approval/logging/context policy and ownership
+at the actual CLI and TUI entrypoints. Normalize only explicitly documented local storage
+and renderer differences; never disable CLI policy or import personal configuration merely
+to obtain a faster comparison. Until those observations agree, runtime benchmark numbers
+remain labelled non-equivalent. No CLI-level non-regression verdict is claimed here.
+
 ## Baseline discovery before a topology decision
 
 Identify the steward's actual current CLI executable/runtime build, source pins when

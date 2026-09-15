@@ -16,6 +16,44 @@ from amplifier_foundation import BundleRegistry, load_bundle
 TERMINAL_HOOKS = {"hooks-streaming-ui", "hooks-todo-display"}
 
 
+async def execute_owned(session, prompt, *, grace=0.25, on_forced=None):
+    """Retain execution ownership while cooperative cancellation records its outcome.
+
+    Cancelling the Rust-backed wait can return before Python callbacks have drained.
+    Give the public cancellation token a bounded grace, then cancel the owned wait.
+    Repeated caller cancellation neither abandons it nor extends that grace. An
+    uncooperative module still requires the client's separately owned process deadline.
+    """
+    execution = asyncio.ensure_future(session.execute(prompt))
+    try:
+        return await asyncio.shield(execution)
+    except asyncio.CancelledError:
+        session.coordinator.cancellation.request_immediate()
+        deadline = asyncio.get_running_loop().time() + grace
+        forced = False
+        while not execution.done():
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0 and not forced:
+                forced = True
+                if on_forced:
+                    on_forced()
+                execution.cancel()
+            try:
+                if forced:
+                    await asyncio.shield(execution)
+                else:
+                    await asyncio.wait({execution}, timeout=remaining)
+            except asyncio.CancelledError:
+                continue
+            except Exception:
+                break
+        # Retrieve the outcome even when the caller was cancelled. Cancellation is
+        # never converted to a successful turn by a late cooperative return.
+        if not execution.cancelled():
+            execution.exception()
+        raise
+
+
 async def create_owned_session(prepared, *, session_cwd=None, observer=None, **kwargs):
     """Own cleanup before the first await, using public kernel/Foundation APIs.
 

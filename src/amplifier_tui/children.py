@@ -2,9 +2,12 @@
 
 import asyncio
 import copy
+import fcntl
 import hashlib
 import json
+import os
 import re
+import stat
 import uuid
 from dataclasses import replace
 from pathlib import Path
@@ -77,6 +80,7 @@ class Children:
         self.initializing = asyncio.Lock()
         self.tasks = {}
         self.restoring = {}
+        self.recovering = {}
 
     def register(self, session):
         session.coordinator.register_capability("session.spawn", self.spawn)
@@ -232,6 +236,18 @@ class Children:
                 directory / "messages.jsonl"
             )
         prepared = replace(base, bundle=effective, mount_plan=plan)
+        recovery = self.recovering.get(identity)
+        if recovery:
+            section = plan.get("session", {})
+            if (
+                section.get("context", {}).get("module") != "context-simple"
+                or section.get("orchestrator", {}).get("module")
+                not in ("loop-streaming", "loop-basic")
+                or fingerprint(plan) != recovery["mount_fingerprint"]
+            ):
+                raise ValueError(
+                    "Child public-context recovery requires unchanged simple context and a supported stateless loop; private-state reconstruction refused"
+                )
         restored = self.restoring.get(identity)
         if restored and fingerprint(plan) != restored.get("mount_fingerprint"):
             raise ValueError("Child effective composition changed; continuation refused")
@@ -268,6 +284,102 @@ class Children:
             },
         }
         return await self.execute(identity, instruction, parent_session)
+
+    def recovery_operation(self, source, identity, digest, instruction):
+        """Validate immutable capture before returning a new, explicitly owned turn."""
+        from .recovery import public_history
+
+        store = self.host.store
+        allowed = {self.host.session_id, store.metadata.get("recovered_from")} if store else set()
+        if (
+            source not in allowed
+            or not isinstance(source, str)
+            or not re.fullmatch(r"[a-f0-9]{32}", source)
+        ):
+            raise ValueError("Child source is outside this conversation's recovery lineage")
+        if not isinstance(identity, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", identity):
+            raise ValueError("Invalid child identity")
+        if not isinstance(instruction, str) or not 0 < len(instruction.strip()) <= 262144:
+            raise ValueError("A new explicit child instruction is required")
+        directory = store.path.parent / source
+        lock = None
+        try:
+            if source != self.host.session_id:
+                lock = os.open(directory / "lock", os.O_RDONLY | os.O_NOFOLLOW)
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            parent_fd = os.open(
+                directory / "children", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            )
+            try:
+                fd = os.open(
+                    f"{identity}.json",
+                    os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                    dir_fd=parent_fd,
+                )
+                with os.fdopen(fd, "rb") as stream:
+                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                        raise ValueError("Child receipt is not a regular file")
+                    raw = stream.read(1024 * 1024 + 1)
+            finally:
+                os.close(parent_fd)
+        finally:
+            if lock is not None:
+                os.close(lock)
+        if len(raw) > 1024 * 1024 or hashlib.sha256(raw).hexdigest() != digest:
+            raise ValueError("Child evidence changed or exceeds 1 MiB; inspect again")
+        row = json.loads(raw)
+        if not isinstance(row, dict):
+            raise ValueError("Invalid child receipt")
+        if (
+            row.get("status") not in ("interrupted", "failed", "running")
+            or identity in self.active
+            or row.get("parent") != source
+            or row.get("root_fingerprint") != self.host.fingerprint
+        ):
+            raise ValueError(
+                "Only an inactive direct child with unchanged composition can be adopted"
+            )
+        parent = self.host.session
+        if row.get("mode") != parent.coordinator.session_state.get("active_mode"):
+            raise ValueError("Child mode differs; restore the original mode first")
+        policy = row.get("restart_policy")
+        if not isinstance(policy, dict) or set(policy) != {"tools", "hooks", "orchestrator"}:
+            raise ValueError("Unsupported child restart policy")
+        messages, unknown = public_history(row.get("messages"), repair=True)
+        preferences = [ProviderPreference.from_dict(p) for p in row.get("routing", [])]
+        new_id = uuid.uuid4().hex
+
+        async def run():
+            self.recovering[new_id] = row
+            try:
+                result = await self.spawn(
+                    row["agent"],
+                    instruction,
+                    parent,
+                    self.prepared.bundle.agents,
+                    sub_session_id=new_id,
+                    parent_messages=messages,
+                    tool_inheritance=policy["tools"],
+                    hook_inheritance=policy["hooks"],
+                    orchestrator_config=parent_orchestrator(parent)
+                    if policy["orchestrator"] == "parent"
+                    else policy["orchestrator"],
+                    provider_preferences=preferences or None,
+                    session_metadata={
+                        "recovery": {
+                            "source_session": source,
+                            "child": identity,
+                            "sha256": digest,
+                            "unknown_tool_calls": unknown,
+                            "notice": "New identity and instruction; public messages only, no tool replay or private-state reconstruction",
+                        }
+                    },
+                )
+                return f"Recovered child {identity} continued as {result['session_id']}.\n{result['output']}"
+            finally:
+                self.recovering.pop(new_id, None)
+
+        return run
 
     async def resume(self, sub_session_id, instruction, provider_preferences=None, model_role=None):
         row = self.records.get(sub_session_id)
@@ -431,6 +543,21 @@ class Children:
 
             async def observe(event, data):
                 if data.get("session_id") in (None, "", identity):
+                    if event.startswith("tool:") and self.host.tool_evidence:
+                        evidence = await self.host.tool_evidence.observe(
+                            event,
+                            data,
+                            session=identity,
+                            turn=self.host.turn_id,
+                            agent=row["agent"],
+                        )
+                        if evidence:
+                            self.host.emit(
+                                "change.observed",
+                                f"{self.host.turn_id}:change:{identity}:{evidence['tool_call_id']}",
+                                child_id=identity,
+                                **evidence,
+                            )
                     if event == "orchestrator:complete":
                         outcome.update(data)
                     else:
@@ -495,9 +622,19 @@ class Children:
                     name, observe, priority=999, name="tui-child-observation"
                 )
             self.publish(identity, "running")
-            output = await session.execute(instruction)
+            from .composition import execute_owned
+
+            output = await execute_owned(
+                session,
+                instruction,
+                on_forced=lambda: self.publish(
+                    identity, "interrupted", "Cooperative Stop grace expired; effects may remain"
+                ),
+            )
             row["messages"] = await context.get_messages()
             row["mode"] = coordinator.session_state.get("active_mode")
+            if outcome.get("status") == "cancelled" or self.host._stop_requested:
+                raise asyncio.CancelledError
             if outcome.get("status") != "success":
                 raise RuntimeError(f"Child did not complete: {outcome.get('status', 'unknown')}")
             row["status"] = "completed"

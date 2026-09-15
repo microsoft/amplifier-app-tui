@@ -11,6 +11,7 @@ pub struct Workflow {
     pub paused: bool,
     pub prompt: Option<Prompt>,
     pub conflict: Option<Arc<Value>>,
+    pub recovery: Option<Arc<Value>>,
 }
 
 pub struct Prompt {
@@ -34,6 +35,7 @@ impl App {
         let mut input = editor();
         input.set_placeholder_text(match kind {
             "Rename conversation" => "New name (up to 100 characters)…",
+            "New provider overlay" => "Trusted overlay file path · creates a NEW conversation…",
             "Insert text file" => "Workspace-relative path · UTF-8 text, at most 64 KiB…",
             "Attach image" => "Workspace-relative PNG/JPEG/static GIF/WebP path · at most 2 MiB…",
             "Attach file reference" => {
@@ -93,6 +95,35 @@ impl App {
             KeyCode::Enter if key.kind == KeyEventKind::Press => {
                 let mut prompt = self.flow.prompt.take().unwrap();
                 let value = prompt.editor.lines().join("\n");
+                if prompt.kind == "Continue captured child" {
+                    if let Some(row) = self.flow.recovery.clone() {
+                        self.menu(
+                            "Adopt interrupted child?",
+                            vec![choice(
+                                "Run NEW child with this instruction",
+                                Action::RecoverChildApply(row, value),
+                                "",
+                            )],
+                        );
+                        self.ui.menu.as_mut().unwrap().detail = "This starts new execution with captured public messages. Verified results are retained; missing outcomes are UNKNOWN, never automatically retried. Original receipt stays unchanged. Requires unchanged simple context/stateless loop and mode; unsupported private state refuses. The new instruction can cause new tool effects. Escape cancels.".into();
+                    }
+                    return Some(true);
+                }
+                if prompt.kind == "New provider overlay" {
+                    self.menu(
+                        "Adopt new provider composition?",
+                        vec![choice(
+                            "Create new conversation with captured public context",
+                            Action::ForkCompositionApply(value.clone()),
+                            "",
+                        )],
+                    );
+                    self.ui.menu.as_mut().unwrap().detail = format!(
+                        "Overlay: {}\nOriginal conversation remains intact. Copies public messages, not provider pins, modes, queued work or module-private state. The overlay is executable configuration: trust its source. No model call until your next explicit Send; that Send may share the captured context with a different provider. Escape changes nothing.",
+                        safe(&value)
+                    );
+                    return Some(true);
+                }
                 if prompt.kind == "Edit conflict proposal" {
                     if let Some(snapshot) = self.flow.conflict.clone() {
                         self.menu(

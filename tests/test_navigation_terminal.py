@@ -77,6 +77,57 @@ def test_picker_new_return_and_drafts(tmp_path):
     assert "Conversation beta" not in str(messages)
 
 
+def test_explicit_provider_fork_confirmation_and_retained_public_context(tmp_path):
+    overlay = tmp_path / "provider.yaml"
+    overlay.write_text(
+        "bundle:\n  name: alternate-provider-fixture\nproviders:\n  - module: provider-fixture\n    config:\n      vendor: alternate-fixture-vendor\n"
+    )
+    probe = start(tmp_path)
+    try:
+        probe.wait("Ready")
+        probe.send(b"Remember the original conversation\r")
+        probe.wait("Completed")
+        probe.send(b"Unsent retained draft")
+        action(probe, "New provider composition", "New provider overlay")
+        probe.send(str(overlay).encode() + b"\r")
+        probe.wait("Adopt new provider composition?")
+        probe.wait("model call until your next explicit Send")
+        capture(probe, "provider-fork-confirmation")
+        probe.send(b"\r")
+        probe.wait("Adopt new provider composition?", absent=True)
+        probe.wait("Ready", timeout=30)
+        draft_is(probe, "Unsent retained draft")
+        records = list((tmp_path / "state/conversations").glob("*/metadata.json"))
+        assert len(records) == 2
+        target = next(p.parent for p in records if (p.parent / "imported-context.json").exists())
+        assert '"kind": "turn.accepted"' not in (target / "events.jsonl").read_text()
+        assert "Remember the original conversation" in (target / "checkpoint.json").read_text()
+        capture(probe, "provider-fork-ready")
+    finally:
+        probe.close()
+
+
+def test_continuous_typing_flushes_before_idle(tmp_path):
+    import time
+
+    probe = start(tmp_path)
+    try:
+        probe.wait("Ready")
+        metadata = next((tmp_path / "state/conversations").glob("*/metadata.json"))
+        draft = metadata.parent / "draft.json"
+        saved_while_typing = False
+        for _ in range(30):
+            probe.send(b"x")
+            probe.read(0.035)
+            saved_while_typing |= bool(json.loads(draft.read_text())["text"])
+            time.sleep(0.01)
+        assert saved_while_typing
+        probe.wait("xxxxxxxx")
+        assert '"kind": "turn.accepted"' not in (metadata.parent / "events.jsonl").read_text()
+    finally:
+        probe.close()
+
+
 def test_file_completion_quotes_directory_names_and_keeps_neighbors(tmp_path):
     (tmp_path / "docs space").mkdir()
     (tmp_path / "docs space" / "alpha.md").write_text("not read by completion")

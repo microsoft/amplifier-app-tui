@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+import json
 import os
 import stat
 import time
@@ -19,6 +20,114 @@ NOTICE = (
 
 def display_path(value):
     return os.fsencode(value).decode("utf-8", "replace") if value is not None else None
+
+
+class ToolEvidence:
+    """Bounded source observations correlated to a tool, never exclusive authorship."""
+
+    def __init__(self, cwd):
+        self.cwd = Path(cwd).resolve()
+        self.pending = {}
+
+    async def snapshot(self, name, arguments):
+        from .file_input import snapshot
+
+        paths, partial = [], False
+        if name in ("write_file", "edit_file"):
+            target = arguments.get("file_path", arguments.get("path"))
+            if not isinstance(target, str):
+                return {"files": {}, "partial": True, "scope": "No explicit file target"}
+            paths = [target]
+        elif name == "bash":
+            review = GitReview(self.cwd)
+            try:
+                await review.setup()
+                raw = await review.git(
+                    "ls-files", "-z", "--cached", "--others", "--exclude-standard"
+                )
+                all_paths = list(dict.fromkeys(os.fsdecode(p) for p in raw.split(b"\0") if p))
+                paths = all_paths[:128]
+                partial = len(all_paths) > len(paths)
+                base = Path(review.root)
+                paths = [str(base / p) for p in paths]
+            except (OSError, ValueError):
+                partial = True
+        files = {}
+        deadline = time.monotonic() + 0.15
+
+        def capture():
+            nonlocal partial
+            for name in paths:
+                if time.monotonic() >= deadline:
+                    partial = True
+                    break
+                relative = name
+                try:
+                    path = Path(name)
+                    relative = str(path.relative_to(self.cwd)) if path.is_absolute() else name
+                    value = snapshot(self.cwd, relative)
+                    files[relative] = value["sha256"]
+                except FileNotFoundError:
+                    files[relative] = "absent"
+                except (OSError, ValueError, UnicodeError):
+                    files[relative] = "unavailable"
+                    partial = True
+
+        await asyncio.to_thread(capture)
+        return {
+            "files": files,
+            "sha256": hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest(),
+            "partial": partial,
+            "scope": "Explicit file target or first 128 Git-listed workspace files; 64 KiB UTF-8 per file, 150 ms capture budget. Ignored/outside/symlink/large files excluded; not an atomic snapshot.",
+        }
+
+    async def observe(self, event, data, *, session, turn, agent):
+        name, call = data.get("tool_name"), data.get("tool_call_id")
+        if name not in ("write_file", "edit_file", "bash") or not isinstance(call, str):
+            return None
+        key = (turn, session, call)
+        if event == "tool:pre":
+            arguments = data.get("tool_input") or {}
+            if not isinstance(arguments, dict) or len(self.pending) >= 128:
+                return None
+            self.pending[key] = {
+                "name": name,
+                "arguments": arguments,
+                "agent": agent,
+                "overlap": bool(self.pending),
+                "before": None,
+            }
+            for other in self.pending.values():
+                if len(self.pending) > 1:
+                    other["overlap"] = True
+            self.pending[key]["before"] = await self.snapshot(name, arguments)
+            return None
+        row = self.pending.pop(key, None)
+        if row is None:
+            return None
+        after = await self.snapshot(name, row["arguments"])
+        before = row["before"]
+        result = data.get("result")
+        if hasattr(result, "model_dump"):
+            result = result.model_dump()
+        return {
+            "name": f"{agent} · {name} · source evidence",
+            "source_session": session,
+            "tool_call_id": call,
+            "agent": agent,
+            "status": "tool-correlated observation; external writers not excluded",
+            "before": before,
+            "after": after,
+            "changed": sorted(
+                p
+                for p in before["files"].keys() | after["files"].keys()
+                if before["files"].get(p) != after["files"].get(p)
+            ),
+            "overlapping_tools": row["overlap"],
+            "tool_success": result.get("success") if isinstance(result, dict) else None,
+            "command": row["arguments"].get("command") if name == "bash" else None,
+            "scope": "Observed source versions bracket this identified tool. Command success is not a test-coverage or task-acceptance verdict; concurrent external edits cannot be causally attributed.",
+        }
 
 
 class GitReview:

@@ -69,6 +69,7 @@ class SessionHost:
         self.children = None
         self.modes = None
         self.images = None
+        self.tool_evidence = None
         self.questions = Questions(self)
         self.interactive_questions = False
         self.capabilities = {
@@ -161,6 +162,9 @@ class SessionHost:
             if diagnostics.failed:
                 raise RuntimeError("Module initialization reported a failure; inspect diagnostics")
             coordinator = self.session.coordinator
+            from .workspace_review import ToolEvidence
+
+            self.tool_evidence = ToolEvidence(cwd)
             from .file_input import ImageDraft
 
             self.images = ImageDraft(self.store)
@@ -199,6 +203,41 @@ class SessionHost:
                         "imported-reference",
                         text=imported["notice"] + "\nSource SHA-256: " + imported["sha256"],
                     )
+                elif (self.store.path / "imported-context.json").exists():
+                    from .recovery import context_transfer
+
+                    with (self.store.path / "imported-context.json").open("rb") as stream:
+                        raw = stream.read(9 * 1024 * 1024 + 1)
+                    if len(raw) > 9 * 1024 * 1024:
+                        raise ValueError("Transferred context exceeds limit")
+                    imported = json.loads(raw)
+                    validated = context_transfer(
+                        imported.get("messages"), imported.get("source_session")
+                    )
+                    if imported.get("version") != 1 or validated["sha256"] != imported.get(
+                        "sha256"
+                    ):
+                        raise ValueError("Transferred context failed integrity verification")
+                    if (
+                        any(
+                            isinstance(m.get("content"), list)
+                            and any(
+                                isinstance(b, dict) and b.get("type") in ("image", "image_url")
+                                for b in m["content"]
+                            )
+                            for m in validated["messages"]
+                        )
+                        and not self.supports_images()
+                    ):
+                        raise ValueError("New composition cannot accept the captured images")
+                    await context.set_messages(copy.deepcopy(validated["messages"]))
+                    if portable_history(await context.get_messages()) != portable_history(
+                        validated["messages"]
+                    ):
+                        raise ValueError(
+                            "New context module did not retain transferred public history"
+                        )
+                    self.emit("display.message", "context-transfer", text=validated["notice"])
             mounted = coordinator.get("tools") or {}
             required = set(report.get("required_tools", []))
             if prepared.mount_plan.get("tools") and not mounted:
@@ -289,7 +328,7 @@ class SessionHost:
             initializer.removeHandler(diagnostics)
 
     def submit(
-        self, text: str, input_id=None, image_id=None, queued_image=None
+        self, text: str, input_id=None, image_id=None, queued_image=None, *, operation=None
     ) -> tuple[bool, str]:
         if not text.strip():
             return False, "Write a message first."
@@ -346,7 +385,7 @@ class SessionHost:
                 f"{self.turn_id}:image",
                 text=f"Attachment snapshot: {image['path']} · {image['bytes']} bytes · SHA-256 {image['sha256']}",
             )
-        self.task = asyncio.create_task(self._execute(text, image))
+        self.task = asyncio.create_task(self._execute(text, image, operation))
         return True, self.turn_id
 
     def supports_attachments(self, value):
@@ -374,7 +413,7 @@ class SessionHost:
         except Exception:
             return False
 
-    async def _execute(self, text, image=None):
+    async def _execute(self, text, image=None, operation=None):
         self._execution_started = True
         status, message = "unknown", "No completion evidence was received."
         try:
@@ -389,7 +428,24 @@ class SessionHost:
                         "content": ImageDraft.content(image),
                     }
                 )
-            reply = await self.session.execute(text)
+            from .composition import execute_owned
+
+            if operation is None:
+                reply = await execute_owned(
+                    self.session,
+                    text,
+                    on_forced=lambda: self.emit(
+                        "display.message",
+                        f"{self.turn_id}:forced-cancel",
+                        text="Cooperative Stop grace expired; execution wait cancelled. Tool effects may remain.",
+                    ),
+                )
+            else:
+                context = self.session.coordinator.get("context")
+                await context.add_message({"role": "user", "content": text})
+                reply = await operation()
+                await context.add_message({"role": "assistant", "content": reply})
+                self.outcome = "success"
             status = {
                 "success": "completed",
                 "error": "failed",
@@ -424,6 +480,8 @@ class SessionHost:
                         "Child work remained active; stopped and drained before checkpoint",
                     )
                 await self.children.drain()
+            if self.tool_evidence:
+                self.tool_evidence.pending.clear()
             if self._stop_requested and status != "failed":
                 status = "interrupted"
                 message = "Stopped. Partial effects may remain; nothing was undone."
@@ -478,6 +536,16 @@ class SessionHost:
         # Child activity must never impersonate the root conversation.
         if data.get("session_id") not in (None, "", self.session_id):
             return HookResult()
+        if event.startswith("tool:") and self.tool_evidence:
+            evidence = await self.tool_evidence.observe(
+                event, data, session=self.session_id, turn=self.turn_id, agent="root"
+            )
+            if evidence:
+                self.emit(
+                    "change.observed",
+                    f"{self.turn_id}:change:{evidence['tool_call_id']}",
+                    **evidence,
+                )
         block_id = str(data.get("block_index", data.get("block_id", "0")))
         if event == "llm:request":
             self.inspection.capture_request(data, self, f"{self.turn_id}:wire:{self.sequence + 1}")
@@ -546,6 +614,15 @@ class SessionHost:
                     f"{self.turn_id}:context:{self.sequence + 1}",
                     event=event,
                     observation=value,
+                    name=f"Request {self._request_index} usage"
+                    if event == "llm:response"
+                    else event,
+                    status="Provider-reported completed-request usage; not current context occupancy"
+                    if event == "llm:response"
+                    else "observed",
+                    request_index=self._request_index,
+                    provider=data.get("provider"),
+                    model=data.get("model"),
                 )
             return HookResult()
         item_id = f"{self.turn_id}:request:{self._request_index}:block:{block_id}"
@@ -798,6 +875,7 @@ class RuntimeBridge:
             if request.get("session_id") != self.host.session_id:
                 return False, "Inspection belongs to another conversation"
             if request.get("category") not in (
+                "changes",
                 "recovery",
                 "children",
                 "context",

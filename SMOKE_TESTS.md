@@ -1,5 +1,25 @@
 # Verification guide
 
+AFK continuation: run `test_owned_execution.py`, `test_child_recovery.py`,
+`test_change_evidence.py`, `test_context_transfer.py` and the expanded independent-swap
+approval matrix. New native navigation cases cover provider-fork confirmation and
+continuous typing autosave. Full-suite evidence precedes billed lifecycle probes.
+`benchmark_history.py --terminal` now measures complete catalog/search/checkpoint-page
+work and actual native Resume paint separately; neither is matched-policy CLI proof.
+`release_wheel.py --output-dir PATH --terminal` keeps experimental wheels apart from
+published-version artifacts. `--ci-clipboard` mutates only a disposable macOS GitHub
+runner's pasteboard, tests the installed adapter against real PNG bytes, then clears it;
+it refuses personal-desktop invocation. Ubuntu 22.04 is a separate CI gate, not musl proof.
+
+Cancellation lesson: cancelling a Rust-backed execution wait immediately can outrun
+Python callback scheduling. Own the wait and give the public cancellation token bounded
+grace; drain ownership through repeated cancellation without suppressing warnings. This
+does not impose a hard deadline on arbitrary cleanup: the native process-group deadline
+remains separate. A cooperatively returned cancelled outcome is still interrupted work.
+Draft lesson: debounce from the first pending edit, not the latest keystroke, or continuous
+typing indefinitely postpones persistence. Terminal assertions must account for wrapped
+disclosure text rather than waiting for a substring split across two physical rows.
+
 September continuation gates: `test_conflict_review.py` uses real unmerged indexes to
 test capture versus Apply, original backups, unchanged index/mode, stale content,
 symlink/hard-link refusal, backup failure and a write injected after backup. Enable

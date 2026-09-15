@@ -87,6 +87,7 @@ struct App {
     view: usize,
     scroll: [usize; 3],
     anchors: [Option<transcript::Anchor>; 2],
+    anchor_offsets: [Option<(usize, usize)>; 2],
     layouts: Vec<Option<transcript::Layout>>,
     durable: bool,
     saved_draft: String,
@@ -220,6 +221,7 @@ impl App {
             view: 0,
             scroll: [0; 3],
             anchors: [None; 2],
+            anchor_offsets: [None; 2],
             layouts: vec![],
             durable: false,
             saved_draft: String::new(),
@@ -295,6 +297,7 @@ impl App {
                     self.view = 0;
                     self.scroll = [0; 3];
                     self.anchors = [None; 2];
+                    self.anchor_offsets = [None; 2];
                     self.expanded = false;
                     self.detail_scroll = 0;
                     self.copy = None;
@@ -989,6 +992,7 @@ fn draw(f: &mut Frame, app: &mut App) {
         0
     };
     let approval_y = compose_y - approval_h - question_h;
+    app.resize_transcript(inner.width);
     app.body = Rect::new(inner.x, 6, inner.width, approval_y.saturating_sub(7));
     app.rows.clear();
     if app.expanded {
@@ -1440,7 +1444,11 @@ fn main() -> io::Result<()> {
                     _ => (),
                 }
                 dirty = true;
-                app.draft_changed = Instant::now();
+                // Measure from the first unsaved event, not the last keystroke.
+                // Continuous typing must not postpone autosave indefinitely.
+                if !app.draft_pending {
+                    app.draft_changed = Instant::now();
+                }
                 app.draft_pending = true;
             }
             if let Some(value) = app.copy.take() {

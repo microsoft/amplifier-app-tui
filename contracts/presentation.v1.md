@@ -53,7 +53,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: An unexplained width cap, default widget chrome or raw diagnostic dump replaces the design without an accepted adaptation.
    Affected: the person reading the conversation and the steward evaluating the product.
 
-7. **Reveal detail without taking over.** Routine tools collapse to concise summaries; exact evidence is expandable, copyable and independently scrollable. Workspace inspection names its repository and comparison scope, defaults to read-only, labels limits/concurrent-change uncertainty, and never attributes a diff to the agent without evidence. Separately confirmed edits validate the captured file version and refuse stale writes; test evidence names the source state actually observed.
+7. **Reveal detail without taking over.** Routine tools collapse to concise summaries; exact evidence is expandable, copyable and independently scrollable. Workspace inspection names its repository and comparison scope, defaults to read-only, labels limits/concurrent-change uncertainty, and never attributes a diff to the agent without evidence. Separately confirmed edits validate the captured file version and refuse stale writes; test evidence names the source state actually observed. Tool-correlated change/command evidence names the originating session, call and before/after source digests; unavailable or overlapping observations remain explicit, not exclusive causal authorship or a test-acceptance verdict.
    Broken: Output floods the conversation, scroll jumps away from the reader, or opening detail destroys their draft or selection.
    Affected: people inspecting work while composing their next instruction.
 
@@ -70,8 +70,7 @@ Pixel-identical browser typography, uniform behavior across every terminal, and 
 Use framework-independent terminal captures and interaction scripts; compare retained source and composer selection.
 Exercise actual tmux history/copy mode without `/scrollback`, exit retention, short/long capture-pane previews, resize and overlay round trips; count duplicate rows and verify terminal-mode restoration.
 The [visual comparison plan](../notes/FRONTEND-EVALUATION.md) applies promises 6–8 to real terminal scenes.
-The document check validates shape and links; runtime tests supply behavior evidence.
-Draft contracts do not seed formal Converge ledger rows.
+The document check validates shape and links; runtime tests supply behavior evidence. Draft contracts do not seed formal Converge ledger rows.
 
 ## Open questions
 
@@ -82,6 +81,7 @@ Which input/selection behavior first requires an explicit terminal-support restr
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-15 | Clarify P7's source-correlated change/command evidence. | Steward requested agent/test attribution; a successful command and an unversioned diff cannot establish which source state was checked. |
 | 2026-09-14 | Permit separately confirmed version-checked edits beside read-only review in P7. | Steward explicitly requested all backlog items, including conflict editing and source-attributed change/test review. Inspection itself remains non-mutating. |
 | 2026-09-14 | Extend P3's code readability to source-preserving syntax colour. | READ-02 leaves every code token monochrome; steward requested continued progress. Colour is a projection, not execution or a source rewrite. |
 | 2026-09-14 | Clarify P6's edge-to-edge width. | Steward requested removing the remaining three-column outer inset; content indentation and local dialog structure remain meaningful. |

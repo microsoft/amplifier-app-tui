@@ -164,6 +164,11 @@ assistant to invoke `load_skill`, `delegate` or `recipes` when mounted. **Action
 (`/mode`) selects discovered session policy with explicit Apply.
 Assistant mode requests needing consent use **Review decision**, not an unanswerable retry.
 Conversation-provider selection and steering use supported public module capabilities.
+**New provider composition** asks for a trusted overlay file, then confirmation. It creates
+a new conversation with the captured public messages, preserving the original. Pins,
+modes, queued inputs and module-private state are not transferred. No model request is
+made until your next explicit Send; that Send may share prior context with another provider.
+Incomplete tool pairing or unsupported media/context restoration refuses the fork.
 Use **Insert text file** for plain UTF-8 insertion, or **Attach file reference** to retain
 a captured file's location and version separately from your prompt. Enter a workspace-relative
 path, optionally `src/example.py:10` or `src/example.py:10-25` (one-based inclusive lines;
@@ -191,12 +196,23 @@ are omitted; this is not exact network serialization, delivery proof or a contex
 
 **Saved local drafts** also retains dialog copies (queue edits, rename, searches and file
 selectors) under their original scope. Recovery is inspection/copy, never automatic Apply
-or Send. Autosave follows a 250 ms pause and dialog exit; unflushed keystrokes can still
+or Send. Autosave runs after at most 250 ms of pending edits, including continuous typing,
+and on dialog exit; transport/storage latency and unflushed keystrokes can still
 be lost in a crash. Ordinary exit requests host cleanup; after three seconds an unresponsive
 host process group is force-terminated with an explicit uncertainty message. Detached
 processes and remote work are not covered, and no effects are claimed undone.
-Child cleanup and receipt persistence retain ownership through repeated cancellation;
-this does not fix the separate third-party async-callback bridge warning.
+Root/child execution gets a 250 ms cooperative Stop grace before forced cancellation of
+its owned wait. Child cleanup and receipt persistence retain ownership through repeated
+cancellation; detached/remote work and uncooperative modules remain separate limits.
+**Recovered work** offers eligible interrupted direct children an explicit new instruction
+and confirmation before continuing their captured public context under a new child ID.
+The original receipt remains intact; missing tool outcomes are marked unknown, not replayed.
+Only unchanged simple context/stateless-loop compositions and mode are supported; this is
+not private-state reconstruction or automatic crash-uncertain recipe retry.
+**Change and command evidence** correlates file versions with agent/session/tool-call IDs.
+Capture is bounded (explicit file target or first 128 Git-listed files); unavailable and
+overlapping observations are labelled. Command success is not a test-coverage verdict,
+and concurrent external edits cannot be exclusively attributed to an agent.
 Full presets retain authored shell/file tools and permissions: **this is not a sandbox**.
 The workspace launcher stores state in this project's `.state/work`; the installed
 launcher uses the separate user-data directory described above.

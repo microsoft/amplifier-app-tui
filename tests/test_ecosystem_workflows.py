@@ -57,6 +57,28 @@ async def ecosystem(request, tmp_path, monkeypatch):
     await host.close()
 
 
+async def test_file_tool_changes_have_real_call_and_version_evidence(ecosystem):
+    import hashlib
+
+    host, _, tmp_path = ecosystem
+    provider = host.session.coordinator.get("providers")["fixture"]
+    path = tmp_path / "observed.txt"
+    path.write_text("before")
+    provider.config.update(
+        tool="write_file", arguments={"file_path": str(path), "content": "after"}
+    )
+    host.submit("Write the controlled evidence fixture")
+    await asyncio.wait_for(host.task, 10)
+    assert path.read_text() == "after"
+    rows = host.inspection.catalog(host, "changes")["rows"]
+    assert len(rows) == 1
+    detail = json.loads(rows[0]["detail"])
+    assert detail["source_session"] == host.session_id
+    assert detail["tool_call_id"]
+    assert detail["before"]["files"]["observed.txt"] == hashlib.sha256(b"before").hexdigest()
+    assert detail["after"]["files"]["observed.txt"] == hashlib.sha256(b"after").hexdigest()
+
+
 async def test_actual_delegate_and_agent_recipe(ecosystem):
     host, _, tmp_path = ecosystem
     provider = host.session.coordinator.get("providers")["fixture"]

@@ -1,6 +1,6 @@
 //! Lazy item layout plus an exclusive bottom-row anchor. None means follow tail.
 //! Source items are never replaced by rendered fragments; streaming invalidates
-//! only the changed item. A pinned reader keeps the same item/visual row.
+//! only the changed item. Stable projections retain a character boundary on resize.
 use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -16,6 +16,49 @@ pub struct Layout {
 }
 
 impl App {
+    pub fn resize_transcript(&mut self, width: u16) {
+        if self.body.width == width {
+            return;
+        }
+        for view in 0..2 {
+            let Some(anchor) = self.anchors[view] else {
+                self.anchor_offsets[view] = None;
+                continue;
+            };
+            let Some(old) = self.layouts.get(anchor.item).and_then(Option::as_ref) else {
+                continue;
+            };
+            let old_lines = old
+                .lines
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            let offset = self.anchor_offsets[view]
+                .filter(|(item, _)| *item == anchor.item)
+                .map(|(_, offset)| offset)
+                .unwrap_or_else(|| old_lines.iter().take(anchor.row).map(String::len).sum());
+            let original_width = self.body.width;
+            self.body.width = width;
+            let new_lines = self
+                .layout(anchor.item)
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>();
+            self.body.width = original_width;
+            if let Some(row) = reanchor(&old_lines, &new_lines, offset) {
+                self.anchors[view] = Some(Anchor {
+                    item: anchor.item,
+                    row,
+                });
+                self.anchor_offsets[view] = Some((anchor.item, offset));
+            } else {
+                self.anchor_offsets[view] = None;
+                self.status =
+                    "Layout changed structurally; retained item, character anchor unavailable"
+                        .into();
+            }
+        }
+    }
     pub fn begin_selection(&mut self, x: u16, y: u16) {
         let Some(mut end) = self.anchors[self.view].or_else(|| self.tail()) else {
             return;
@@ -55,6 +98,7 @@ impl App {
         self.status = "Select with drag + wheel/edge scroll · snapshot capped at 20k lines/2 MiB · Native scrollback for terminal/tmux".into();
     }
     pub fn reveal_item(&mut self, item: usize) {
+        self.anchor_offsets[0] = None;
         self.view = 0;
         self.expanded = false;
         self.selected = item;
@@ -146,6 +190,7 @@ impl App {
     }
 
     pub fn scroll_lines(&mut self, amount: isize) {
+        self.anchor_offsets[self.view] = None;
         let Some(mut anchor) = self.anchors[self.view].or_else(|| self.tail()) else {
             return;
         };
@@ -201,5 +246,47 @@ impl App {
         }
         rows.reverse();
         rows
+    }
+}
+
+fn reanchor(old: &[String], new: &[String], offset: usize) -> Option<usize> {
+    if old.concat() != new.concat() {
+        return None;
+    }
+    let mut consumed = 0;
+    Some(
+        new.iter()
+            .position(|line| {
+                consumed += line.len();
+                consumed >= offset
+            })
+            .map_or(new.len(), |i| i + 1)
+            .max(1),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn resize_preserves_original_unicode_boundary_without_roundtrip_drift() {
+        let source = "one two 界界 e\u{301} 👩‍💻 repeated repeated tail";
+        let lines = |width| {
+            markdown::reflow(vec![Line::from(source)], width)
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        };
+        let narrow = lines(12);
+        let offset = narrow.iter().take(2).map(String::len).sum();
+        for width in [20, 8, 40, 12] {
+            let rows = lines(width);
+            let row = reanchor(&narrow, &rows, offset).unwrap();
+            assert!(rows.iter().take(row).map(String::len).sum::<usize>() >= offset);
+            if width == 12 {
+                assert_eq!(row, 2);
+            }
+        }
+        assert!(reanchor(&narrow, &["different projection".into()], offset).is_none());
     }
 }

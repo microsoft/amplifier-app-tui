@@ -357,7 +357,8 @@ impl App {
                 "wire_request" => "Provider request · memory-only projection",
                 "instructions" => "Instruction sources · last observed resolution",
                 "recipes" => "Recipe activity · observed tool calls",
-                "recovery" => "Recovered work · historical, never resumed",
+                "recovery" => "Recovered work · inspect before adopting",
+                "changes" => "Change and command evidence · tool-correlated source versions",
                 _ => "Activity evidence · identified runtime observations",
             },
             choices,
@@ -426,6 +427,13 @@ impl App {
             action: Action::CopyText(text.clone()),
             detail: String::new(),
         }];
+        if row["recover_child"] == true && row["source_sha256"].is_string() {
+            choices.push(Choice {
+                label: "Continue captured child under a NEW identity…".into(),
+                action: Action::RecoverChild(Arc::new(row.clone())),
+                detail: "Explicit new instruction and confirmation required; unknown tool effects are not replayed".into(),
+            });
+        }
         if let Some(child) = row["child"].as_str() {
             choices.push(Choice {
                 label: "Inspect this child's tool and text observations".into(),

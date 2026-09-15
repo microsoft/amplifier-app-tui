@@ -4,6 +4,7 @@ Persistent-context storage is explicitly isolated: its default uses the shared h
 These tests do not certify interrupted-context recovery or every module policy seam.
 """
 
+import asyncio
 import copy
 import json
 import os
@@ -19,6 +20,54 @@ pytestmark = pytest.mark.skipif(
     os.environ.get("TUI_TEST_SWAPS") != "1",
     reason="Install the independent packages documented in SMOKE_TESTS.md",
 )
+
+
+@pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])
+@pytest.mark.parametrize("context", ["context-simple", "context-persistent"])
+@pytest.mark.parametrize("decision", ["allow", "deny", "stop"])
+async def test_independent_swaps_preserve_approval_and_cancellation(
+    prepared, tmp_path, loop, context, decision
+):
+    workspace = Path(__file__).resolve().parents[2]
+    value, report = prepared
+    plan = copy.deepcopy(value.mount_plan)
+    for slot, name in (("orchestrator", loop), ("context", context)):
+        plan["session"][slot] = {
+            "module": name,
+            "source": str(workspace / f"amplifier-module-{name}"),
+            "config": {},
+        }
+    if context == "context-persistent":
+        plan["session"]["context"]["config"] = {
+            "transcript_path": str(tmp_path / "isolated.jsonl"),
+            "memory_files": [],
+        }
+    host = SessionHost(ConversationStore(tmp_path / "state", {}))
+    try:
+        await host.open(replace(value, mount_plan=plan), report, tmp_path)
+        tool = host.session.coordinator.get("tools")["fixture_probe"]
+        tool.config["approval"] = True
+        host.submit("Approval policy seam")
+        async with asyncio.timeout(5):
+            while True:
+                event = await host.next_event()
+                if event.kind == "approval.requested":
+                    break
+        assert tool.calls == 0
+        assert not host.answer("stale", "allow")
+        if decision == "stop":
+            host.stop()
+            host.stop()
+        else:
+            assert host.answer(event.item_id, decision)
+        await asyncio.wait_for(host.task, 5)
+        assert not host.answer(event.item_id, "allow")
+        assert tool.calls == (1 if decision == "allow" else 0)
+        checkpoint = json.loads((host.store.path / "checkpoint.json").read_text())
+        assert (checkpoint["status"] == "ready") == (decision != "stop")
+        assert not host._pending and not host.children.active
+    finally:
+        await host.close()
 
 
 @pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])

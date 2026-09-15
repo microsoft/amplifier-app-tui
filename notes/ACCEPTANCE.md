@@ -1,5 +1,59 @@
 # First vertical slice — acceptance evidence
 
+## AFK seven-group continuation (2026-09-15; source after rc3)
+
+Direction was amended before implementation; this is progress against draft promises,
+not seven completed parity verdicts. Published rc3 artifacts are unchanged. New paths
+are available from the development checkout on relaunch, not by hot-reloading a session.
+
+- Cooperative root/child execution ownership precedes forced wait cancellation by 250 ms.
+  Repeated caller cancellation cannot reset the grace or abandon the owned wait. A late
+  cooperative cancellation result now records an interrupted child, not failed/succeeded.
+  The previously warning-producing real-preset cases pass without warning suppression,
+  kernel changes or callback monkeypatches; arbitrary bridge/module cleanup is not certified.
+- Interrupted direct-child adoption validates source lineage, receipt digest, parent,
+  composition and mode; execution uses a new identity and explicit new instruction.
+  Completed public results survive; missing results become labelled unknown observations.
+  Original receipts stay byte-identical. Only simple context with the supported stateless
+  loops is admitted; private/persistent-context reconstruction and crash-uncertain recipe
+  effects remain unsupported. Inspection itself still performs no execution.
+- File-write/edit and shell hooks capture bounded before/after source digests with tool,
+  session and agent identity. Both actual presets execute the filesystem module and
+  produce correct pre/post hashes. Concurrent tools and external writers are disclosed;
+  source correlation is not exclusive authorship or a test-acceptance verdict.
+- Confirmed provider-overlay forks reprepare the actual composition and restore public
+  messages under a new root ID. A different fixture provider vendor is actually mounted;
+  original checkpoint/draft survive, and zero model calls occur until explicit Send.
+  Native confirmation/draft/retained-context paths pass and their captures were inspected.
+  Usage observations name the completed request, never pretend to be current occupancy.
+- Native draft autosave no longer starves during continuous typing. Stable rendered text
+  preserves its character boundary across width changes, including Unicode and resize
+  round trips. Structurally different projections disclose item-level fallback; this is
+  not source-character-exact anchoring for every table/layout transformation.
+- Twelve actual independent module combinations exercise Allow, Deny and repeated Stop:
+  two loops by two contexts by three decisions; denied/stopped tools perform zero effects.
+
+Integrated gate: **468 Python tests passed in 214.56 seconds**, with candidates, both
+presets and independent swaps enabled, **no warnings reported**. The subsequent added
+historical-root child-adoption case passes alongside same-root adoption (two focused
+cases). **35 Rust tests**, NO_COLOR, all-target Clippy and **3 Bun tests** pass.
+Direction remains DRAFT: 585 contract lines / 49 production files. No upstream code changed.
+
+Live lifecycle gate: both presets pass completed read, no-replay resume, then Stop/exit
+at an unanswered child question. Four root/two child turns; one interrupted parent/child,
+stopped unanswered question, uncertain checkpoint and clean terminal restoration per
+preset. Captures/receipts remain private. This is a targeted live gate, not all-provider proof.
+
+Synthetic 100,000-message / 200-conversation benchmark, 30 warm samples: complete catalog,
+search and checkpoint-page p95 **37.0 ms**; actual native Resume interaction through picker
+paint p95 **68.3 ms** (includes F4, action search and selection). Indexing completes in four
+bounded refreshes, 2.11 seconds total; source journals remain unchanged. This does not
+establish matched-policy CLI latency, cold installation performance or exhaustive scale.
+
+Local wheel and five-platform CI checks are being recorded separately. The CI extension
+adds Ubuntu 22.04 and a real PNG pasteboard check restricted to disposable macOS runners;
+configuration alone is not a pass or physical-desktop certification.
+
 ## Confirmed review, historical children and release breadth (2026-09-15)
 
 This continuation follows the existing DRAFT promises (presentation P7, continuity

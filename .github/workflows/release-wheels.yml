@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, macos-15-intel]
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-24.04-arm, macos-14, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
@@ -26,7 +26,7 @@ jobs:
         run: cargo test --release --locked --manifest-path frontends/ratatui/Cargo.toml
       - name: Build and install without Cargo on PATH
         id: wheel
-        run: uv run --no-project --with pyte==0.8.2 python scripts/release_wheel.py --terminal
+        run: uv run --no-project --with pyte==0.8.2 python scripts/release_wheel.py --terminal --ci-clipboard
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wheel-${{ matrix.os }}

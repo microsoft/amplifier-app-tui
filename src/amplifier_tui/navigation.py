@@ -212,6 +212,28 @@ class WorkspaceBridge(RuntimeBridge):
             )
         if self.host.validation_active and op not in ("draft", "editor_draft"):
             return False, "Standalone provider validation is running; draft retained"
+        if op == "recover_child":
+            if (
+                identity != self.host.session_id
+                or request.get("confirm") is not True
+                or not self.host.ready
+                or (self.host.task and not self.host.task.done())
+            ):
+                return False, "Confirm child adoption in an idle conversation; no work replayed"
+            try:
+                operation = self.host.children.recovery_operation(
+                    request.get("source"),
+                    request.get("child"),
+                    request.get("sha256"),
+                    request.get("text"),
+                )
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                return False, f"Child recovery refused: {exc}"
+            self.followups.hold()
+            return self.host.submit(
+                f"Explicit child recovery under a new identity: {request['text']}",
+                operation=operation,
+            )
         if op == "validate_provider":
             if (
                 identity != self.host.session_id
@@ -379,6 +401,18 @@ class WorkspaceBridge(RuntimeBridge):
             if not isinstance(request.get("draft"), str):
                 return False, "Switch requires the current draft"
             target = request.get("target")
+            conversion = request.get("conversion_overlay")
+            if conversion is not None and (
+                target != "new"
+                or not isinstance(conversion, str)
+                or not conversion.strip()
+                or request.get("confirm_conversion") is not True
+                or identity != self.host.session_id
+            ):
+                return (
+                    False,
+                    "Confirm a new composition with captured public context and an explicit overlay",
+                )
             if target == self.host.session_id:
                 return False, "Already in that conversation"
             if target != "new" and not isinstance(target, str):
@@ -389,7 +423,12 @@ class WorkspaceBridge(RuntimeBridge):
                 return False, "Could not save source draft; conversation unchanged"
             self.followups.hold()
             self.switch_task = asyncio.create_task(
-                self.switch(target, request["request_id"], recover=bool(request.get("recover")))
+                self.switch(
+                    target,
+                    request["request_id"],
+                    recover=bool(request.get("recover")),
+                    conversion=conversion,
+                )
             )
             self.switch_task.add_done_callback(
                 lambda task: self.cancelled_before_start(task, request["request_id"])
@@ -577,7 +616,7 @@ class WorkspaceBridge(RuntimeBridge):
         if identity == self.host.session_id:
             self.emit(value)
 
-    async def switch(self, target, request_id, recover=False):
+    async def switch(self, target, request_id, recover=False, conversion=None):
         candidate = None
         committed = False
         self.switch_committing = False
@@ -595,11 +634,29 @@ class WorkspaceBridge(RuntimeBridge):
                 if target == "new"
                 else resolve_resume(self.state_dir, target)["launch"]
             )
+            transferred = None
+            if conversion is not None:
+                import copy
+
+                from .recovery import context_transfer
+
+                overlay = Path(conversion)
+                if not overlay.is_absolute():
+                    overlay = Path(self.cwd) / overlay
+                if not overlay.is_file():
+                    raise ValueError("Choose an existing trusted overlay file")
+                launch = copy.deepcopy(launch)
+                launch["overlays"] = [*launch["overlays"], str(overlay.resolve())]
+                messages = await self.host.session.coordinator.get("context").get_messages()
+                transferred = context_transfer(messages, self.host.session_id)
             if not Path(launch["cwd"]).is_dir():
                 raise ValueError("Recorded working directory no longer exists")
             candidate = SessionHost(
                 ConversationStore(self.state_dir, launch, None if target == "new" else target)
             )
+            if transferred:
+                atomic_json(candidate.store.path / "imported-context.json", transferred)
+                candidate.store.save_draft(self.host.store.draft)
             # Target initialization is not a permission grant. Mount-time questions
             # cannot steal the source conversation's decision UI while preparing.
             candidate.auto_deny_approvals = True

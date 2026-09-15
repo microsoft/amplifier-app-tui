@@ -1,5 +1,6 @@
 """Bounded local export and explicit, non-destructive historical-context forks."""
 
+import copy
 import fcntl
 import hashlib
 import json
@@ -11,6 +12,69 @@ from pathlib import Path
 
 from .conversations import ConversationStore, atomic_json, resolve_resume
 from .events import Event, Transcript
+
+
+def public_history(messages, *, repair=False):
+    """Validate portable tool pairing; missing outcomes are explicit, never executed."""
+    if not isinstance(messages, list) or len(messages) > 10000:
+        raise ValueError("Public context must contain at most 10000 messages")
+    encoded = json.dumps(messages, allow_nan=False).encode()
+    if len(encoded) > 8 * 1024 * 1024:
+        raise ValueError("Public context exceeds 8 MiB")
+    result, pending, seen, missing = [], {}, set(), []
+
+    def finish_pending():
+        if pending and not repair:
+            raise ValueError("Unfinished tool calls require explicit interrupted-work recovery")
+        for identity in pending:
+            result.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": identity,
+                    "content": "RECOVERY OBSERVATION: No terminal result was captured for this tool call. Its effects are UNKNOWN. This is not a tool execution or failure result. Do not repeat it without a new explicit user instruction.",
+                }
+            )
+            missing.append(identity)
+        pending.clear()
+
+    for message in copy.deepcopy(messages):
+        if not isinstance(message, dict) or message.get("role") not in (
+            "system",
+            "user",
+            "assistant",
+            "tool",
+        ):
+            raise ValueError("Unsupported public message role; no conversion performed")
+        if message["role"] == "tool":
+            identity = message.get("tool_call_id")
+            if not isinstance(identity, str) or identity not in pending:
+                raise ValueError("Unpaired or duplicate tool result; recovery refused")
+            pending.pop(identity)
+        else:
+            finish_pending()
+            calls = message.get("tool_calls") or []
+            if not isinstance(calls, list) or (calls and message["role"] != "assistant"):
+                raise ValueError("Unsupported public tool-call representation")
+            for call in calls:
+                identity = call.get("id") if isinstance(call, dict) else None
+                if not isinstance(identity, str) or not identity or identity in seen:
+                    raise ValueError("Missing or duplicate tool-call identity")
+                seen.add(identity)
+                pending[identity] = call
+        result.append(message)
+    finish_pending()
+    return result, missing
+
+
+def context_transfer(messages, source):
+    messages, _ = public_history(messages)
+    return {
+        "version": 1,
+        "source_session": source,
+        "messages": messages,
+        "sha256": hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest(),
+        "notice": "Explicit public-context fork into a NEW composition. Original conversation retained. No tools replayed. Provider pins, modes, queues and module-private state are not transferred; the selected overlay is executable configuration. Captured messages can reach the new provider only after your next explicit Send.",
+    }
 
 
 def child_references(source, root_id):
@@ -83,6 +147,8 @@ def child_references(source, root_id):
                     source_sha256=hashlib.sha256(raw).hexdigest(),
                     detail=detail,
                     partial=clipped or len(messages) > 100,
+                    recover_child=row.get("parent") == root_id
+                    and row.get("status") in ("interrupted", "failed", "running"),
                 )
             except (OSError, ValueError, TypeError) as exc:
                 value.update(
@@ -128,6 +194,10 @@ def recovery_catalog(store):
             )
             partial |= clipped
         partial |= len(value.get("items", [])) + len(value.get("children", [])) > 100
+    if store:
+        current, limited = child_references(store.path, store.identity)
+        rows = [r for r in current if r.get("recover_child")] + rows
+        partial |= limited
     kept, remaining = [], 1024 * 1024
     for row in rows[:100]:
         remaining -= len(json.dumps(row, ensure_ascii=False).encode())
@@ -139,7 +209,7 @@ def recovery_catalog(store):
     return {
         "rows": rows,
         "partial": partial,
-        "scope": "Historical recovery evidence only; no child, recipe, tool, queue or private module state is resumed. Child receipts: at most 32 / 8 MiB read, 1 MiB each; last 100 public messages and 16 KiB detail per child. Non-text blocks omitted. Original files retained. Copying is not instruction delivery.",
+        "scope": "Inspection never resumes work. Eligible interrupted direct children offer separately confirmed public-context adoption under a new identity and instruction; unsupported private state refuses. Child receipts: at most 32 / 8 MiB read per source, 1 MiB each; last 100 public messages and 16 KiB detail per child. Non-text blocks omitted in preview. Original files retained. Copying is not instruction delivery.",
     }
 
 

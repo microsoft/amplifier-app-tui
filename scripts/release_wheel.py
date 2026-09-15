@@ -130,11 +130,17 @@ def main():
     parser.add_argument(
         "--terminal", action="store_true", help="Also exercise installed fixture PTY; requires pyte"
     )
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "dist/release")
+    parser.add_argument(
+        "--ci-clipboard",
+        action="store_true",
+        help="Exercise the disposable macOS CI pasteboard; never use on a personal desktop",
+    )
     args = parser.parse_args()
     uv = shutil.which("uv")
     if not uv:
         raise SystemExit("uv is required")
-    output = ROOT / "dist/release"
+    output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="tui-release-") as temporary:
         stage = Path(temporary)
@@ -190,6 +196,34 @@ def main():
         assert b"Use scripts/compare.py ratatui to launch" in loaded.stderr
         checked([str(command), "--getting-started"], env=env, cwd=stage)
         terminal = terminal_smoke(command, stage, env) if args.terminal else None
+        clipboard = None
+        if args.ci_clipboard and platform.system() == "Darwin":
+            if os.environ.get("GITHUB_ACTIONS") != "true":
+                raise RuntimeError("Clipboard mutation is restricted to disposable CI runners")
+            # Installed package and actual OS pasteboard, not a mocked subprocess.
+            # No prior clipboard content is read or published from this owned runner.
+            program = """
+import asyncio, base64, hashlib, io, subprocess
+from PIL import Image
+from amplifier_tui.file_input import clipboard_image
+stream = io.BytesIO()
+Image.new('RGB', (8, 8), 'blue').save(stream, format='PNG')
+raw = stream.getvalue()
+try:
+    subprocess.run(['osascript', '-e', 'set the clipboard to «data PNGf' + raw.hex() + '»'], check=True, capture_output=True, timeout=5)
+    value = asyncio.run(clipboard_image())
+    assert value['media_type'] == 'image/png'
+    assert base64.b64decode(value['data']) == raw
+    assert value['sha256'] == hashlib.sha256(raw).hexdigest()
+finally:
+    subprocess.run(['osascript', '-e', 'set the clipboard to ""'], check=True, capture_output=True, timeout=5)
+"""
+            checked([report["python"], "-c", program], env=env, cwd=stage, timeout=20)
+            clipboard = {
+                "actual_macos_png_pasteboard": True,
+                "original_bytes_preserved": True,
+                "scope": "Disposable CI runner; not a physical desktop, remote clipboard or tmux proof",
+            }
         receipt = {
             "scope": "Native wheel installation/diagnostics; not runtime or terminal conformance",
             "platform": platform.system(),
@@ -208,6 +242,7 @@ def main():
             "installed_native_load_passed": True,
             "artifact_privacy_scan_passed": True,
             "terminal_fixture": terminal,
+            "clipboard_fixture": clipboard,
         }
         verify_payload(json.dumps(receipt).encode())
         shutil.copy2(wheel, output / wheel.name)
@@ -215,9 +250,7 @@ def main():
         receipt_path.write_text(json.dumps(receipt, indent=2) + "\n")
         if os.environ.get("GITHUB_OUTPUT"):
             with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
-                stream.write(
-                    f"wheel=dist/release/{wheel.name}\nreceipt=dist/release/{receipt_path.name}\n"
-                )
+                stream.write(f"wheel={output / wheel.name}\nreceipt={receipt_path}\n")
         print(json.dumps(receipt, indent=2))
 
 

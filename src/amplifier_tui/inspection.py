@@ -133,6 +133,7 @@ class Inspection:
             "tool.ended",
             "child.observed",
             "context.observed",
+            "change.observed",
             "question.updated",
             "steering.updated",
             "approval.requested",
@@ -198,6 +199,8 @@ class Inspection:
             rows = [r for r in rows if r["id"].startswith("child:") and r["kind"] == "tool.updated"]
         elif category == "context":
             rows = [r for r in rows if r["kind"] == "context.observed"]
+        elif category == "changes":
+            rows = [r for r in rows if r["kind"] == "change.observed"]
         elif category == "instructions":
             rows = [
                 r
