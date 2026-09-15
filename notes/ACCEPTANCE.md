@@ -68,8 +68,27 @@ byte/load verification and an independent review of every wheel member and its r
 The [installed live gate](evidence/approachability-installed-live.json) exercises both
 presets outside the checkout with remote sources: real delegated file read, close/reopen
 without replay, second-turn retained-context reply, and non-submitting help. Four parent
-and two child turns pass. Other-platform candidate checks and publication remain separate
-from these local measurements; existing 0.3.0rc1 release assets are not overwritten.
+and two child turns pass. Existing 0.3.0rc1 release assets are not overwritten.
+
+The [four-platform release receipt](evidence/release-0.3.0rc2.json) identifies source
+`862fe63bc4dc49d47fcf57fa43f7748d1cd8103a`. All four native-unit/build/compiler-free
+installation jobs passed. Every downloaded member passed privacy scanning and independent
+review; embedded sources match that revision, binary architectures match their wheel tags,
+and wheel/native hashes match their adjacent receipts. Because the CI ARM64 binary differs
+from the local build, the [exact CI installed-live gate](evidence/approachability-ci-installed-live.json)
+repeated delegation/resume/second-turn checks on both presets against those release bytes.
+This adds four parent and two child turns, distinct from the earlier local-wheel gate.
+The [Git-source install gate](evidence/approachability-git-installed-fixture.json) separately
+installed the exact revision and passed fixture tool/resume/second-turn checks outside
+the checkout. The release tag resolves to that same tested revision.
+
+The private [0.3.0rc2 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc2)
+contains only the four reviewed wheels and adjacent receipts. All eight uploaded assets
+were downloaded again and verified before leaving draft status. Temporary CI run/artifacts
+and logs were removed after retaining sanitized evidence; private captures/state and
+unrelated local notes were not published. Linux ARM64 remains the only platform with
+interactive/live-runtime evidence. Four packaging passes do not certify every terminal,
+older Linux/musl, arbitrary provider or module. No formal Converge verdict was generated.
 
 Remaining: callback/uncooperative shutdown ownership, semantic references, interrupted
 child/private-state/subprocess and uncertain recipe recovery, attributed change/test evidence,

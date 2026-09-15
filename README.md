@@ -15,10 +15,10 @@ Read [current direction](docs/VISION.md), [derived work](notes/PLAN.md), and
 [what the comparison evaluates](notes/FRONTEND-EVALUATION.md).
 The [workflow coverage map](notes/PARITY.md) separates working paths from remaining parity gaps.
 
-The 0.3.0rc2 development candidate adds multi-image drafts/queues with thumbnails, explicit
+The 0.3.0rc2 candidate adds multi-image drafts/queues with thumbnails, explicit
 Linux host-clipboard images, indexed saved-message search, chronological directory recall,
 stored-context inspection and side-by-side diff viewing. Restart the development command
-to load changes; the published 0.3.0rc1 assets do not contain this pending slice.
+to load changes. The private prerelease includes this slice; full CLI parity remains open.
 See [explicit migration and provider checks](docs/MIGRATION.md) for historical text import
 into a new composition without replay or a compatibility-guard bypass.
 
@@ -33,7 +33,7 @@ Git installation requires **uv, Git, Rust/Cargo (tested
 with Rust 1.93), and a C linker**. The build embeds the native executable in a
 platform-specific wheel; normal launches need neither a source checkout nor Cargo.
 
-The private [0.3.0rc1 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc1)
+The private [0.3.0rc2 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc2)
 provides compiler-free wheels. Authenticate with an account that has repository access,
 download the matching wheel, then run `uv tool install ./<downloaded-wheel>.whl`.
 

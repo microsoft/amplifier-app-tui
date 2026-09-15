@@ -8,7 +8,7 @@ checks also pass on Linux x86-64 and both macOS architectures; Windows needs WSL
 ## Install
 
 For compiler-free installation, download your machine's wheel from the private
-[0.3.0rc1 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc1)
+[0.3.0rc2 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc2)
 and run `uv tool install ./<downloaded-wheel>.whl`. See the [platform table](../README.md#install-the-native-product)
 for the tested systems and limits. Repository access, uv and Git are still needed.
 
