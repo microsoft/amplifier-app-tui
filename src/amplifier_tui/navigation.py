@@ -55,10 +55,15 @@ def file_candidates(cwd, query):
     return {"candidates": matches[:80], "truncated": truncated or len(matches) > 80}
 
 
-def session_choices(state_dir, current):
+def session_choices(state_dir, current, *, offset=0, query=""):
+    if type(offset) is not int or not 0 <= offset <= 100000:
+        raise ValueError("Invalid conversation page")
+    if not isinstance(query, str) or len(query) > 256 or (query and not query.isprintable()):
+        raise ValueError("Search requires at most 256 printable characters")
     entries = catalog(state_dir)
     choices = []
-    for entry in entries[:100]:
+    budget, partial = 16 * 1024 * 1024, False
+    for entry in entries[offset : offset + 100]:
         identity = entry["id"]
         launch = entry.get("launch")
         if not isinstance(launch, dict) or not isinstance(launch.get("cwd"), str):
@@ -82,15 +87,63 @@ def session_choices(state_dir, current):
         status = "current" if identity == current else "saved · validated when opened"
         if identity != current:
             try:
-                checkpoint = json.loads(
-                    (Path(state_dir) / "conversations" / identity / "checkpoint.json").read_text()
-                )
-                if checkpoint.get("status") != "ready":
+                with (
+                    Path(state_dir) / "conversations" / identity / "checkpoint.json"
+                ).open() as stream:
+                    raw = stream.read(65537)
+                # Large canonical checkpoints (including images) are validated on
+                # opening, not loaded wholesale just to populate a discovery menu.
+                checkpoint = json.loads(raw) if len(raw) <= 65536 else None
+                if checkpoint is not None and checkpoint.get("status") != "ready":
                     status = "recovery required · original preserved"
             except (OSError, ValueError):
                 status = "unavailable · invalid checkpoint"
-        choices.append({"id": identity, "title": label, "cwd": launch["cwd"], "status": status})
-    return {"sessions": choices, "truncated": len(entries) > 100}
+        match = ""
+        if query and query.casefold() not in f"{identity} {label} {launch['cwd']}".casefold():
+            try:
+                path = Path(state_dir) / "conversations" / identity / "events.jsonl"
+                with path.open("rb") as stream:
+                    size = os.fstat(stream.fileno()).st_size
+                    take = min(size, budget, 1024 * 1024)
+                    stream.seek(size - take)
+                    data = stream.read(take)
+                budget -= len(data)
+                lines = data.splitlines()
+                if size > take:
+                    partial = True
+                    lines = lines[1:]
+                for line in reversed(lines):
+                    try:
+                        event = json.loads(line)
+                        if event.get("session_id") != identity or event.get("kind") not in (
+                            "turn.accepted",
+                            "text.final",
+                        ):
+                            continue
+                        text = event.get("payload", {}).get("text", "")
+                        if isinstance(text, str) and query.casefold() in text.casefold():
+                            # An excerpt is evidence for discovery, never context import.
+                            at = text.casefold().find(query.casefold())
+                            match = f"{event['kind']} · sequence {event.get('sequence')} · excerpt\n{text[max(0, at - 80) : at + 400]}"
+                            break
+                    except (ValueError, TypeError, AttributeError):
+                        partial = True
+            except OSError:
+                partial = True
+            if not match:
+                continue
+        choices.append(
+            {"id": identity, "title": label, "cwd": launch["cwd"], "status": status, "match": match}
+        )
+    return {
+        "sessions": choices,
+        "truncated": offset + 100 < len(entries),
+        "offset": offset,
+        "next_offset": offset + 100 if offset + 100 < len(entries) else None,
+        "query": query,
+        "partial": partial,
+        "scope": "This app's state directory; 100 conversations per page, newest activity first. Search reads titles/IDs/directories and recent submitted/final message text, not tool output. Up to 1 MiB per journal / 16 MiB per page. Pages may shift when other sessions change; no context imported.",
+    }
 
 
 class WorkspaceBridge(RuntimeBridge):
@@ -122,6 +175,7 @@ class WorkspaceBridge(RuntimeBridge):
             self.followups = Followups(self.host, self.emit)
         super().snapshot(reset)
         self.followups.publish()
+        self.publish_image()
         self.emit(
             {
                 "type": "title",
@@ -137,6 +191,9 @@ class WorkspaceBridge(RuntimeBridge):
             return False, "Conversation changed; stale request rejected"
         if getattr(self, "switched", False) and identity is None:
             return False, "Conversation identity required after switching"
+        preserved, reason = self.preserve_startup_draft(request)
+        if not preserved:
+            return False, reason
         if request.get("op") == "cancel_switch":
             if self.switch_task and not self.switch_task.done() and not self.switch_committing:
                 self.switch_task.cancel()
@@ -145,6 +202,31 @@ class WorkspaceBridge(RuntimeBridge):
         if self.switch_task and not self.switch_task.done():
             return False, "Opening conversation; editing is paused, source draft saved"
         op = request.get("op")
+        if op == "discover_models":
+            if identity != self.host.session_id or not self.host.ready:
+                return False, "Model discovery requires the ready current conversation"
+            if self.lookup_task and not self.lookup_task.done():
+                return False, "A lookup is still running"
+            self.lookup_task = asyncio.create_task(self.discover_models(request))
+            return True, "Querying provider-reported model catalogs; no completion or selection"
+        if op in ("image_select", "image_remove"):
+            if identity != self.host.session_id or not self.host.images:
+                return False, "Image input requires the current conversation"
+            try:
+                if op == "image_select":
+                    self.followups.hold()
+                    self.host.images.select(request.get("id"))
+                else:
+                    if (
+                        not self.host.images.value
+                        or request.get("id") != self.host.images.value["id"]
+                    ):
+                        return False, "Image changed; reopen its controls"
+                    self.host.images.save(None)
+            except (OSError, ValueError) as exc:
+                return False, str(exc)
+            self.publish_image()
+            return True, "Image draft updated; nothing sent"
         if op == "export":
             from .recovery import export
 
@@ -156,7 +238,7 @@ class WorkspaceBridge(RuntimeBridge):
                 }
             )
             return True, f"Exported to {path}"
-        if op == "file_snapshot":
+        if op in ("file_snapshot", "image_snapshot"):
             if identity != self.host.session_id:
                 return False, "File input requires the current conversation identity"
             if self.lookup_task and not self.lookup_task.done():
@@ -187,12 +269,27 @@ class WorkspaceBridge(RuntimeBridge):
             self.host.store.metadata = metadata
             self.emit({"type": "title", "text": metadata["title"]})
             return True, "Conversation renamed"
-        if op in ("queue", "queue_run", "queue_pause", "queue_remove", "queue_edit"):
+        if op in (
+            "queue",
+            "queue_run",
+            "queue_pause",
+            "queue_remove",
+            "queue_edit",
+            "queue_resolve",
+        ):
             if not self.host.ready:
                 return False, "Session not ready; draft retained"
+            if (
+                op in ("queue", "queue_run")
+                and self.host.images
+                and self.host.images.value
+                and self.host.images.value["state"] == "attached"
+            ):
+                return False, "Images require an explicit idle Send; remove the image to queue text"
             return self.followups.command(request)
         if op == "stop":
-            self.followups.hold()
+            if self.followups is not None:
+                self.followups.hold()
         if op in ("conversations", "complete_path"):
             if self.lookup_task and not self.lookup_task.done():
                 return False, "Local lookup is still running; try again"
@@ -220,20 +317,52 @@ class WorkspaceBridge(RuntimeBridge):
                 lambda task: self.cancelled_before_start(task, request["request_id"])
             )
             return True, "Opening conversation; source draft saved"
-        return super().command(request)
+        result = super().command(request)
+        if op == "submit":
+            self.publish_image()
+        return result
+
+    def publish_image(self):
+        self.emit(
+            {
+                "type": "image_draft",
+                "session_id": self.host.session_id,
+                "image": self.host.images.public() if self.host.images else None,
+                "supported": self.host.supports_images(),
+            }
+        )
+
+    async def discover_models(self, request):
+        identity = self.host.session_id
+        value = await self.host.controls.discover_models()
+        if identity == self.host.session_id:
+            self.emit(
+                {
+                    "type": "model_catalog",
+                    "session_id": identity,
+                    "request_id": request.get("request_id"),
+                    **value,
+                }
+            )
 
     async def file_snapshot(self, request):
         from .file_input import snapshot
 
         identity = self.host.session_id
+        image = request.get("op") == "image_snapshot"
         try:
-            result = await asyncio.to_thread(snapshot, self.cwd, request.get("path"))
+            if image and not self.host.supports_images():
+                raise ValueError("All mounted providers must advertise vision for image input")
+            result = await asyncio.to_thread(snapshot, self.cwd, request.get("path"), image=image)
+            if image and identity == self.host.session_id:
+                self.host.images.preview = result
+                result = {k: v for k, v in result.items() if k != "data"}
         except (OSError, ValueError) as exc:
             result = {"error": str(exc)}
         if identity == self.host.session_id:
             self.emit(
                 {
-                    "type": "file_snapshot",
+                    "type": "image_snapshot" if image else "file_snapshot",
                     "session_id": identity,
                     "request_id": request.get("request_id"),
                     **result,
@@ -258,7 +387,13 @@ class WorkspaceBridge(RuntimeBridge):
         value = {"type": kind, "request_id": request["request_id"], "session_id": identity}
         try:
             if kind == "conversations":
-                result = await asyncio.to_thread(session_choices, self.state_dir, identity)
+                result = await asyncio.to_thread(
+                    session_choices,
+                    self.state_dir,
+                    identity,
+                    offset=request.get("offset", 0),
+                    query=request.get("query", ""),
+                )
             else:
                 result = await asyncio.to_thread(file_candidates, self.cwd, request.get("query"))
             value.update(result)
@@ -316,6 +451,13 @@ class WorkspaceBridge(RuntimeBridge):
             if not candidate.ready:
                 raise RuntimeError("Target did not become ready")
             next_followups = Followups(candidate, self.emit)
+            from .input_history import recall
+
+            # Finish disk discovery before exposing the target as ready. No await
+            # between publishing its snapshot and the completed switch response.
+            next_history = await asyncio.to_thread(
+                recall, self.state_dir, Path(launch["cwd"]), candidate.session_id
+            )
             self.switch_committing = True
             if self.pump:
                 self.pump.cancel()
@@ -331,7 +473,7 @@ class WorkspaceBridge(RuntimeBridge):
             self.pending, self.decisions, self.tools = None, {}, {}
             self.snapshot(reset=True)
             self.pump = asyncio.create_task(self.events())
-            await self.history()
+            self.emit({"type": "input_history", "session_id": candidate.session_id, **next_history})
             self.emit(
                 {
                     "type": "switch_result",

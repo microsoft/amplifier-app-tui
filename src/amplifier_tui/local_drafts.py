@@ -29,7 +29,7 @@ def validate(rows):
     for row in rows:
         if not isinstance(row, dict) or set(row) != {"id", "kind", "source", "text"}:
             raise ValueError("Invalid local draft fields")
-        if row["kind"] not in ("answer", "correction"):
+        if row["kind"] not in ("answer", "correction", "startup"):
             raise ValueError("Unknown local editor kind")
         for key in ("id", "source"):
             if not isinstance(row[key], str) or not 0 < len(row[key]) <= 256:
@@ -55,6 +55,8 @@ def save(store, request):
         validate([row])
         if row["source"] != store.identity:
             return False, "Editor draft belongs to another conversation"
+        if row in rows:
+            return True, "Local draft already saved; not submitted"
         rows = [old for old in rows if old["id"] != row["id"]]
         if row["text"]:
             rows.append(row)

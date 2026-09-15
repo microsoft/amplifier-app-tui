@@ -204,3 +204,78 @@ async def test_delegate_child_questions_route_and_stop_cleans_up(ecosystem):
     assert not host.children.active
     assert not host.questions.pending
     assert any(r["status"] == "interrupted" for r in host.children.records.values())
+
+
+async def test_recipe_resume_after_reopen_skips_completed_steps(ecosystem):
+    """Real v2 engine via the ordinary tool path; a failed step is explicitly retried."""
+    import shlex
+
+    host, prepared, tmp_path = ecosystem
+    recipe = tmp_path / "recover.yaml"
+    receipts = tmp_path / "receipts.txt"
+    gate = tmp_path / "continue.flag"
+    recipe.write_text(
+        yaml.safe_dump(
+            {
+                "name": "recover-check",
+                "description": "Explicit failed-step recovery fixture",
+                "version": "1.0.0",
+                "schema_version": 2,
+                "dependencies": [],
+                "steps": [
+                    {
+                        "id": "once",
+                        "type": "bash",
+                        "command": f"echo once >> {shlex.quote(str(receipts))}",
+                    },
+                    {
+                        "id": "retry-explicitly",
+                        "type": "bash",
+                        "command": f"test -f {shlex.quote(str(gate))}",
+                        "timeout": 5,
+                    },
+                ],
+            }
+        )
+    )
+
+    async def invoke(owner, arguments):
+        owner.session.coordinator.get("providers")["fixture"].config.update(
+            tool="recipes", arguments=arguments
+        )
+        assert owner.submit("Explicit recipe operation")[0]
+        await asyncio.wait_for(owner.task, 30)
+        events = [
+            json.loads(line)
+            for line in (owner.store.path / "events.jsonl").read_text().splitlines()
+        ]
+        return [
+            e["payload"]
+            for e in events
+            if e["kind"] == "tool.updated" and e["payload"]["name"] == "recipes"
+        ][-1]
+
+    initial = await invoke(host, {"operation": "execute", "recipe_path": str(recipe)})
+    assert initial["status"] == "failed", initial
+    assert receipts.read_text() == "once\n"
+    listed = await invoke(host, {"operation": "list"})
+    sessions = listed["result"]["output"]["sessions"]
+    assert len(sessions) == 1, sessions
+    recipe_id = sessions[0]["session_id"]
+    assert sessions[0]["completed_steps"] == ["once"]
+    inspected = host.inspection.catalog(host, "recipes")
+    assert any(recipe_id in row["recipe_ids"] for row in inspected["rows"])
+    identity, launch = host.session_id, host.store.metadata["launch"]
+    await host.close()
+    restored = SessionHost(ConversationStore(tmp_path, launch, identity))
+    try:
+        await restored.open(*prepared, tmp_path)
+        assert not restored.session.coordinator.get("providers")["fixture"].calls
+        assert receipts.read_text() == "once\n"
+        gate.touch()
+        result = await invoke(restored, {"operation": "resume", "session_id": recipe_id})
+        assert result["status"] == "succeeded", result
+        assert result["result"]["output"]["status"] == "completed", result
+        assert receipts.read_text() == "once\n"
+    finally:
+        await restored.close()

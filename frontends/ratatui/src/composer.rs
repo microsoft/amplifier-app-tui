@@ -1,6 +1,35 @@
 //! Local editing helpers; neither completion nor recall invokes execution.
 use super::*;
+
+/// The editor retains its old scroll origin when its viewport grows. If all
+/// text fits, prime origin zero through its public renderer, then restore the
+/// exact cursor/selection before the visible render. Never clone/reset the draft.
+pub fn render_fitted(draft: &mut TextArea<'static>, area: Rect, buffer: &mut Buffer) {
+    use ratatui::widgets::Widget;
+    use ratatui_textarea::CursorMove;
+    let cursor = draft.cursor();
+    if area.height > 0
+        && chrome::draft_rows(draft.lines(), area.width, area.height + 1) <= area.height
+        && cursor.0 <= u16::MAX as usize
+        && cursor.1 <= u16::MAX as usize
+    {
+        draft.move_cursor(CursorMove::Top);
+        (&*draft).render(area, buffer);
+        draft.move_cursor(CursorMove::Jump(cursor.0 as u16, cursor.1 as u16));
+    }
+    (&*draft).render(area, buffer);
+}
 use ratatui_textarea::CursorMove;
+
+pub fn at_vertical_boundary(draft: &TextArea<'_>, up: bool) -> bool {
+    // Ask the editor itself, including its current soft-wrap geometry. Probe a
+    // clone so a history check cannot mutate the person's cursor or selection.
+    let row = draft.screen_cursor().row;
+    let mut probe = draft.clone();
+    probe.cancel_selection();
+    probe.move_cursor(if up { CursorMove::Up } else { CursorMove::Down });
+    probe.screen_cursor().row == row
+}
 
 #[derive(Default)]
 pub struct Recall {
@@ -111,6 +140,60 @@ pub fn replace(draft: &mut TextArea<'static>, row: usize, start: usize, end: usi
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fitting_editor_growth_restores_top_without_changing_intent() {
+        use ratatui::widgets::Widget;
+        use ratatui_textarea::CursorMove;
+        let mut draft = editor();
+        draft.insert_str("first\nsecond\nthird");
+        draft.move_cursor(CursorMove::Jump(2, 5));
+        draft.start_selection();
+        draft.move_cursor(CursorMove::Back);
+        let cursor = draft.cursor();
+        let selection = draft.selection_range();
+        let small = Rect::new(0, 0, 30, 1);
+        (&draft).render(small, &mut Buffer::empty(small));
+        let grown = Rect::new(0, 0, 30, 3);
+        let mut buffer = Buffer::empty(grown);
+        render_fitted(&mut draft, grown, &mut buffer);
+        let rows = buffer
+            .content
+            .chunks(30)
+            .map(|row| {
+                row.iter()
+                    .map(|cell| cell.symbol())
+                    .collect::<String>()
+                    .trim_end()
+                    .to_owned()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(rows, ["first", "second", "third"]);
+        assert_eq!(draft.cursor(), cursor);
+        assert_eq!(draft.selection_range(), selection);
+        assert!(draft.undo());
+        assert!(draft.is_empty());
+    }
+    #[test]
+    fn history_boundaries_follow_wrapped_visual_rows_without_moving_selection() {
+        let mut draft = editor();
+        draft.insert_str("abcdefghijklmnop");
+        let area = Rect::new(0, 0, 6, 4);
+        let mut buffer = Buffer::empty(area);
+        (&draft).render(area, &mut buffer);
+        assert!(at_vertical_boundary(&draft, false));
+        assert!(!at_vertical_boundary(&draft, true));
+        draft.move_cursor(CursorMove::Up);
+        draft.start_selection();
+        draft.move_cursor(CursorMove::Back);
+        let before = (draft.cursor(), draft.selection_range());
+        assert!(!at_vertical_boundary(&draft, false));
+        assert!(!at_vertical_boundary(&draft, true));
+        assert_eq!((draft.cursor(), draft.selection_range()), before);
+        draft.cancel_selection();
+        draft.move_cursor(CursorMove::Jump(0, 0));
+        assert!(at_vertical_boundary(&draft, true));
+    }
     #[test]
     fn delayed_directory_history_does_not_retarget_active_recall() {
         let mut ui = Interaction {

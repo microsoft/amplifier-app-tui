@@ -50,6 +50,14 @@ fn make_line(cells: Vec<(String, Style)>) -> Line<'static> {
 }
 
 pub fn render(source: &str, width: usize) -> Vec<Line<'static>> {
+    render_code(source, width, true)
+}
+
+pub fn render_live(source: &str, width: usize) -> Vec<Line<'static>> {
+    render_code(source, width, false)
+}
+
+fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
     let source = safe(source);
     let mut lines = Vec::new();
     let mut current: Vec<Span<'static>> = Vec::new();
@@ -58,6 +66,8 @@ pub fn render(source: &str, width: usize) -> Vec<Line<'static>> {
     let mut links = Vec::new();
     let mut quote = 0;
     let mut table: Option<tables::Table> = None;
+    let mut code: Option<(String, String)> = None;
+    let mut colour_budget = syntax::MAX_BYTES;
     let flush = |lines: &mut Vec<Line<'static>>, current: &mut Vec<Span<'static>>| {
         if !current.is_empty() {
             lines.push(Line::from(std::mem::take(current)));
@@ -130,6 +140,7 @@ pub fn render(source: &str, width: usize) -> Vec<Line<'static>> {
                             format!("── {language}"),
                             Style::default().fg(MUTED),
                         ));
+                        code = Some((language, String::new()));
                     }
                     Tag::TableRow | Tag::TableHead => {
                         flush(&mut lines, &mut current);
@@ -147,16 +158,25 @@ pub fn render(source: &str, width: usize) -> Vec<Line<'static>> {
             Md::End(tag) => {
                 styles.pop();
                 match tag {
+                    TagEnd::CodeBlock => {
+                        if let Some((language, source)) = code.take() {
+                            lines.extend(if colour {
+                                syntax::lines(&source, &language, &mut colour_budget)
+                            } else {
+                                syntax::plain(&source)
+                            });
+                        }
+                        if lists.is_empty() {
+                            lines.push(Line::default());
+                        }
+                    }
                     TagEnd::Table => {
                         if let Some(table) = table.take() {
                             lines.extend(table.render(width));
                         }
                         lines.push(Line::default());
                     }
-                    TagEnd::Paragraph
-                    | TagEnd::Heading(_)
-                    | TagEnd::CodeBlock
-                    | TagEnd::HtmlBlock => {
+                    TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::HtmlBlock => {
                         flush(&mut lines, &mut current);
                         if lists.is_empty() {
                             lines.push(Line::default());
@@ -188,6 +208,10 @@ pub fn render(source: &str, width: usize) -> Vec<Line<'static>> {
                 }
             }
             Md::Text(value) | Md::Html(value) | Md::InlineHtml(value) => {
+                if let Some((_, source)) = &mut code {
+                    source.push_str(&value);
+                    continue;
+                }
                 for (i, part) in value.split('\n').enumerate() {
                     if i > 0 {
                         lines.push(Line::from(std::mem::take(&mut current)));

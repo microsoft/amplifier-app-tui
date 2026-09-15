@@ -55,11 +55,12 @@ async def test_tool_failure_summary_does_not_override_turn_completion(host):
     assert event.payload["status"] == "completed"
     assert event.payload["tools"]["root"]["failed"] == 1
     assert "1 failed" in event.payload["message"]
-    assert "not a task-acceptance verdict" in event.payload["message"]
+    assert "See Activity evidence" in event.payload["message"]
     host.session.coordinator.get("tools")["fixture_probe"].config["fail"] = False
     host.submit("Again")
     event = (await ending(host))[-1]
     assert event.payload["tools"]["root"]["failed"] == 0
+    assert event.payload["message"] == "Turn complete."
 
 
 async def test_child_observation_summary_counts_calls_not_events(host):

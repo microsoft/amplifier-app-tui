@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Symlinkable development entrypoint; installed releases keep their own launcher."""
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+NO_NATIVE_BUILD = {
+    "-h",
+    "--help",
+    "--version",
+    "--doctor",
+    "--check",
+    "--support-report",
+    "--getting-started",
+    "--setup",
+    "--list-sessions",
+    "--export",
+    "--headless",
+    "--bridge",
+}
+
+
+def main(argv=None):
+    args = sys.argv[1:] if argv is None else argv
+    python = ROOT / ".venv/bin/python"
+    if not python.is_file() or not os.access(python, os.X_OK):
+        print(
+            "Development environment missing: run uv sync --inexact in the app checkout.",
+            file=sys.stderr,
+        )
+        return 1
+    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    env["PYTHONPATH"] = str(ROOT / "src") + (
+        os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
+    )
+    if not NO_NATIVE_BUILD.intersection(args) and sys.stdin.isatty() and sys.stdout.isatty():
+        # Cargo's dependency tracking catches edits, deletions, locks and build settings.
+        # Never run a stale binary after a failed build. Keep tools in the caller's cwd.
+        try:
+            result = subprocess.run(
+                [
+                    "cargo",
+                    "build",
+                    "--quiet",
+                    "--locked",
+                    "--release",
+                    "--manifest-path",
+                    str(ROOT / "frontends/ratatui/Cargo.toml"),
+                ],
+                cwd=ROOT,
+                env={**env, "CARGO_TARGET_DIR": str(ROOT / "frontends/ratatui/target")},
+                check=False,
+            )
+        except OSError:
+            print(
+                "Cannot run Cargo; install Rust/Cargo before launching this development checkout.",
+                file=sys.stderr,
+            )
+            return 1
+        if result.returncode:
+            print("Native build failed; the old UI was not launched.", file=sys.stderr)
+            return result.returncode
+    os.execve(str(python), [str(python), str(ROOT / "scripts/run.py"), *args], env)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

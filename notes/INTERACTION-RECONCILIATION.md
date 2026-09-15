@@ -1,5 +1,9 @@
 # Interaction source reconciliation
 
+For the subsequent inspection of current upstream source, see the
+[2026-09-14 terminal source study](CODEX-TERMINAL-SOURCE-STUDY.md).
+The blueprint-based analysis below remains a historical record, not current Codex HEAD.
+
 Recorded 2026-09-12 after the steward challenged the shortcut-first prototype and
 authorized correction plus usable Amplifier ecosystem execution. This is source/adoption
 analysis, not competing direction, ratification or a formal verdict ledger.

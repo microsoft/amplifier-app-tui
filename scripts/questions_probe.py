@@ -24,8 +24,13 @@ def wait_ready(probe, timeout=60):
     while time.monotonic() < deadline:
         display = probe.screen.display
         controls = [i for i, row in enumerate(display[:-1]) if "[ Actions ]" in row]
-        status = display[controls[-1] + 1] if controls else display[-1]
-        if status.strip().startswith("Ready · real modules mounted"):
+        if controls:
+            # Content-sized controls may wrap across rows at narrow widths.
+            following = display[controls[-1] + 1 :]
+            status = next((row for row in following if not row.strip().startswith("[")), "")
+        else:
+            status = display[-1]
+        if status.strip() in ("Ready", "Ready · real modules mounted"):
             return
         probe.read(0.02)
     raise AssertionError(f"Runtime did not become ready: {status}")

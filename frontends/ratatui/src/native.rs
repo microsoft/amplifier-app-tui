@@ -1,7 +1,7 @@
 //! Normal-screen output ownership. The runtime and retained source remain independent.
 //! Committed rows are never repainted. Only a small live region is cursor-addressed.
 use super::*;
-use crossterm::{cursor, style::ResetColor, terminal as tty};
+use crossterm::{cursor, queue, style::ResetColor, terminal as tty};
 use ratatui::{TerminalOptions, Viewport, backend::CrosstermBackend, widgets::Widget};
 use std::collections::{BTreeSet, VecDeque};
 use std::hash::{Hash, Hasher};
@@ -68,7 +68,11 @@ impl Journal {
     pub fn banner(&mut self, title: &str, mode: &str) {
         if !self.banner {
             self.rows.push_back(Line::styled(
-                format!("amplifier · {} · {}", safe(title), safe(mode)),
+                format!(
+                    "amplifier · {}{}",
+                    safe(title),
+                    chrome::runtime_notice(mode)
+                ),
                 Style::default().fg(GREEN),
             ));
             self.rows.push_back(Line::default());
@@ -206,7 +210,7 @@ impl Journal {
                 if !p.heading {
                     lines.push(Line::styled("amplifier", Style::default().fg(GREEN)));
                 }
-                lines.extend(markdown::render(&p.item.text[p.offset..], width));
+                lines.extend(markdown::render_live(&p.item.text[p.offset..], width));
             } else {
                 lines.extend(
                     item_lines(&p.item, width, false)
@@ -232,6 +236,132 @@ impl Journal {
 type Tty = Terminal<CrosstermBackend<io::Stdout>>;
 static ALTERNATE_OWNED: AtomicBool = AtomicBool::new(false);
 
+fn cursor_row_or_fresh_page(height: u16) -> io::Result<u16> {
+    match bounded_cursor_row()? {
+        Some(row) => Ok(row),
+        None => {
+            // A silent terminal gets a fresh page by scrolling, NEVER CSI 3 J.
+            for _ in 0..height {
+                write!(io::stdout(), "\r\n")?;
+            }
+            execute!(io::stdout(), cursor::MoveTo(0, 0))?;
+            Ok(0)
+        }
+    }
+}
+
+// Called only on the UI/input thread, outside Crossterm polling. All bytes go
+// back through its parser (including partial Unicode/paste and internal CPRs).
+#[cfg(unix)]
+fn bounded_cursor_row() -> io::Result<Option<u16>> {
+    use std::fs::OpenOptions;
+    use std::io::Read;
+    use std::os::fd::AsRawFd;
+    use std::os::unix::fs::OpenOptionsExt;
+    static SILENT: AtomicBool = AtomicBool::new(false);
+    if SILENT.load(Ordering::Relaxed) {
+        return Ok(None);
+    }
+    let mut input = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_NOCTTY)
+        .open("/dev/tty")?;
+    write!(io::stdout(), "\x1b[6n")?;
+    io::stdout().flush()?;
+    let deadline = Instant::now() + Duration::from_millis(100);
+    let mut bytes = Vec::new();
+    let result = (|| -> io::Result<Option<u16>> {
+        loop {
+            if let Some(row) = reported_cursor_row(&bytes) {
+                return Ok(Some(row));
+            }
+            if Instant::now() >= deadline || bytes.len() >= 65536 {
+                return Ok(None);
+            }
+            let mut fd = libc::pollfd {
+                fd: input.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            let timeout = deadline
+                .saturating_duration_since(Instant::now())
+                .as_millis()
+                .max(1) as i32;
+            // SAFETY: fd points to one live pollfd for this call; input owns the descriptor.
+            let ready = unsafe { libc::poll(&mut fd, 1, timeout) };
+            if ready < 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() == io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err(error);
+            }
+            if ready == 0 {
+                return Ok(None);
+            }
+            let mut chunk = [0; 4096];
+            match input.read(&mut chunk) {
+                Ok(0) => return Ok(None),
+                Ok(n) => bytes.extend_from_slice(&chunk[..n]),
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    continue;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    })();
+    event::buffer_input(&bytes)?;
+    if matches!(result, Ok(None)) {
+        // Do not mistake a late response for a later query's anchor.
+        SILENT.store(true, Ordering::Relaxed);
+    }
+    result
+}
+
+#[cfg(not(unix))]
+fn bounded_cursor_row() -> io::Result<Option<u16>> {
+    cursor::position().map(|(_, row)| Some(row))
+}
+
+fn reported_cursor_row(bytes: &[u8]) -> Option<u16> {
+    let mut paste = false;
+    for at in 0..bytes.len() {
+        let suffix = &bytes[at..];
+        if suffix.starts_with(b"\x1b[200~") {
+            paste = true;
+        }
+        if suffix.starts_with(b"\x1b[201~") {
+            paste = false;
+        }
+        if paste || !suffix.starts_with(b"\x1b[") {
+            continue;
+        }
+        let end = suffix[2..]
+            .iter()
+            .position(|c| !c.is_ascii_digit() && *c != b';')?
+            + 2;
+        if suffix[end] != b'R' {
+            continue;
+        }
+        let text = std::str::from_utf8(&suffix[2..end]).ok()?;
+        let Some((row, col)) = text.split_once(';') else {
+            continue;
+        };
+        if let (Ok(row), Ok(col)) = (row.parse::<u16>(), col.parse::<u16>())
+            && row > 0
+            && col > 0
+        {
+            return Some(row - 1);
+        }
+    }
+    None
+}
+
 pub struct Screen {
     terminal: Tty,
     area: Rect,
@@ -252,8 +382,18 @@ impl Screen {
         let result = (|| {
             execute!(io::stdout(), EnableBracketedPaste, DisableMouseCapture)?;
             let size = tty::size()?;
-            let (_, y) = cursor::position()?;
-            let area = Rect::new(0, y, size.0, 1);
+            // Preserve the whole preceding screen, including rows below the shell
+            // cursor. A fresh page needs no cursor query or startup CPR timeout.
+            execute!(
+                io::stdout(),
+                ResetColor,
+                cursor::MoveTo(0, size.1.saturating_sub(1))
+            )?;
+            for _ in 0..size.1 {
+                write!(io::stdout(), "\r\n")?;
+            }
+            execute!(io::stdout(), cursor::MoveTo(0, 0))?;
+            let area = Rect::new(0, 0, size.0, 1);
             let terminal = Terminal::with_options(
                 CrosstermBackend::new(io::stdout()),
                 TerminalOptions {
@@ -275,12 +415,18 @@ impl Screen {
     }
 
     fn clear_live(&mut self) -> io::Result<()> {
-        execute!(
-            io::stdout(),
-            cursor::MoveTo(0, self.area.y),
-            ResetColor,
-            tty::Clear(tty::ClearType::FromCursorDown)
-        )
+        // tmux can archive a whole screen when ED starts at row zero. Erase
+        // individual owned lines so a provisional full-height frame isn't history.
+        let mut out = io::stdout();
+        queue!(out, ResetColor)?;
+        for y in self.area.y..self.size.1 {
+            queue!(
+                out,
+                cursor::MoveTo(0, y),
+                tty::Clear(tty::ClearType::CurrentLine)
+            )?;
+        }
+        execute!(out, cursor::MoveTo(0, self.area.y))
     }
 
     fn resize(&mut self) -> io::Result<()> {
@@ -289,15 +435,21 @@ impl Screen {
             if !self.alternate {
                 // Cursor is parked at the live region's origin after every frame.
                 // Ask the terminal where resize/reflow moved it; never clear history.
-                let position = cursor::position()?;
+                let y = cursor_row_or_fresh_page(size.1)?;
                 // tmux can pull history onto a growing screen without moving
                 // the reported cursor. Never clear those newly exposed rows.
-                let floor = if self.area.bottom() >= self.size.1 {
+                // This guard applies only to growth with an unmoved cursor.
+                // Applying the old origin as a floor on shrink (or overriding
+                // a genuinely moved cursor) scrolls stale chrome into history.
+                let floor = if size.1 > self.size.1
+                    && self.area.bottom() >= self.size.1
+                    && y <= self.area.y
+                {
                     self.area.y + size.1.saturating_sub(self.size.1)
                 } else {
                     0
                 };
-                self.area.y = position.1.max(floor).min(size.1.saturating_sub(1));
+                self.area.y = y.max(floor).min(size.1.saturating_sub(1));
             }
             self.size = size;
         }
@@ -326,24 +478,23 @@ impl Screen {
             self.terminal.draw(|f| draw(f, app))?;
             return Ok(());
         }
-        let pad = if self.size.0 >= 80 { 3 } else { 2 };
-        let width = self.size.0.saturating_sub(2 * pad).max(1);
+        let width = self.size.0.max(1);
         app.native.prepare(width as usize);
         execute!(io::stdout(), tty::BeginSynchronizedUpdate)?;
-        let result = self.paint_inline(app, pad, width);
+        let result = self.paint_inline(app, width);
         let end = execute!(io::stdout(), tty::EndSynchronizedUpdate);
         result.and(end)
     }
 
-    fn append(&mut self, rows: impl Iterator<Item = Line<'static>>, pad: u16) -> io::Result<()> {
+    fn append(&mut self, rows: impl Iterator<Item = Line<'static>>) -> io::Result<()> {
         self.clear_live()?;
-        let width = self.size.0.saturating_sub(2 * pad).max(1);
+        let width = self.size.0.max(1);
         for line in rows {
             // Reflow queued rows after a resize; never re-emit committed rows.
             for line in markdown::reflow(vec![line], width as usize) {
                 let rect = Rect::new(0, self.area.y, self.size.0, 1);
                 let mut buffer = Buffer::empty(rect);
-                Paragraph::new(line).render(Rect::new(pad, rect.y, width, 1), &mut buffer);
+                Paragraph::new(line).render(Rect::new(0, rect.y, width, 1), &mut buffer);
                 let empty = Buffer::empty(rect);
                 self.terminal
                     .backend_mut()
@@ -356,20 +507,25 @@ impl Screen {
         Ok(())
     }
 
-    fn paint_inline(&mut self, app: &mut App, pad: u16, width: u16) -> io::Result<()> {
+    fn paint_inline(&mut self, app: &mut App, width: u16) -> io::Result<()> {
         let appended = !app.native.rows.is_empty();
         if !app.native.rows.is_empty() {
             let n = app.native.rows.len().min(128);
-            self.append(app.native.rows.drain(..n), pad)?;
+            self.append(app.native.rows.drain(..n))?;
         }
         let live = app.native.live(width as usize);
         let decision = app.approval.is_some() || !app.questions.pending.is_empty();
         let extra = if decision { 3 } else { 0 };
+        let chrome = chrome::Chrome::new(app, width, self.size.1.saturating_sub(extra + 1));
         let live_h = live
             .len()
             .min(8)
-            .min(self.size.1.saturating_sub(10 + extra) as usize) as u16;
-        let height = (10 + extra + live_h).min(self.size.1).max(1);
+            .min(self.size.1.saturating_sub(chrome.height + extra + 1) as usize)
+            as u16;
+        let height = (chrome.height + extra + live_h + 1)
+            .max(self.size.1.saturating_sub(self.area.y))
+            .min(self.size.1)
+            .max(1);
         if self.area.height != height || self.area.width != self.size.0 {
             self.clear_live()?;
         }
@@ -399,13 +555,22 @@ impl Screen {
             let a = f.area();
             app.ui.buttons.clear();
             app.rows.clear();
-            if a.width < 32 || a.height < 10 {
+            if a.width < 32 || a.height < chrome.height + extra + 1 {
                 text(f, a, "Please resize to at least 32 × 12", AMBER);
                 return;
             }
-            f.render_widget(Block::default().style(Style::default().bg(BG).fg(INK)), a);
-            let inner = Rect::new(pad, a.y, width, a.height);
-            app.body = Rect::new(pad, a.y, width, live_h);
+            // Park on a genuinely empty separator, not a wide border that tmux
+            // can reflow onto a continuation row. This row is live, not history.
+            f.render_widget(
+                Block::default().style(Style::default().bg(BG).fg(INK)),
+                Rect::new(
+                    0,
+                    a.bottom().saturating_sub(chrome.height + extra),
+                    width,
+                    chrome.height + extra,
+                ),
+            );
+            app.body = Rect::new(0, a.y + 1, width, live_h);
             for (row, line) in live
                 .iter()
                 .rev()
@@ -417,12 +582,12 @@ impl Screen {
             {
                 text(
                     f,
-                    Rect::new(pad, a.y + row as u16, width, 1),
+                    Rect::new(0, a.y + 1 + row as u16, width, 1),
                     line.clone(),
                     INK,
                 );
             }
-            let base = a.y + live_h;
+            let base = a.bottom().saturating_sub(chrome.height + extra);
             if decision {
                 let (label, prompt, action) = if let Some(approval) = &app.approval {
                     (
@@ -440,50 +605,20 @@ impl Screen {
                 };
                 text(
                     f,
-                    Rect::new(pad, base, width, 1),
+                    Rect::new(0, base, width, 1),
                     "Waiting for you · draft stays yours",
                     AMBER,
                 );
-                text(f, Rect::new(pad, base + 1, width, 1), prompt, INK);
-                app.button(f, Rect::new(pad, base + 2, width.min(28), 1), label, action);
+                text(f, Rect::new(0, base + 1, width, 1), prompt, INK);
+                app.button(f, Rect::new(0, base + 2, width.min(28), 1), label, action);
             }
             let base = base + extra;
-            text(
-                f,
-                Rect::new(pad, base, width, 1),
-                format!(
-                    "Mode: {} · Ratatui · {} · {}",
-                    app.policy, app.mode, app.context
-                ),
-                MUTED,
-            );
-            app.tab_y = base + 1;
-            for (i, label) in ["F1 Work", "F2 Review", "F3 System"]
-                .into_iter()
-                .enumerate()
-            {
-                let x = i as u16 * 12;
-                if x < width {
-                    app.button(
-                        f,
-                        Rect::new(pad + x, base + 1, 12.min(width - x), 1),
-                        label,
-                        Action::View(i),
-                    );
-                }
-            }
+            app.tab_y = u16::MAX;
+            chrome.draw(f, app, Rect::new(0, base, width, chrome.height));
             if decision {
+                // Tab starts at Actions; the explicit decision remains reachable.
                 app.ui.buttons.rotate_left(1);
             }
-            if width > 42 {
-                text(
-                    f,
-                    Rect::new(pad + 38, base + 1, width - 38, 1),
-                    app.title.clone(),
-                    GREEN,
-                );
-            }
-            draw_footer(f, app, a, inner, a.bottom() - 8, 8);
         })?;
         // A stable cursor anchor lets the terminal tell us where reflow moved the live region.
         execute!(io::stdout(), cursor::MoveTo(0, self.area.y), cursor::Hide)?;
@@ -494,16 +629,12 @@ impl Screen {
         execute!(io::stdout(), DisableMouseCapture, tty::LeaveAlternateScreen)?;
         ALTERNATE_OWNED.store(false, Ordering::SeqCst);
         self.alternate = false;
-        // DEC 1049 restores primary output. Never wait for another DSR on exit.
+        // DEC 1049 restores primary output. A changed size needs the actual
+        // restored anchor: subtracting the old (possibly full-height) live area
+        // can clear committed short replies. Ordinary return/exit needs no query.
         if self.size != self.primary_size {
-            if self.area.bottom() >= self.primary_size.1 {
-                self.area.y = self.size.1.saturating_sub(self.area.height);
-            } else {
-                self.area.y = self
-                    .area
-                    .y
-                    .min(self.size.1.saturating_sub(self.area.height));
-            }
+            self.size = self.primary_size;
+            self.resize()?;
         }
         self.terminal = Terminal::with_options(
             CrosstermBackend::new(io::stdout()),
@@ -520,12 +651,10 @@ impl Screen {
         }
         self.resize()?;
         app.native.finish();
-        let pad = if self.size.0 >= 80 { 3 } else { 2 };
         while app.native.has_work() {
-            app.native
-                .prepare(self.size.0.saturating_sub(2 * pad).max(1) as usize);
+            app.native.prepare(self.size.0.max(1) as usize);
             let rows = std::mem::take(&mut app.native.rows);
-            self.append(rows.into_iter(), pad)?;
+            self.append(rows.into_iter())?;
         }
         self.clear_live()?;
         io::stdout().flush()
@@ -589,6 +718,17 @@ impl Drop for Screen {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cursor_response_parser_ignores_paste_and_handles_fragments() {
+        assert_eq!(reported_cursor_row(b"\x1b[12;"), None);
+        assert_eq!(reported_cursor_row(b"typed\x1b[12;3Rmore"), Some(11));
+        assert_eq!(reported_cursor_row(b"\x1b[200~\x1b[99;3R\x1b[201~"), None);
+        assert_eq!(
+            reported_cursor_row(b"\x1b[200~\x1b[99;3R\x1b[201~\x1b[2;1R"),
+            Some(1)
+        );
+        assert_eq!(reported_cursor_row(b"\x1b[0;1R"), None);
+    }
     #[test]
     fn stable_markdown_blocks_wait_for_real_boundaries() {
         assert_eq!(stable_end("Hello **world"), 0);

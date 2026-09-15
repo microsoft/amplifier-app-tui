@@ -36,6 +36,11 @@ def executable(workspace=None):
 def arguments(argv=None, workspace=None, require_terminal=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Create an explicit provider overlay interactively; never asks for or stores keys",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"amplifier-tui {version('amplifier-app-tui')} · Ratatui",
@@ -107,6 +112,23 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         help="Create a new conversation from historical context; original unchanged, no replay",
     )
     args = parser.parse_args(argv)
+    if args.setup:
+        from .onboarding import setup_provider
+
+        if (
+            args.resume
+            or args.recover
+            or args.export
+            or args.list_sessions
+            or args.check
+            or args.support_report
+        ):
+            parser.error("--setup is a separate local configuration action")
+        try:
+            setup_provider()
+        except (OSError, ValueError, EOFError, KeyboardInterrupt) as exc:
+            parser.error(str(exc) or "Setup cancelled")
+        parser.exit()
     if args.getting_started:
         from .onboarding import GETTING_STARTED
 

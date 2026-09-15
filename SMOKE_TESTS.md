@@ -18,6 +18,47 @@ as documented in [Converge practice](notes/CONVERGE.md). Verify distributions om
 Changes limited to direction/check tooling do not require new billed provider runs;
 execution-path changes still owe the relevant live and integration evidence below.
 
+Direct Codex adoption gate: build Ratatui, then run `TUI_TEST_CANDIDATES=1` with
+`tests/test_compact_terminal.py`, `tests/test_tmux_scrollback.py` and the complete native
+suite. Verify a fresh primary-screen page, bottom-aligned five-row ordinary idle chrome plus an empty cursor-anchor separator,
+growing/wrapped drafts, narrow controls,
+visual-row history boundaries, delayed readiness preserving selection, zero implicit
+submissions, and startup without any CPR request/reply, retaining typed input. Resize
+queries have a 100 ms Unix deadline and replay all captured bytes through the pinned
+Crossterm fork; a silent responder disables later probes. Real tmux resize must keep
+both SHELL-BEFORE and each transcript marker exactly once. Inspect private `compact-*`
+captures alongside actual live-preset ready/completed views. Corrupt local recovery
+storage must prevent startup draft overwrite; `test_daily_replacement.py` verifies this.
+Run native PTY/tmux probes serially: they share manifest bookkeeping.
+
+Whole-backlog gates: `tests/test_backlog.py` exercises acquired-handle startup cleanup,
+source observations, content paging, explicit uncertain-delivery resolution and immutable
+image admission. `tests/test_backlog_terminal.py` exercises image/search controls,
+non-submitting recipe review drafts and focus-preserving child-list refresh. With
+`TUI_TEST_SWAPS=1`, persistent child storage/continuation is exercised with both independent
+loops. With `TUI_TEST_PRESETS=1`, real v2 recipe failure/reopen/resume must skip the completed
+step and retry only the explicitly requested unfinished work on both presets.
+
+`PYTHONDONTWRITEBYTECODE=1 uv run --no-sync python scripts/backlog_probe.py --live` makes
+two billed controlled-image turns through both presets; compare exact canonical image bytes,
+colour identification, zero tool calls, source inspection and private native captures.
+Never use a fixture's image transport as proof of real vision capability.
+`PYTHONDONTWRITEBYTECODE=1 uv run --no-sync python scripts/release_wheel.py` verifies an
+isolated compiler-free wheel install. `.github/workflows/release-wheels.yml` is manual,
+produces private candidate artifacts and does not publish a release; unrun platforms stay unverified.
+Release builds remap home/Cargo/project paths in Rust. Scan every decompressed wheel member,
+including the executable, and the receipt before upload; build/install logs are withheld.
+The workflow uploads only the current verified wheel and receipt. A prior wheel carried
+build-home paths despite source-level checks passing: source-only scanning is insufficient.
+The per-repo-conventions fresh-context review found this before publication; retain the
+regression guard and independently inspect newly introduced artifact formats.
+Delayed history recall must not expose Ready before conversation switching accepts input;
+the explicit delayed-switch native regression covers that lifecycle window.
+The benchmark measures the first editable composer separately from scene readiness;
+do not wait for Send, which is intentionally disabled during real startup. Its editor
+observer recognizes open input and historical border styles and joins wrapped visual rows; test it with
+`tests/test_benchmark_observer.py` rather than matching tokens in transcript output.
+
 The suite uses actual bundle preparation, the released Rust-backed core, upstream
 streaming orchestrator/context, independent fixture modules, Textual Pilot and Linux
 PTY subprocesses. It does not replace the runtime with a mocked successful engine.
@@ -70,6 +111,24 @@ The prompt constrains this action, not the preset's permissions. Do not mistake 
 
 ## Interactive checks
 
+Code colour: run Rust tests both with `env -u NO_COLOR cargo test --release --locked
+--manifest-path frontends/ratatui/Cargo.toml` and with `NO_COLOR=1`, then the native
+structured-reading tests. Assert actual token foreground variation, exact clipboard
+content, multiline lexical state, unknown-language/size fallback, narrow resize and
+unchanged draft. Inspect `syntax-native-*` and `syntax-inspection-*` captures.
+`structured_reading_probe.py --live --output notes/evidence/syntax-live.json` checks both
+real presets. The renderer benchmark also records a separate 240-edit syntax stress case
+with six grammars and 100 native code blocks; this is not provider latency or CLI parity.
+For editor growth, exercise a narrow inspection frame before returning to a fitting
+multiline composer; assert all lines, cursor, selection and undo, not only the last line.
+
+Development command: `scripts/dev-launch` may be symlinked onto the person's PATH by
+explicit request. Test diagnostic invocations without Cargo, build failure without stale
+launch, argument/cwd forwarding and a real fixture turn through the resolved symlink.
+Resolve that PATH command outside `uv run`: uv prepends the editable environment's own
+console entrypoint, which is a different launcher. Record the external link for teardown;
+never replace an existing command or use real user state for the smoke test.
+
 Newcomer guidance: run `test_onboarding.py` and `test_onboarding_terminal.py` with the
 native candidate enabled. Verify missing key/binary/cwd/state errors, no state writes or
 runtime imports, custom-provider uncertainty, path-free allowlisted support output, and
@@ -112,12 +171,12 @@ persistent module README: the pinned implementation also appends messages to its
 
 Native terminal correction: `test_tmux_scrollback.py` must exercise the DEFAULT view,
 not first open `/scrollback`. It checks real attached tmux selection across pages,
-short Unicode replies in bottom-20-lines capture previews, inspection return, repeated
+short Unicode replies in full-pane capture previews, inspection return, repeated
 narrow/wide resizes and transcript retained after exit. Capture all history and count
 markers: a still-visible footer or duplicate reply is a failure, not proof of retention.
 Never clear history to repair a redraw. tmux can expose old rows on growth without moving
 its reported cursor. The observer models DEC 1049 save/restore; real tmux remains the gate.
-Locate the composer by its border, not fixed screen rows. Prior-conversation terminal
+Locate the composer by its Message heading, not old border glyphs. Prior-conversation terminal
 text is expected after New/Resume; assert model-context isolation from checkpoints.
 The ordinary view leaves the mouse to terminal selection; injected mouse test sequences
 prove action routing, not that default native view captures physical clicks.
@@ -128,9 +187,17 @@ Inspect `*-inline.png` as well as the decision/detail captures. Run
 `benchmark_candidates.py --output notes/evidence/inline-benchmark.json` alone afterward.
 The 100,000-item case must also pass cleanup, not just edit latency: initial replay
 is disclosed and limited to 1,000 historical items, while full source remains inspectable.
-Do not issue a new cursor-position query during normal menu/quit cleanup, or an observer
-waiting for process exit cannot answer it. Leave alternate screen only when owned;
+Do not issue a new cursor-position query during unchanged-size menu/quit cleanup.
+If inspection was resized, query the restored primary anchor before clearing, rather
+than subtracting its old viewport height and erasing short replies. Exit observers must
+keep servicing terminal queries; the existing finite resize fallback still applies.
+Leave alternate screen only when owned;
 redundant DEC 1049 restore can reposition the cursor into retained text.
+With full-height startup, clear owned rows with EL rather than ED from row zero: tmux
+may otherwise archive provisional chrome. Resize observers must wait for the pane's
+actual PTY TIOCGWINSZ, not only tmux capture dimensions: grid resize can precede the ioctl
+update. Wait for complete draft deletion before the next resize; a prefix match can
+accept an unfinished synchronized frame. Test multiline tmux copy buffers, not only OSC52.
 
 Everyday navigation adds `tests/test_input_history.py`, `test_everyday_terminal.py` and
 `test_tmux_scrollback.py`. The last creates an isolated tmux socket/server, records it
@@ -289,8 +356,10 @@ All spawned test process groups are recorded and reconciled in the workspace man
 
 Width regressions are checked in actual PTY output, not just layout arithmetic:
 both engines launch at 160/200 columns, resize through 60/80/160/200 columns, and
-retain the draft. Assert the header rule spans every column and composer/approval
-edges reach the terminal's small inset. A 120-column-only capture misses fixed-width
+retain the draft. Ratatui's ordinary and inspection composer starts at column zero and
+wraps only after the final column; its transcript and tmux copy buffer have no outer gutter.
+Test exact-width lines through resize/exit to catch last-column autowrap artifacts.
+OpenTUI remains the historical inset comparator. A 120-column-only capture misses fixed-width
 canvases. The engines started from one design; Ratatui now carries additional interaction work.
 
 Run candidate timing independently from build/test workloads:

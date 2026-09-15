@@ -50,8 +50,14 @@ def draft_is(probe, expected):
     while time.monotonic() < until:
         probe.read(0.02)
         display = probe.screen.display
-        tops = [i for i, row in enumerate(display) if "╭ Message" in row]
-        actual = "\n".join(display[tops[-1] + 1 : tops[-1] + 4]) if tops else ""
+        tops = [i for i, row in enumerate(display) if row.strip().startswith("Message ·")]
+        actual = ""
+        if tops:
+            start = tops[-1] + 1
+            end = next(
+                (i for i in range(start, len(display)) if "[ Actions ]" in display[i]), start
+            )
+            actual = "\n".join(display[start:end])
         if expected in actual:
             return
     raise AssertionError(f"Composer did not reach {expected!r}:\n{probe.text}")

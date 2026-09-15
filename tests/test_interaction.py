@@ -50,10 +50,12 @@ def test_actions_cancel_preserves_selection_and_paste_is_local():
         probe.wait("Search:", absent=True)
         probe.send(b"!")
         probe.wait("are not retried!")
-        # Tab visits the visible Work control; Enter changes view, never submits.
+        # Tab visits Actions in the compact footer; Enter discovers, never submits.
         probe.send(b"\t\r")
-        probe.wait("Waiting for your decision")
+        probe.wait("Search:")
         assert "Busy" not in probe.text
+        probe.send(b"\x1b")
+        probe.wait("Search:", absent=True)
         click(probe, "Review decision")
         probe.wait("Options (exact runtime scope)")
         probe.send(b"deny\r")
@@ -202,17 +204,19 @@ def test_keyboard_only_approval_and_actions(tmp_path):
         probe.wait("Ready")
         probe.send(b"Compute digest\r")
         probe.wait("Waiting for your decision")
-        probe.send(b"\t\t\t\t\r")  # Work, Review, System, Review decision
+        probe.send(b"\t\r")  # Actions first, without memorizing a dashboard tab count.
+        probe.wait("Search:")
+        probe.send(b"Decisions\r")
         probe.wait("Options (exact runtime scope)")
         probe.send(b"allow\r")
         probe.wait("Completed")
-        probe.send(b"\t" * 8 + b"\r")  # tabs, Resume/Pending/Steer/Modes, then Actions
+        probe.send(b"\t\r")
         probe.wait("Search:")
         probe.send(b"expand selected\r")
         probe.wait("sha256")
         probe.send(b"\x1b")
         probe.wait("Evidence ·", absent=True)
-        probe.send(b"\t" * 8 + b"\r")
+        probe.send(b"\t\r")
         probe.wait("Search:")
         probe.send(b"quit\r")
         probe.process.wait(timeout=4)

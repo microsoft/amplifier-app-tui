@@ -27,11 +27,11 @@ class Scene:
         self.ready = True
 
     async def open(self):
-        self.emit({"type": "snapshot", **self.data, "mode": "SIMULATED"})
+        self.emit({"type": "snapshot", **self.data, "mode": "SIMULATED", "ready": True})
         self.state("Waiting for your decision" if self.pending else "Ready")
 
     def state(self, status):
-        self.emit({"type": "state", "status": status, "approval": self.pending})
+        self.emit({"type": "state", "status": status, "approval": self.pending, "ready": True})
 
     def item(self, identity, kind, text, status="", detail=""):
         self.emit(
@@ -225,6 +225,7 @@ async def serve(factory, output=None, trace=None):
                     {
                         "type": "state",
                         "status": f"Startup failed: {type(exc).__name__}: {exc}",
+                        "ready": False,
                         "approval": None,
                     }
                 )

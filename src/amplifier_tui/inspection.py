@@ -40,6 +40,24 @@ class Inspection:
             payload["status"] = "resolved"
         text, partial = bounded(payload)
         partial = partial or old.get("partial", False)
+        recipe_ids = []
+        result = payload.get("result")
+        if payload.get("name") == "recipes" and isinstance(result, dict):
+            output = result.get("output")
+            if isinstance(output, dict):
+                candidates = [output.get("session_id")]
+                sessions = output.get("sessions")
+                if isinstance(sessions, list):
+                    candidates += [
+                        r.get("session_id") for r in sessions[:20] if isinstance(r, dict)
+                    ]
+                recipe_ids = [
+                    s
+                    for s in candidates
+                    if isinstance(s, str)
+                    and 0 < len(s) <= 160
+                    and all(c.isalnum() or c in "_-" for c in s)
+                ]
         # Retain structured identity/status, not an unbounded second copy of tool output.
         self.rows[key] = {
             "id": key,
@@ -47,12 +65,14 @@ class Inspection:
             "sequence": event.sequence,
             "first_sequence": old.get("first_sequence", event.sequence),
             "kind": event.kind,
+            "event": payload.get("event"),
             "source": event.session_id,
             "child": payload.get("child_id"),
             "label": payload.get("name", payload.get("event", event.kind)),
             "status": payload.get("status", "observed"),
             "detail": text,
             "partial": partial,
+            "recipe_ids": list(dict.fromkeys(recipe_ids)),
             "payload": {k: payload[k] for k in ("name", "child_id", "status") if k in payload},
         }
         while len(self.rows) > 256:
@@ -65,6 +85,14 @@ class Inspection:
             rows = [r for r in rows if r["id"].startswith("child:") and r["kind"] == "tool.updated"]
         elif category == "context":
             rows = [r for r in rows if r["kind"] == "context.observed"]
+        elif category == "instructions":
+            rows = [
+                r
+                for r in rows
+                if r["kind"] == "context.observed" and r.get("event") == "mentions:resolved"
+            ]
+        elif category == "recipes":
+            rows = [r for r in rows if r["label"] == "recipes"]
         elif child:
             rows = [r for r in rows if r["child"] == child]
         else:
@@ -89,7 +117,9 @@ class Inspection:
             "storage_policy": host.report.get("storage_policy", {})
             if category == "context"
             else {},
-            "context_note": "Usage/compaction are module observations, not a current exact context meter. "
+            "context_note": "Resolved instruction sources are last-observed Foundation events, not the complete current provider request or proof a model used them. Inline instructions and other modules may add content. Empty means no observation, not no instructions. Inspection never rereads files or builds context."
+            if category == "instructions"
+            else "Usage/compaction are module observations, not a current exact context meter. "
             "No observation means unavailable, not zero. Inspection does not compact or call a model."
             if category == "context"
             else "",

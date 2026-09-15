@@ -21,6 +21,7 @@ class FixtureProvider:
         return ProviderInfo(
             id=self.config.get("vendor", self.name),
             display_name="Deterministic fixture",
+            capabilities=self.config.get("capabilities", []),
             defaults={
                 "model": self.config.get("default_model", "fixture"),
                 "context_window": 32000,

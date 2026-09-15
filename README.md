@@ -19,10 +19,17 @@ The [workflow coverage map](notes/PARITY.md) separates working paths from remain
 
 ### Install the native product
 
-Linux is verified; macOS source builds are supported by the build hook but not yet
+Linux ARM64 is verified; macOS source builds are supported by the build hook but not yet
 exercised. Windows needs WSL2. Git installation requires **uv, Git, Rust/Cargo (tested
 with Rust 1.93), and a C linker**. The build embeds the native executable in a
 platform-specific wheel; normal launches need neither a source checkout nor Cargo.
+
+Release candidates can also be installed from a platform-matching wheel with
+`uv tool install ./amplifier_app_tui-<version>-<platform>.whl`, without Rust/Cargo.
+`scripts/release_wheel.py` builds and verifies this in an isolated tool environment
+with Cargo removed from PATH. The manual release-candidate workflow targets Linux
+x86-64/ARM64 and macOS Intel/Apple Silicon; only the local Linux ARM64 gate has run.
+Prebuilt public downloads and cross-platform release certification are not yet available.
 
 The repository is private. Authenticate GitHub/Git with an account that has access
 (for GitHub CLI users, `gh auth login` then `gh auth setup-git`), then:
@@ -40,6 +47,12 @@ smoke test, not an AI assistant. First launch resolves the real bundle/module so
 and installs their declared dependencies into the app's isolated tool environment.
 It requires network access and can be slower than subsequent cached starts. Bundles
 and modules are executable code: only select sources you trust.
+
+For Anthropic or OpenAI configuration, run `amplifier-tui --setup`: choose a provider,
+exact model ID and **new** overlay path, review the configuration, then confirm creation.
+The offline wizard writes a private environment-reference overlay, never a key or shared
+CLI settings. Launch with the printed `--overlay` command. It does not validate model
+availability/credentials; review or pin the declared module source before trusting it.
 
 State defaults to `$XDG_DATA_HOME/amplifier-tui` (normally
 `~/.local/share/amplifier-tui`), separately from the CLI. Override with `--state-dir`
@@ -69,6 +82,16 @@ TUI also names the running app version. `amplifier-tui-host` retains the diagnos
 headless/bridge/historical harness entrypoint; ordinary `amplifier-tui` is Ratatui.
 
 ### Development workspace
+
+To track uncommitted changes through the ordinary command, a developer can explicitly
+symlink `scripts/dev-launch` into a directory on PATH as `amplifier-tui` (do not overwrite
+an existing command). The link resolves this checkout's `.venv` and workspace state,
+preserves the directory you launch from, and runs an incremental locked Cargo build before
+interactive native launch. Relaunch to pick up changes; running sessions are not hot-reloaded.
+Help/version/doctor/check/report commands do not build. Python dependency changes still
+need `uv sync --inexact` in the checkout. `--state-dir` can explicitly select another store.
+Remove only that development symlink before switching to a Git-installed release; do not
+delete conversation state. The link depends on the checkout remaining at its current path.
 
 From this project directory, after the source/dependency setup below:
 
@@ -110,8 +133,15 @@ assistant to invoke `load_skill`, `delegate` or `recipes` when mounted. **Action
 (`/mode`) selects discovered session policy with explicit Apply.
 Assistant mode requests needing consent use **Review decision**, not an unanswerable retry.
 Conversation-provider selection and steering use supported public module capabilities.
-UTF-8 text snapshots are supported through **Insert text file**; images and other binary
-attachments are not supported by the current string-prompt integration.
+Use **Insert text file** for UTF-8 snapshots and **Attach image** for one PNG/JPEG up to
+2 MiB. The image dialog shows path, size and digest, not a rendered thumbnail. Confirm
+the captured bytes, add your prompt, then Send explicitly. File changes after capture do
+not change the attachment. All mounted providers must advertise vision support; actual
+format/model limits can still reject a request. Images enter Amplifier's public context
+format, without replacing the orchestrator. **Attached image** inspects/removes the
+reference. Attaching pauses the queue; queued image turns are not supported. Unsent
+images survive ordinary resume; dispatched images never silently become unsent again.
+Historical recovery does not copy attachments, and removing a reference is not rollback.
 Full presets retain authored shell/file tools and permissions: **this is not a sandbox**.
 The workspace launcher stores state in this project's `.state/work`; the installed
 launcher uses the separate user-data directory described above.
@@ -120,9 +150,26 @@ launcher uses the separate user-data directory described above.
 
 - **Actions → Delegated work** (`/agents`) lists observed child work, including running,
   waiting for permission/answers, and terminal outcomes. Open a child, then **Inspect this
-  child's tool and text observations** for scoped evidence. Refresh is explicit; a restored
+  child's tool and text observations** for scoped evidence. The list refreshes once a second
+  while open, preserving selection/filter; detail pages remain explicit snapshots. A restored
   row is historical, not a running agent. Parent completion never proves every child tool
-  succeeded. The menu is an observation snapshot, not a live process monitor.
+  succeeded. This is observed session activity, not an OS process monitor.
+- **Actions → Recipe activity** lists observed recipe tool calls. Open a receipt and
+  **Prepare recipe review request** to append a review request to your draft; it does not
+  execute or approve anything. After reviewing completed/unfinished steps, explicitly ask
+  the assistant to resume the chosen session. The real v2 runner's completed-step skip
+  behavior is tested across reopening; unfinished steps can be retried and may have partial effects.
+- **Actions → Search saved conversations** searches saved titles/IDs/directories and recent
+  user/assistant message text, without opening sessions or calling a model. Previous/Next
+  pages inspect 100 conversations each; partial scans are disclosed. Startup Resume uses
+  PgUp/PgDn for pages and typing filters the visible page.
+- **Actions → Instruction sources** shows last-observed Foundation mention resolutions,
+  with source paths and content hashes where supplied. It is not a complete current
+  provider request or proof that the model used a source; inspection does not rebuild context.
+- **Actions → Model catalog** explicitly queries mounted providers' reported model IDs
+  (possibly network-backed or static). Enter copies an ID for `--setup`/an overlay;
+  it does not select a model, validate access or alter routing. Missing/failed catalogs
+  remain visible. Conversation provider selection retains its existing mounted-instance guards.
 - **Actions → Activity evidence** (`/activity`) consolidates tool, approval, question and
   correction observations with conversation, turn, call and sequence identities. It is not
   Git authorship or proof of test coverage. Inspection indexes the latest 256 identities,
@@ -185,7 +232,8 @@ launcher uses the separate user-data directory described above.
   The view is a captured snapshot—even if a response is still growing. Reopen the catalog
   to refresh it. Limits: 100 blocks / 16 MiB recent assistant source, 12000-character preview,
   1 MiB copy; oversized blocks explicitly disable copy. Source-message Markdown remains
-  separately available through **Assistant replies**. No syntax highlighting is claimed.
+  separately available through **Assistant replies**. Recognized languages are syntax-coloured
+  in the snapshot; copying still uses the original code, not styled terminal cells.
 - **Answer questions** appears when the assistant asks for clarification. Open it (or
   **Actions → Questions**), choose an offered answer or **Write my own answer**, then
   **Submit reviewed answers**. Selecting an option alone sends nothing. Enter in the
@@ -273,14 +321,30 @@ launcher uses the separate user-data directory described above.
 
 - Assistant Markdown renders headings, emphasis, lists/tasks, quotations, links and
   fenced code. Tables align and wrap cells at usable widths, then switch to labelled
-  row/column values on narrow terminals; inline formatting stays intact. Syntax highlighting,
-  image loading and HTML execution are not implemented. Original source is retained.
+  row/column values on narrow terminals; inline formatting stays intact. Completed code blocks
+  and code inspection use bundled syntax highlighting (including Python, Rust, JavaScript,
+  shell and JSON). Unfinished streaming code, unknown languages, `NO_COLOR`, and blocks beyond
+  highlighting limits stay plain, without omitting source. Limits are 16 KiB per render,
+  256 lines per block and 1024 bytes per line; oversized blocks are not partially coloured.
+  Image loading and HTML execution are not implemented. Original source is retained.
 - In transcript inspection, mouse wheel scrolls three **visual lines**; PageUp/PageDown move a viewport with
   overlap. Reading above the tail pins an item/line anchor while new output arrives.
   **Latest** (or Actions → Latest) returns to following output. Resize reflows from
   source and retains the anchored item, not an exact source-character position.
   In the normal view, PageUp opens source inspection; terminal/tmux scrolling stays native.
-- Up at the first editor line recalls the previous sent message; Down at the last
+- The ordinary composer starts at one text row and grows to six, including soft wrapping.
+  Launch opens a fresh full-height primary-screen workspace with the composer at the bottom;
+  earlier shell output remains in native scrollback. Exit leaves the conversation behind.
+  Transcript and composer use every column, without outer side padding. Input has no side
+  borders or repeated prompt characters to contaminate terminal copying.
+  Idle controls stay compact; Queue, Steer and Stop appear when work is active. Mode stays
+  visible above the input. Renderer/live-runtime labels stay out of ordinary conversation;
+  simulated/fixture runs still carry explicit warnings. Actions provides Work, Review and System.
+  Startup accepts typing, but Enter before readiness does **not** send now or later.
+  If a saved draft arrives after you started typing, your current editor stays untouched;
+  **Saved draft → startup** exposes the original text for copying. Storage failures refuse
+  to overwrite that original; copy your new text before exiting if saving fails.
+- Up at the first visual editor line recalls the previous sent message; Down at the last
   line advances history. Down past the newest restores your original draft and cursor;
   Escape cancels recall. Within multiline text, arrows still move the cursor.
   Recall includes saved submissions from this app's other conversations in the **same
@@ -348,8 +412,9 @@ For inspection without a runtime, use `uv run --no-sync python scripts/run.py --
 Bundle/module/context files remain live sources, not archived code snapshots.
 Pending follow-ups are stored separately and reopen paused. An admission interrupted
 between persistence and execution is marked dispatched/uncertain and never automatically
-retried. Such an entry blocks queue release pending future recovery support; do not treat
-that state as proof that its effects did or did not occur. Ordinary queued entries can
+retried. Such an entry blocks queue release until **Resolve uncertain delivery** is explicitly
+confirmed while idle. This preserves a dismissed receipt and keeps the queue paused;
+it neither retries work nor proves whether effects occurred. Ordinary queued entries can
 be edited or removed; removal does not undo already admitted work.
 Provider controls use a separate atomic record. A missing, corrupt or interrupted
 provider-control save refuses resume; no fallback model or automatic repair is guessed.
@@ -376,7 +441,7 @@ uv run --no-sync python scripts/compare.py ratatui
 ```
 
 This shows a **SIMULATED** design scene, not a live assistant. The layout uses the
-terminal's full width with small edge padding, including the composer and approval card.
+terminal's full width without outer side padding, including the composer and approval card.
 It does not edit files or execute the displayed command. The initial decision asks
 you to allow or deny a synthetic test; allowing deliberately reveals a failed test.
 See [the review packet](notes/TERMINAL-REVIEW.md) for actual captures, measurements,
@@ -487,10 +552,13 @@ recipe steps, including v2 declared dependencies. Each child gets its own real s
 context, scoped transcript card, approval/question routing and cleanup. Limits: four
 active children, three nested levels, 32 retained children per open root. Completed
 children can resume within that open root. After restarting, explicit `delegate` continuation
-with the original full `session_id` supports completed direct children whose agent definition,
+with the original full `session_id` supports completed children whose agent definition,
 effective configuration and inherited mode reconstruct unchanged. No child starts on inspection
-or root resume. Nested children, custom routing/orchestrator overrides, unknown definitions,
-older receipts lacking fingerprints, interrupted children and subprocess isolation are refused.
+or root resume. Nested continuation requires the actual parent to be active following
+its own explicit continuation. Recorded provider preferences are reconstructed and the
+effective fingerprint must match. Arbitrary custom orchestrator overrides, changed/unknown
+definitions, older unsupported receipts, interrupted children and subprocess isolation are refused.
+Persistent-context children use identity-scoped storage separate from their parent/siblings.
 Stop cancels active children; it
 does not undo their effects. Active parent mode restrictions are restored in children.
 **System** reports local event/context-intelligence capture and disabled external dispatch;

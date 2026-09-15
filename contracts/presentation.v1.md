@@ -26,6 +26,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
 ## The promises
 
 1. **Preserve unsent text.** Startup, tab changes, execution and rejected submission preserve text and selection.
+   Startup editing never queues an implicit send on readiness; simultaneous restored and newly typed drafts remain recoverable rather than silently replacing one another.
    Broken: Missing characters or a moved selection violates the person's draft.
    Affected: the boundary's clients and the person relying on them.
 
@@ -33,7 +34,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: A partial pasted task reaching the engine breaks the input boundary.
    Affected: the boundary's clients and the person relying on them.
 
-3. **Project identified source.** Markdown is rendered from retained block source; tables retain header/cell relationships when width changes. Code inspection identifies its source block and never executes it. Scroll moves visual lines, holds an identified reading anchor and follows new output only at the tail.
+3. **Project identified source.** Markdown renders retained source; tables preserve cell relationships on resize. Code inspection identifies its block and never executes it. Syntax colour preserves copied code/whitespace; unknown languages, disabled colour and highlighting limits keep readable plain content without fetching grammars. Scroll moves visual lines, holds an identified anchor and follows output only at the tail.
    The default conversation emits stable rows into native terminal history without a selection mode switch or configuration change. Initial historical replay may be bounded with visible disclosure and full-source inspection/export; new output is not silently omitted.
    Broken: Duplicate output after finalization or resize breaks the transcript.
    Affected: the boundary's clients and the person relying on them.
@@ -43,10 +44,12 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: the boundary's clients and the person relying on them.
 
 5. **Own the terminal once.** The client releases terminal resources on exit, leaving emitted transcript readable. Resizing, finalization and temporary inspection never erase or duplicate committed history.
+   Ordinary startup opens a fresh full-height primary-screen workspace, moving prior shell output into native history without purging it. Missing cursor-query replies have a finite input-preserving fallback.
    Broken: Returning to the pre-app shell with no transcript, competing renderers, or a broken shell violates terminal ownership.
    Affected: the boundary's clients and the person relying on them.
 
-6. **Carry the agreed design into the terminal.** Actual captures preserve hierarchy, palette roles and a compact live composer at available width. Ordinary short replies remain visible in bottom-of-pane previews instead of being separated by unused screen space.
+6. **Carry the agreed design into the terminal.** Actual captures preserve hierarchy, palette roles and a compact bottom-aligned composer at available width. Full-pane previews contain the actual transcript; a cropped footer-only preview may omit short conversations above unused space.
+   Conversation, composer and inspection use every terminal column without outer horizontal gutters; input rows have no decorative side borders. Idle chrome fits the draft; mode and discoverable actions remain visible. Ordinary live views omit renderer/runtime branding; simulated and fixture execution remain clearly labelled.
    Broken: An unexplained width cap, default widget chrome or raw diagnostic dump replaces the design without an accepted adaptation.
    Affected: the person reading the conversation and the steward evaluating the product.
 
@@ -79,6 +82,10 @@ Which input/selection behavior first requires an explicit terminal-support restr
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Extend P3's code readability to source-preserving syntax colour. | READ-02 leaves every code token monochrome; steward requested continued progress. Colour is a projection, not execution or a source rewrite. |
+| 2026-09-14 | Clarify P6's edge-to-edge width. | Steward requested removing the remaining three-column outer inset; content indentation and local dialog structure remain meaningful. |
+| 2026-09-14 | Amend P5/P6 for full-height startup, open input and quiet live labels. | Explicit steward request supersedes cursor-anchored startup and the bottom-20-row short-preview guarantee; history retention and complete-pane previews remain mandatory. |
+| 2026-09-14 | Clarify content-sized chrome, editable startup and conservative probe fallback in P1/P5/P6. | [Latest Codex source study](../notes/CODEX-TERMINAL-SOURCE-STUDY.md) and steward approval; fixed ten-row idle layout is ours, not an inline-terminal requirement. |
 | 2026-09-13 | Permit disclosed bounds on initial historical replay in P3, separate from new output. | Replaying 100,000 historical items kept typing responsive but exceeded the four-second exit gate; dumping invisible backlog on quit made retention block control. |
 | 2026-09-13 | Correct P3/P5/P6 to default native history, retained exit output and compact previews. | Snapshot-only test missed ordinary use; isolated tmux history stayed empty and a bottom-20-lines preview missed a short reply. |
 | 2026-09-13 | Extend P3 to scrollable selection and native scrollback access. | Steward could copy one page but could not scroll during selection or use tmux history. |

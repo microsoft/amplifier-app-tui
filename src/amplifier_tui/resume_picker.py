@@ -12,10 +12,12 @@ def choose(state_dir):
         raise ValueError("No saved conversations in this state directory")
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise ValueError("Resume picker needs a terminal; use --resume ID or --resume latest")
-    return curses.wrapper(picker, rows)
+    return curses.wrapper(
+        picker, rows, lambda offset: session_choices(state_dir, None, offset=offset)
+    )
 
 
-def picker(screen, catalog):
+def picker(screen, catalog, load_page=None):
     screen.keypad(True)
     try:
         curses.curs_set(0)
@@ -41,12 +43,10 @@ def picker(screen, catalog):
         ]
         selected = min(selected, max(0, len(rows) - 1))
         line(1, "Amplifier · Resume conversation")
-        line(2, "Type to search · Up/Down choose · Enter open · Esc cancel")
+        line(2, "Type to filter page · Up/Down choose · Enter open · Esc cancel")
         line(
             3,
-            "Most recent 100 · more available by ID"
-            if catalog["truncated"]
-            else "Saved conversations · no work starts until selection",
+            f"Page {catalog.get('offset', 0) // 100 + 1} · PgUp/PgDn pages · no work starts until selection",
         )
         line(5, f"Search: {query}")
         count = max(1, height - 12)
@@ -80,6 +80,15 @@ def picker(screen, catalog):
             selected = max(0, selected - 1)
         elif key == curses.KEY_DOWN:
             selected = min(len(rows) - 1, selected + 1)
+        elif key in (curses.KEY_NPAGE, curses.KEY_PPAGE) and load_page:
+            offset = (
+                catalog.get("next_offset")
+                if key == curses.KEY_NPAGE
+                else max(0, catalog.get("offset", 0) - 100)
+            )
+            if offset is not None and offset != catalog.get("offset", 0):
+                catalog = load_page(offset)
+                selected = 0
         elif key in ("\n", "\r", curses.KEY_ENTER) and rows:
             row = rows[selected]
             if row["status"].startswith("recovery required"):

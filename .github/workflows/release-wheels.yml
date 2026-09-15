@@ -1,0 +1,39 @@
+name: Build native release candidates
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  wheel:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-14, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          python-version: "3.13"
+      - name: Select tested Rust compiler
+        run: rustup toolchain install 1.93.0 --profile minimal && rustup default 1.93.0
+      - name: Native unit tests
+        run: cargo test --release --locked --manifest-path frontends/ratatui/Cargo.toml
+      - name: Build and install without Cargo on PATH
+        id: wheel
+        run: uv run --no-project python scripts/release_wheel.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: wheel-${{ matrix.os }}
+          path: |
+            ${{ steps.wheel.outputs.wheel }}
+            ${{ steps.wheel.outputs.receipt }}
+          if-no-files-found: error
+          retention-days: 14
+# Deliberately no automatic tag, public upload, credentialed model call or release.
+# Review all platform receipts and integrated acceptance before publication.

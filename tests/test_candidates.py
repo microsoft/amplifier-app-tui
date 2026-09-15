@@ -27,7 +27,7 @@ def test_full_width_launch_and_resize_preserve_draft(frontend, initial_cols):
     probe = Probe([sys.executable, str(ROOT / "scripts/compare.py"), frontend], cols=initial_cols)
 
     def assert_layout(cols, rows):
-        pad = 3 if cols >= 80 else 2
+        pad = 0 if frontend == "ratatui" else (3 if cols >= 80 else 2)
         compose_y = rows - (7 if rows >= 30 else 5)
         approval_y = compose_y - (7 if rows >= 30 else 5)
         if frontend == "ratatui":
@@ -36,15 +36,15 @@ def test_full_width_launch_and_resize_preserve_draft(frontend, initial_cols):
         while time.monotonic() < deadline:
             display = probe.screen.display
             if frontend == "ratatui":
-                # Inline chrome follows output; locate it rather than enforcing
-                # fullscreen row numbers. Both composer edges use available width.
-                composers = [r for r in display if "╭ Message" in r]
+                composers = [r for r in display if r.strip().startswith("Message ·")]
                 if (
                     composers
-                    and composers[-1][pad] == "╭"
-                    and composers[-1][cols - pad - 1] == "╮"
-                    and any("Ratatui · SIMULATED" in r for r in display)
+                    and composers[-1].startswith(" " * pad + "Message")
+                    and "SIMULATED" in composers[-1]
+                    and "Ratatui" not in composers[-1]
                     and any("Review decision" in r for r in display)
+                    and probe.screen.buffer[rows - 1][cols - pad - 1].bg
+                    == probe.screen.buffer[rows - 1][pad].bg
                 ):
                     return
                 probe.read()
@@ -172,7 +172,9 @@ def test_real_runtime_terminal_round_trip_or_startup_error(frontend, failure, tm
         command += ["--require-tool", "absent-fixture-tool"]
     probe = Probe(command)
     try:
-        probe.wait("Enter send")
+        # The provisional editor is usable before runtime admission; Send is
+        # deliberately unavailable until ready in the working native client.
+        probe.wait("Message · Mode:" if frontend == "ratatui" else "Enter send")
         probe.send(b"Compute a digest")
         probe.wait("Compute a digest")
         probe.wait("Startup failed" if failure else "Ready")

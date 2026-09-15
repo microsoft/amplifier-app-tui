@@ -111,7 +111,7 @@ impl App {
         });
         self.menu("Code block · captured source · never executed", choices);
         self.ui.menu.as_mut().unwrap().detail = format!(
-            "Message: {} · block {} · {}\nSnapshot preview: up to 12000 characters. {}\n\n{}",
+            "Message: {} · block {} · {}\nSnapshot preview: up to 12000 characters. {}\n",
             safe(&block.message),
             block.ordinal,
             safe(&block.language).chars().take(80).collect::<String>(),
@@ -119,9 +119,9 @@ impl App {
                 "Copy unavailable: content exceeds 1 MiB."
             } else {
                 "Copy preserves the full parsed code content, including whitespace."
-            },
-            safe(&block.content.chars().take(12000).collect::<String>())
+            }
         );
+        self.ui.menu.as_mut().unwrap().code = Some(block);
     }
 }
 

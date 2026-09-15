@@ -27,6 +27,9 @@ occur. A missing provider key is expected before live setup, not a broken instal
 the directory you want to work in, then run `amplifier-tui`. The default is the `anchors`
 preset with Haiku. `--preset anchors-amp-dev` chooses the development preset; custom
 providers use trusted `--bundle` / `--overlay` configuration. No CLI credentials are imported.
+`amplifier-tui --setup` guides creation of a new private provider/model overlay without
+storing a key or overwriting files. In an open app, **Actions → Model catalog** queries
+reported model IDs for reference; it does not validate access or change the active model.
 First launch downloads bundle/module code and installs dependencies; allow it time.
 Only load sources you trust. Model calls incur charges.
 

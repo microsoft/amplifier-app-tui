@@ -265,3 +265,20 @@ def test_live_probe_readiness_ignores_restored_ready_text(monkeypatch):
     probe = Observer()
     wait_ready(probe)
     assert probe.reads == 1
+
+
+def test_live_probe_readiness_handles_wrapped_controls(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.syspath_prepend(str(ROOT / "scripts"))
+    from questions_probe import wait_ready
+
+    class Observer:
+        screen = SimpleNamespace(
+            display=["Old Ready text", "[ Actions ] [ Send ]", "[Modes]", "Starting"]
+        )
+
+        def read(self, timeout):
+            self.screen.display[-1] = "Ready"
+
+    wait_ready(Observer())

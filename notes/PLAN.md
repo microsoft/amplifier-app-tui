@@ -7,6 +7,59 @@ Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
 ## Current wave: direction and verification scaffolding
 
+Steward-authorized whole-backlog wave (2026-09-14): implement all seven groups from
+the backlog review. Existing local changes and upgrade notes remain preserved. These
+are work items, not completion claims or formal Converge verdicts. Run terminal gates
+serially; real platform/release evidence cannot be replaced with configuration files.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| POLISH-02 | presentation.v1:4, presentation.v1:5, presentation.v1:6 | Concise truthful completion; shorter input-preserving resize probe; terminal breadth | Native failure/unknown visibility and silent/delayed-query input/retention tests | Quiet outcomes and 100 ms Unix probe implemented; Linux native/tmux tests. Other terminals/platforms remain |
+| LIFE-02 | session.v1:8, continuity.v1:2 | Own partial startup and cancellation; explicit uncertain-admission resolution | Inject mount/cancel/storage faults; no leaked work, silent retry or loss of source | Public owned-session factory and explicit dismissed queue receipts tested. Uncooperative cleanup and hook coroutine cancellation warning remain |
+| INSTALL-02 | ecosystem.v1:1, ecosystem.v1:2 | Prebuilt release wheels; platform gates; explicit provider/model setup | Isolated compiler-free install, supported-platform native smoke, private configuration with no credential logging | Private offline setup wizard and advisory model discovery implemented; Linux ARM64 compiler-free wheel test passes. Manual four-platform candidate workflow added, not run remotely/published |
+| INPUT-03 | interaction.v1:3, ecosystem.v1:2 | Images/references and instruction-source visibility | Actual capability-backed media turn; immutable inputs and observed provenance, unsupported paths fail explicitly | One immutable PNG/JPEG with durable admission; both live presets identify controlled image. Instruction-source index observes actual resolutions. Multiple/queued/clipboard images and semantic references remain |
+| CHILD-03 | ecosystem.v1:6, continuity.v1:1 | Broader child continuation, detail refresh, recipe recovery | Reconstructed policy/context and independent storage; no implicit child/recipe replay | Nested/routed completed continuation, isolated persistent context and list refresh tested. Both real v2 presets resume a failed recipe after reopen without repeating completed steps. Interrupted children/custom orchestrator/subprocess recovery remain |
+| FIND-02 | interaction.v1:1, interaction.v1:4, presentation.v1:7 | Cross-conversation content search, catalog paging, richer review and attribution | Bounded local discovery beyond first page; exact source/identity; no model work or fabricated authorship | Paged startup/in-app catalogs and bounded source-attributed message search implemented. Recipe review drafts added. Indexed large-store discovery and causal Git/test attribution remain |
+| READY-02 | performance.v1:1, performance.v1:2, ecosystem.v1:6 | Matched CLI measurement and independent seam/policy coverage | Reproducible equivalent-policy samples, exercised swaps, explicit platform/measurement uncertainty | Expanded independent loop/context child storage/continuation tests. Current CLI still injects additional skills/routing/wayfinder/app policies; equivalent end-to-end measurement and broader all-seam policy proof remain unresolved |
+
+Sequence: lifecycle/quiet status and discovery; setup/distribution; richer input/context;
+delegation/review; final integrated gates and matched measurements. Any unsupported
+runtime seam is investigated rather than represented by a cosmetic control.
+
+Steward-authorized reading polish (2026-09-14), toward presentation P3/P7:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| READ-03 | presentation.v1:3, presentation.v1:7, performance.v1:3, performance.v1:5 | Syntax colour in Markdown and captured code inspection with bounded local work | Real terminal token colours, exact source copy, resize/stream preservation, plain fallback and measured responsiveness | Implemented: 349 Python / 29 Rust tests, both live presets, native captures and code-heavy typing p95 21.121 ms; bounded bundled grammars, no execution/module changes |
+| EDIT-02 | presentation.v1:1, presentation.v1:6 | Restore a fitting draft's first row after inspection viewport growth | A one-row-to-three-row editor redraw shows all lines without changing cursor, selection, text or undo | Implemented: deterministic viewport/intent/undo regression and real tmux resize/inspection/exit checks; original draft remains mounted |
+
+Steward-requested edge-to-edge width (2026-09-14), toward amended presentation P6:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| WIDTH-01 | presentation.v1:6, presentation.v1:2, presentation.v1:5 | Remove outer horizontal gutters from native output, composer and inspection | Exact full-column wrapping and copied text; tmux resize/exit retains source once without right-edge artifacts | Implemented: 347 Python / 25 Rust tests, exact-width tmux copying/retention, both live presets and 18-cell renderer benchmark; captures inspected. Internal indentation and historical OpenTUI comparator preserved |
+
+Steward-authorized workspace polish (2026-09-14), toward amended presentation P5/P6:
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| WORKSPACE-01 | presentation.v1:5, presentation.v1:6, presentation.v1:2 | Fresh primary page, bottom composer, open input and quiet live labels | Real tmux at top/middle/bottom shell origins retains prior output, transcript and copied multiline input through resize/inspection/exit; no side-border glyphs or live implementation labels | Implemented: 344 Python / 25 Rust tests, both live presets and current 18-cell benchmark. Native startup/inspection/exit captures checked; subjective review remains. Startup needs no CPR; finite resize fallback remains |
+
+Steward-authorized direct-source wave (2026-09-14): adopt the useful Codex terminal
+mechanisms without importing history erasure, unbounded delivery or execution policy.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| QUIET-01 | presentation.v1:6, interaction.v1:3 | Content-sized composer, contextual controls and persistent mode | Empty draft takes five control rows plus an empty cursor-anchor separator; multiline grows; native captures, narrow controls and resize retain text/history | Implemented: growing glyph-wrapped editor, contextual controls, bounded title, visible mode; real native/tmux and both live presets. Steward visual review remains |
+| STARTUP-03 | presentation.v1:1, session.v1:1 | Explicit readiness, non-submitting early editing and restored-draft preservation | Delayed startup accepts Unicode/selection; premature Enter adds zero submissions; readiness preserves draft and never auto-sends | Implemented: readiness field, guarded submission, copy-only scoped backup before overwriting late-restored text; delayed PTY and storage-failure tests. Pre-store/unflushed input is not durable |
+| TERMINAL-02 | presentation.v1:5, performance.v1:4 | Conservative missing-query fallback and stronger tmux retention evidence | Silent cursor responder does not abort or swallow input; startup/resize/inspection/exit never purge shell or transcript history | Implemented on Linux PTY/tmux 3.4: delayed/silent CPR, top/middle/bottom startup, copy during streaming and resize/exit retention. Empty anchor fixes stale borders; two-second fallback remains, not a 100 ms owned probe |
+
+Steward-authorized development command (2026-09-14): make ordinary `amplifier-tui`
+track this checkout. This fulfills existing ecosystem P1's identifiable launch, without
+changing installed-product defaults or migrating state. Use the established workspace
+launcher/environment, preserve caller cwd, build native changes before interactive launch,
+and keep informational commands build-free. Record the external symlink for safe teardown.
+
 Steward-authorized newcomer wave (2026-09-14): make first installation and everyday
 controls understandable without a developer workspace or implicit execution.
 
@@ -113,7 +166,7 @@ Current structured-reading wave:
 
 | Item | Source promises | Gap and action | Observable completion / falsifier | State |
 |---|---|---|---|---|
-| READ-02 | presentation.v1:3, presentation.v1:7, performance.v1:5, interaction.v1:2 | Responsive Markdown tables and identified code-block inspect/copy | Wide alignment and narrow labelled cells preserve content; copying an inspected snapshot never executes code or retargets a growing stream | Implemented; native fixture/resize/resume/bounds and simulated growing-source tests pass; both live presets render tables and copy exact code without execution. Syntax highlighting remains |
+| READ-02 | presentation.v1:3, presentation.v1:7, performance.v1:5, interaction.v1:2 | Responsive Markdown tables and identified code-block inspect/copy | Wide alignment and narrow labelled cells preserve content; copying an inspected snapshot never executes code or retargets a growing stream | Implemented; native fixture/resize/resume/bounds and simulated growing-source tests pass; both live presets render tables and copy exact code without execution. READ-03 adds syntax colour |
 | REVIEW-02 | presentation.v1:7, interaction.v1:2, performance.v1:5 | Colour unified diffs and navigate observed hunks locally | Hunk selection/copy keeps comparison identity and draft; no Git refresh, mutation or model call implied | Implemented; Rust bounds/style and temporary real Git PTY tests pass, including external file changes after observation. Snapshot navigation retains original hunk and draft; no attribution/patch-application claim |
 
 Current questions and workspace-review wave:

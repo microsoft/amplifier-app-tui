@@ -6,6 +6,11 @@ use ratatui::widgets::Clear;
 pub(super) enum Action {
     Menu,
     Conversations,
+    ConversationPage(usize, String),
+    FindSaved,
+    RecipeRequest(String),
+    Models,
+    DiscoverModels,
     Rename,
     Find,
     Replies,
@@ -29,6 +34,8 @@ pub(super) enum Action {
     QueueItem(String),
     QueueEdit(String),
     QueueControl(String, String),
+    QueueResolve(String),
+    QueueResolveConfirm(String),
     CorrectActive,
     Corrections,
     Questions,
@@ -68,6 +75,10 @@ pub(super) enum Action {
     Diagnostics,
     LocalDrafts,
     FileInput,
+    ImageInput,
+    ImageDraft,
+    ImageSelect(String),
+    ImageRemove(String),
     InsertFile(Arc<Value>, String),
     ExternalEditor,
     Inspect(String, Option<String>),
@@ -94,6 +105,7 @@ pub(super) struct Menu {
     pub selected: usize,
     pub choices: Vec<Choice>,
     pub diff: bool,
+    pub code: Option<Arc<code_blocks::CodeBlock>>,
     pub detail_cache: Option<(u16, bool, String, Vec<Line<'static>>)>,
 }
 
@@ -155,11 +167,28 @@ impl App {
             selected: 0,
             choices,
             diff: false,
+            code: None,
             detail_cache: None,
         });
     }
 
     pub fn activate(&mut self, action: Action) -> bool {
+        if !self.ready
+            && !matches!(
+                action,
+                Action::Menu
+                    | Action::Help
+                    | Action::HelpTopic(..)
+                    | Action::Quit
+                    | Action::LocalDrafts
+                    | Action::LocalDraft(..)
+                    | Action::CopyText(..)
+                    | Action::CancelSwitch
+            )
+        {
+            self.status = "Session not ready · draft retained; send explicitly when ready".into();
+            return true;
+        }
         if self.nav.switching.is_some() && !matches!(action, Action::CancelSwitch | Action::Quit) {
             return true;
         }
@@ -189,6 +218,12 @@ impl App {
                     choice("Delegated work — inspect agents and recipe children", Action::Inspect("children".into(), None)),
                     choice("Activity evidence — tools and runtime observations", Action::Inspect("activity".into(), None)),
                     choice("Context intelligence — usage, compaction and logging", Action::Inspect("context".into(), None)),
+                    choice("Instruction sources — inspect resolved context origins", Action::Inspect("instructions".into(), None)),
+                    choice("Attach image — PNG/JPEG snapshot", Action::ImageInput),
+                    choice("Attached image — inspect or remove", Action::ImageDraft),
+                    choice("Search saved conversations — local content search", Action::FindSaved),
+                    choice("Recipe activity — inspect runs and prepare a review request", Action::Inspect("recipes".into(), None)),
+                    choice("Model catalog — discover configured providers' model IDs", Action::Models),
                     choice("Pending follow-ups — inspect / pause / run / remove", Action::QueueList),
                     choice("Corrections — inspect insertion status / copy text", Action::Corrections),
                     choice("Questions — answer / review / cancel clarification requests", Action::Questions),
@@ -246,7 +281,26 @@ impl App {
                 if self.view < 2 { self.anchors[self.view] = None; }
                 self.expanded = false;
             }
-            Action::Conversations => self.lookup(None, String::new()),
+            Action::Conversations => self.conversation_page(0, String::new()),
+            Action::ConversationPage(offset, query) => self.conversation_page(offset, query),
+            Action::FindSaved => self.prompt("Search saved conversations"),
+            Action::Models => {
+                self.menu("Model catalog · explicit discovery", vec![choice("Query configured providers (may contact their services)", Action::DiscoverModels)]);
+                self.ui.menu.as_mut().unwrap().detail = "Queries module-reported model catalogs, not a model completion. Does not change providers, models, credentials, routing or the draft. Catalogs may be static; access is not validated.".into();
+            }
+            Action::DiscoverModels => {
+                self.insights.lookup = Some((self.request + 1).to_string());
+                self.menu("Model catalog · querying", vec![]);
+                self.send(json!({"op":"discover_models"}));
+            }
+            Action::RecipeRequest(identity) => {
+                self.draft.insert_str(format!("\nPlease inspect recipe session {} and explain its completed and unfinished steps. I am considering an explicit resume; do not resume, retry, approve, or execute anything until I confirm after your explanation.", serde_json::to_string(&identity).unwrap()));
+                self.status = "Recipe review request added to draft · edit and Send explicitly".into();
+            }
+            Action::ImageInput => self.prompt("Attach image"),
+            Action::ImageDraft => self.image_draft_menu(),
+            Action::ImageSelect(id) => self.send(json!({"op":"image_select", "id":id})),
+            Action::ImageRemove(id) => self.send(json!({"op":"image_remove", "id":id})),
             Action::RecoverChoice(id) => {
                 self.menu("Recover into a new conversation?",vec![choice("Create recovered conversation — no replay",Action::Recover(id))]);
                 self.ui.menu.as_mut().unwrap().detail="The original stays unchanged. Historical transcript becomes reference context, not pending execution. No tools or queued work are replayed. Partial external effects may remain. Escape cancels.".into();
@@ -319,6 +373,11 @@ impl App {
                 }
             }
             Action::QueueControl(op, id) => self.send(json!({"op":op, "id":id})),
+            Action::QueueResolve(id) => {
+                self.menu("Resolve uncertain follow-up · no retry", vec![choice("Acknowledge unknown effects and dismiss from execution", Action::QueueResolveConfirm(id))]);
+                self.ui.menu.as_mut().unwrap().detail = "This input may or may not have run. Inspect its source and workspace first. This leaves a dismissed record, keeps the queue paused, and neither retries nor undoes anything. Escape keeps it unresolved.".into();
+            }
+            Action::QueueResolveConfirm(id) => self.send(json!({"op":"queue_resolve", "id":id, "acknowledge_unknown":true})),
             Action::CorrectActive => self.correct_active(),
             Action::Questions => self.question_list(),
             Action::WorkspaceChanges => self.review_lookup(None),
@@ -561,7 +620,7 @@ impl App {
             KeyCode::Up
                 if self.ui.focus.is_none()
                     && key.modifiers.is_empty()
-                    && self.draft.cursor().0 == 0 =>
+                    && composer::at_vertical_boundary(&self.draft, true) =>
             {
                 self.ui
                     .recall
@@ -571,7 +630,7 @@ impl App {
             KeyCode::Down
                 if self.ui.focus.is_none()
                     && key.modifiers.is_empty()
-                    && self.draft.cursor().0 + 1 == self.draft.lines().len() =>
+                    && composer::at_vertical_boundary(&self.draft, false) =>
             {
                 self.ui
                     .recall
@@ -703,6 +762,10 @@ impl App {
     }
 
     pub fn submit_draft(&mut self) -> bool {
+        if !self.ready {
+            self.status = "Session not ready · draft retained; send explicitly when ready".into();
+            return true;
+        }
         let value = self.draft.lines().join("\n");
         let action = match value.trim() {
             v if v.starts_with("/mode ") => Some(Action::ModeNamed(v[6..].trim().into())),
@@ -800,7 +863,21 @@ impl App {
                 *w != content_width || *diff != menu.diff || source != detail
             })
         {
-            let lines = if menu.diff {
+            let lines = if let Some(code) = &menu.code {
+                let mut lines = wrap(detail, content_width as usize)
+                    .into_iter()
+                    .map(|s| Line::styled(s, Style::default().fg(INK)))
+                    .collect::<Vec<_>>();
+                let preview = safe(&code.content.chars().take(12000).collect::<String>());
+                let mut budget = syntax::MAX_BYTES;
+                let code_lines = if syntax::eligible(&code.content) {
+                    syntax::lines(&preview, &code.language, &mut budget)
+                } else {
+                    syntax::plain(&preview)
+                };
+                lines.extend(markdown::reflow(code_lines, content_width as usize));
+                lines
+            } else if menu.diff {
                 workspace::diff_lines(detail, content_width as usize)
             } else {
                 wrap(detail, content_width as usize)

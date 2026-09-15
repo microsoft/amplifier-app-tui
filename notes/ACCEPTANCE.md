@@ -1,5 +1,288 @@
 # First vertical slice — acceptance evidence
 
+## Whole-backlog implementation and release candidate (2026-09-14)
+
+The steward authorized all seven backlog groups. The per-repo-conventions skill drove
+the VISION/interaction/ecosystem/continuity amendments before implementation and a
+fresh-context privacy review before publication. This is progress across those groups,
+not closure of every residual or a formal Converge verdict; contracts remain DRAFT.
+
+- Native saved-conversation search covers message content with source identities and
+  bounded reads; startup/in-app catalogs page beyond 100 records. Large-store indexing
+  is not implemented. No searched message is imported into model context.
+- One explicit workspace PNG/JPEG snapshot (2 MiB maximum) survives draft restart and
+  is admitted once, by identity, into the canonical context of a vision-capable provider.
+  Metadata confirmation precedes attachment; preview/remove do not execute anything.
+  Multiple/queued/clipboard images and semantic references remain unsupported.
+- Instruction-source inspection projects actual Foundation `mentions:resolved` events;
+  it neither rebuilds context nor claims to list every provider instruction. Explicit
+  model discovery calls the mounted providers' public catalog API, bounds the result,
+  and copies advisory IDs without changing conversation policy. The offline `--setup`
+  wizard writes a new private environment-reference overlay, not credentials/shared settings.
+- Completed nested/routed children can resume with their actual parent active and exact
+  reconstructed policy/context. Persistent child context has identity-isolated files.
+  Child lists refresh while open without changing focus. Recipe activity can prepare a
+  review request, never silently resume work. Both actual v2 preset tests fail a recipe,
+  reopen the host, then explicitly resume without repeating its completed first step.
+- The public owned-session factory acquires the session before awaiting initialization,
+  preserves Foundation resolver/prompt capabilities, and drains cleanup after partial
+  startup failure/cancellation. Explicit uncertain-delivery dismissal preserves a receipt
+  and keeps the queue paused; it does not imply retry, rollback or repaired root context.
+- Completion wording is shorter while failed/unresolved tools remain visible. The Unix
+  resize probe has a 100 ms deadline and replays captured input using the pinned Crossterm
+  fork. A silent responder disables later queries; conservative fallback retains history.
+
+Integrated verification: **371 Python tests passed** with native candidates, both presets
+and independent swaps enabled; **30 Rust tests passed** both normally and with NO_COLOR.
+Clippy warnings-denied, Cargo format, Ruff/format (121 files), direction/archive integrity
+(575 contract lines, 48 production files), wheel and sdist builds passed. Three cancellation
+warnings remain in child/module hook callbacks; this is not complete lifecycle hardening.
+
+The full suite exposed two real integration defects: the new recipe action's old “resume”
+description stole fuzzy Resume selection; and history recall could leave input blocked
+after a Ready snapshot. The recipe action now says review, and recall completes before
+switch publication; native input remains visibly paused until correlated confirmation.
+Deterministic delayed-switch tests verify no false Ready or deferred submission.
+
+The final [image/discovery live receipt](evidence/backlog-live.json) covers both presets:
+controlled red/blue image identified, exact canonical image bytes, no tool calls, instruction
+inspection and explicit model discovery without another turn. The [tool live receipt](evidence/backlog-tools-live.json)
+covers successful read_file, rendered tables, syntax-coloured code, exact copy, retained draft
+and no extra execution on both presets. Actual private captures were inspected. These four
+billed root turns use isolated state; the steward's conversations and local upgrade files
+remain untouched.
+
+The final [renderer receipt](evidence/backlog-benchmark.json) contains 30 startup pairs and
+18 history/stream cells through 100,000 retained items. Worst Ratatui editing p95 was
+**20.402 ms**, stream p95 **21.036 ms**, peak RSS **136040 KiB**. The separate six-grammar,
+100-code-block/240-edit case measured **20.891 ms** p95, maximum **42.053 ms**. First editable
+startup median/p95 was **41.548/58.282 ms**. These are synthetic renderer measurements,
+not equivalent-policy CLI or cold-install performance. Source fingerprints match.
+
+The 0.3.0rc1 Linux ARM64 wheel passed isolated installation with Cargo absent, byte-identical
+native extraction, actual executable loading, offline diagnostics/guidance and no state
+creation. Source distributions include the native source/build hook and exclude private
+archives/state. The new manual four-platform workflow is a packaging/native-unit gate,
+not a substitute for terminal or live-provider conformance on those platforms.
+
+Fresh-context review found build-home paths embedded in the earlier candidate executable.
+The corrected build remaps compiler paths; the release gate scans every decompressed wheel
+member and its receipt, withholds raw build/install logs, and uploads only exact verified
+artifacts. Independent review found no remaining blocker for the corrected candidate.
+The unsafe local 0.2.1 wheel and receipt were quarantined recoverably, not published.
+
+Remaining work is explicit in the seven current PLAN rows: uncooperative module cleanup,
+interrupted/custom-orchestrator/subprocess child recovery, broader media/references,
+large-store indexing, causal Git/test attribution, equivalent-policy CLI performance and
+all-seam policy/platform evidence. A passing renderer benchmark does not close CLI parity.
+
+## Syntax-coloured code and fitting-draft recovery (2026-09-14)
+
+READ-03 closes the code-colour gap recorded under READ-02. The per-repo-conventions
+skill drove a VISION/presentation P3 amendment before implementation; all contracts remain
+DRAFT. Pinned Syntect grammars are bundled in the native binary, not downloaded from reply
+metadata. Python, Rust, JavaScript, shell and JSON are exercised. Multiline lexical state
+stays within one block; foreground colour does not change copied code or source identity.
+Native unfinished fences stay plain; unknown languages, NO_COLOR, parser errors and size
+limits retain readable plain source. Highlighting has a 16 KiB per-render budget, 256 lines
+per block, 1024 bytes per line and eight cached source/language entries. These bound input,
+not worst-case regex CPU time. Code inspection retains its original snapshot separately
+from explanatory labels; oversized full blocks also remain plain in truncated previews.
+
+The first wider tmux run exposed an existing viewport-growth defect: returning from a
+one-row inspection editor could display only the last line of a fitting three-line draft.
+EDIT-02 restores the renderer origin through public textarea operations, without resetting
+text, cursor, selection or undo. A deterministic widget test reproduces the precise small-
+to-large transition; the actual tmux suite passes after the correction.
+
+Verification: **349 Python tests passed**, **29 Rust tests passed**; colour-enabled and
+NO_COLOR runs, Clippy warnings-denied, Ruff/format, Cargo format, direction/archive checks
+and wheel/sdist build passed. The build packages the native executable and new grammar
+dependency, excluding private state/archives. Four known cancellation warnings remain
+(`run_orchestrator`, child observer, module handler and logging handler); no lifecycle fix
+or general module-conformance claim is made by this rendering-only wave.
+
+Private native and inspection captures were reviewed. The [live receipt](evidence/syntax-live.json)
+exercises both presets with successful read_file, actual coloured code inspection, exact
+code copy, retained main draft and zero extra execution from copying. The earlier 23-test
+focused run also covers native colour/plain fallback, resize, real fixture resume and tmux
+history. No user conversation, new upgrade documents or upstream module sources were changed.
+
+Review focus on relaunch: is code easier to scan in replies and **Actions → Code blocks**,
+and does the multiline composer fully recover after returning from a narrow inspection?
+
+The final [benchmark](evidence/syntax-benchmark.json) ran after tests/builds/live calls:
+30 startup pairs and 18 retained-history stress cells through 100,000 items. Ratatui's
+worst editing p95 was **20.411 ms**, stream p95 **21.432 ms**, peak RSS **135668 KiB**.
+The separate 100-code-block/six-grammar case measured **21.121 ms** editing p95 over
+240 edits (maximum **35.849 ms**, peak RSS **34388 KiB**), including cold grammar use.
+First editable startup median/p95 was **46.764/59.410 ms**. These are synthetic renderer
+measurements, not a matched CLI-policy or cold-install comparison. Source fingerprints
+match; all test resources are reaped. The private repo and development link remain
+intentionally retained, and ordinary `amplifier-tui` picks up this batch on relaunch.
+
+## Edge-to-edge terminal width (2026-09-14)
+
+WIDTH-01 follows the steward's request to remove the remaining side padding. The
+per-repo-conventions skill drove the VISION/presentation P6 amendment before code;
+contracts remain DRAFT. Native transcript emission, live preview, composer and inspection
+now use every column. Markdown indentation and local dialog structure remain unchanged;
+the historical OpenTUI comparator retains its old inset. No runtime/kernel changes.
+
+Verification: **347 Python tests passed**, **25 Rust tests passed**, Clippy warnings-denied,
+Ruff/format, Cargo format, direction/archive integrity (569 contract lines, 47 production
+files) and wheel/sdist build passed. One existing upstream `LoggingHandler.__call__`
+cancellation warning remains; this display change does not resolve that lifecycle issue.
+The native package includes the executable and excludes private state/archives.
+
+The focused 29-test run checks zero-gutter input at 40/80/160/200 columns in ordinary
+and inspection views. A full-width 120-column transcript row survives actual tmux copying,
+resize, inspection and exit without loss/duplication. Existing shell/150-row/stream retention
+checks also pass. Private edge-to-edge input and both live-preset captures were inspected.
+The [live receipt](evidence/edge-to-edge-live.json) records two turns for each preset,
+successful read_file/load_skill, ordinary keyboard controls and exit 0. Tests use isolated
+state, not the steward's conversation. Existing local edits and running app remain intact.
+
+The [renderer benchmark](evidence/edge-to-edge-benchmark.json) ran separately after tests,
+builds and live calls: 30 startup pairs and 18 stress cells through 100,000 retained items.
+Ratatui worst-cell editing p95 was **20.920 ms**, stream p95 **21.380 ms**, peak RSS
+**135108 KiB**. First editable response median/p95 was **55.996/60.124 ms**; these are
+synthetic renderer observations, not matched CLI-policy parity or a startup non-regression
+claim. Source fingerprints match the measured renderer. All test resources were reaped;
+only the intentionally retained private repository and development command link remain active.
+
+Review focus on relaunch: do the composer and ordinary text now meet both terminal edges,
+without application-added spaces in copied multiline text? Linux PTY/tmux 3.4 is verified;
+terminal-emulator padding and other platforms are outside this change.
+
+## Full-height workspace and open input (2026-09-14)
+
+WORKSPACE-01 follows the steward's explicit request. The per-repo-conventions workflow
+amended VISION and presentation P5/P6 before implementation; all direction remains DRAFT.
+This deliberately adapts the studied Codex mechanisms, not every Codex startup path.
+
+- Startup moves the preceding whole screen into native history and opens a fresh primary
+  page. The composer sits at the bottom while the transcript grows above it. No alternate
+  screen or cursor-position query is needed for startup; early input stays editable.
+- Ordinary and inspection composers have no side borders or repeated prompt characters.
+  The mode, available actions and a bounded conversation title remain visible. Live views
+  omit Ratatui/LIVE RUNTIME and say simply Ready; fixture/simulation warnings, errors and
+  independent tool-outcome qualifications remain. Rename still updates the visible title.
+- Real tmux tests cover shell origins at top/middle/bottom, exact multiline Unicode copy
+  buffers, 150 committed rows, copy during streaming, narrow/wide resize, resized inspection
+  return and direct quit, terminal-mode restoration and retained exit output. Tests count
+  markers once and verify no leftover composer, not merely a surviving screenshot.
+- Full-pane previews contain the transcript. Bottom-only crops may omit short replies
+  above the unused space; the steward's new full-height direction supersedes that earlier
+  compact-preview guarantee. Terminal scrollback capacity remains terminal-owned.
+
+Two implementation defects were reproduced and fixed: ED at row zero can archive a
+provisional full-height frame in tmux; owned-line EL avoids that. Returning from resized
+inspection must query the restored primary anchor, not subtract the old live height and
+erase short replies. The test observer also now checks actual PTY TIOCGWINSZ before the
+next edit: tmux's grid can resize before its PTY. Capturing that intermediate state is not
+proof of a completed application redraw. These lessons live in SMOKE_TESTS and ENGINE-BOUNDARY.
+
+Final verification: **344 Python tests passed**, **25 Rust tests passed**, Clippy with
+warnings denied, Rust formatting, Ruff/format, direction/archive-integrity checks and
+wheel/sdist build. The full suite emitted two cancellation warnings (`run_orchestrator`
+and `LoggingHandler.__call__` not awaited); this wave does not resolve runtime cancellation
+ownership. Package contents include the native binary and omit private state/archives.
+
+The [live receipt](evidence/workspace-live.json) records both presets, two turns each,
+successful read_file/load_skill, keyboard Actions/evidence and exit 0. Actual ready and
+completed captures for both presets were inspected privately. No user conversation was
+opened, migrated or stopped; the existing development command picks this up on relaunch.
+
+The [benchmark](evidence/workspace-benchmark.json) ran after our tests/builds/live calls:
+30 startup pairs and 18 stress cells through 100,000 retained items. Ratatui's worst-cell
+edit p95 was **21.301 ms**, stream p95 **21.844 ms**, peak RSS **135152 KiB**. First editable
+response median was **41.453 ms**, p95 **57.901 ms**. All 21 live and 25 benchmark source
+fingerprints match final code. These are synthetic renderer measurements, not matched
+CLI-policy or cold-start parity. All test resources were reaped; the private repository
+and development command link remain intentionally retained. Existing local edits are preserved.
+
+Review focus: does the fresh-page startup now feel like the expected workspace, and do
+multiline selections feel natural in the steward's terminal/tmux configuration? Linux
+PTY/tmux 3.4 is the exercised environment; no universal terminal claim. Resize queries
+still have the finite two-second fallback, including return/exit from resized inspection;
+ordinary startup and unchanged-size exit no longer need such a query.
+
+## Direct Codex adoption: quieter native surface (2026-09-14)
+
+QUIET-01 / STARTUP-03 / TERMINAL-02 follow the steward-approved direct source study.
+The per-repository conventions workflow drove the VISION/presentation amendments first,
+then implementation and evidence. Contracts remain DRAFT. This is an original Ratatui
+app implementation, not a copied Codex runtime, replacement kernel or full parity claim.
+
+- Ordinary idle controls occupy five rows plus an empty cursor-anchor separator,
+  instead of ten permanent dashboard rows. The glyph-wrapped editor grows to six text
+  rows. Mode stays visible, long titles are bounded, and Queue/Steer/Stop/questions/pending
+  controls earn space when relevant. Existing Actions routes remain available.
+- Real hosts report readiness explicitly. Early typing, Unicode, selection and undo
+  survive startup; premature Enter never auto-submits on readiness. A late restored draft
+  becomes a scoped copy-only recovery entry, persisted before a replacing mutation.
+  Corrupt/full backup storage refuses the mutation; no text is injected into model context.
+- Missing CPR replies fall back after Crossterm's existing two-second timeout using
+  CRLF, not a scrollback purge. Input stays buffered. This is not Codex's 100 ms probe.
+- Actual tmux tests preserve the pre-app shell marker, all 150 transcript rows, selection
+  through history, copying during active streaming, overlay return and exit output.
+  Startup is tested at top/middle/bottom positions. Resize also counts live borders:
+  parking on the wide border let tmux reflow its anchor onto a continuation and leak
+  stale chrome. An empty live separator fixes this without purging history or sleeping.
+  The growth floor now applies only to height growth with an unmoved cursor.
+
+Verification: full native/presets/swaps suite **341 passed** (before the final title-width
+cap); final compact/tmux/workflow/observer checks **13 passed**, final default suite
+**262 passed / 80 optional skips**, Rust **24 passed**, Clippy warnings-denied, Ruff/format
+and direction/archive-integrity checks pass. Full integration still emits four instances
+of the previously observed unawaited upstream hook-cancellation warnings; not resolved.
+A random UUID containing `999` also exposed a false-positive context-isolation assertion;
+that test now checks structured observations instead of searching serialized identities.
+
+Final [live receipt](evidence/compact-live.json): both presets, two turns each, actual
+`read_file` and `load_skill` success, keyboard Actions/evidence inspection and exit 0.
+The real development PATH link also passed a fixture tool turn from an isolated cwd,
+saved an unsent Unicode draft and restored the terminal. No real user conversation was
+opened or migrated. Private native `compact-*`, `anchors-inline`, `anchors-amp-dev-inline`
+and `compact-development-command` captures were inspected; screenshots are not published.
+
+Final [benchmark receipt](evidence/compact-benchmark.json): 30 alternated startup pairs
+and 18 stress cells through 100,000 retained items, run without our tests/builds/provider
+work. Ratatui worst cell typing p95 **20.837 ms**, stream p95 **20.998 ms**, peak RSS
+**135184 KiB**. First editable response median **46.893 ms**, p95 **61.441 ms**; scene
+readiness is separate. The observer now locates the provisional composer rather than
+waiting for Send, and recognizes typed tokens across wrapped rows in both candidates.
+All 25 benchmark and 21 live source fingerprints match the final tree. These are
+synthetic renderer measurements, not cold-start or matched CLI-policy parity. All test
+resources are reaped; only the intentionally retained private repo and command link remain.
+
+Remaining scope: visual acceptance by the steward, a shorter owned terminal probe,
+unflushed/pre-store startup durability, matched CLI-policy performance, cross-platform
+terminal coverage, quieter outcome/status wording and the existing partial-init/hook
+cleanup gaps. No global theme replacement, history-purging replay or unbounded queue
+was imported. Review question: does the smaller growing composer now leave the right
+amount of room for the conversation while keeping mode and actions discoverable?
+
+## Opt-in development command (2026-09-14)
+
+At the steward's explicit request, the ordinary PATH command now follows this checkout
+through a symlink to `scripts/dev-launch`. No previous PATH command was overwritten.
+The wrapper uses the existing workspace environment and conversation store, preserves
+caller cwd, forwards arguments and checks a locked incremental native build before each
+interactive launch. Build failure refuses the stale UI; diagnostics do not build. It does
+not hot-reload a running session, auto-sync Python dependencies or change release defaults.
+The external link is recorded in the workspace manifest and must be removed/replaced
+before destroying the checkout. User conversation files and shared CLI installations
+were not changed. No new vision promise or formal ratification was needed.
+
+Verification: six wrapper tests plus onboarding/installation tests **30 passed**; the
+default suite **258 passed / 74 optional tests skipped**. Ruff/format/direction checks pass.
+The actual user PATH link passed doctor/version/check, native build and a real fixture
+tool turn from a different cwd, with isolated state and terminal cleanup. An initial probe
+accidentally used uv's prepended editable console script; resolving the user's command
+before that PATH change fixed the test target. All test process groups were reaped.
+
 ## Newcomer approachability — 0.2.1 (2026-09-14)
 
 WELCOME-01 / SETUP-01 move toward interaction P1/P6 and ecosystem P1. Vision/contracts

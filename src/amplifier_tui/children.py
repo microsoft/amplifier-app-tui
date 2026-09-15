@@ -10,7 +10,11 @@ from dataclasses import replace
 from pathlib import Path
 
 from amplifier_core import HookResult
-from amplifier_foundation import Bundle, apply_provider_preferences_with_resolution
+from amplifier_foundation import (
+    Bundle,
+    ProviderPreference,
+    apply_provider_preferences_with_resolution,
+)
 
 from .composition import TERMINAL_HOOKS, expand_environment, provider_instances
 from .conversations import atomic_json, portable_history
@@ -63,7 +67,7 @@ class ChildDisplay:
 class Children:
     """At most 4 running / 32 retained children and 3 nested levels per root host.
 
-    Completed direct children can resume explicitly when their effective composition
+    Completed children can resume explicitly when their active parent, composition
     and mode reconstruct exactly. Receipts never authorize automatic execution.
     """
 
@@ -206,6 +210,15 @@ class Children:
             or identity in self.records
         ):
             raise ValueError("Invalid or already used child identity")
+        context_plan = plan.get("session", {}).get("context", {})
+        if context_plan.get("module") == "context-persistent":
+            if not self.host.store:
+                raise ValueError("Persistent child context requires isolated conversation storage")
+            directory = self.host.store.path / "child-context" / identity
+            directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            context_plan.setdefault("config", {})["transcript_path"] = str(
+                directory / "messages.jsonl"
+            )
         prepared = replace(base, bundle=effective, mount_plan=plan)
         restored = self.restoring.get(identity)
         if restored and fingerprint(plan) != restored.get("mount_fingerprint"):
@@ -235,12 +248,10 @@ class Children:
                 "hooks": hook_inheritance,
                 "orchestrator": "parent" if orchestrator_config else None,
             }
-            if parent_id == self.host.session_id
-            and (
+            if (
                 not orchestrator_config
                 or orchestrator_config == parent_orchestrator(parent_session)
             )
-            and not provider_preferences
             else None,
         }
         return await self.execute(identity, instruction, parent_session)
@@ -280,8 +291,13 @@ class Children:
             raise ValueError("Child receipt unavailable; no work replayed") from exc
         if not isinstance(row, dict) or row.get("status") != "completed":
             raise ValueError("Child is incomplete; no work replayed")
+        parent_id = row.get("parent")
+        parent = (
+            self.host.session if parent_id == self.host.session_id else self.active.get(parent_id)
+        )
         if (
-            row.get("parent") != self.host.session_id
+            parent is None
+            or parent_id not in self.parents
             or row.get("root_fingerprint") != self.host.fingerprint
         ):
             raise ValueError("Child parent/composition changed; continuation refused")
@@ -290,13 +306,16 @@ class Children:
             not isinstance(policy, dict)
             or set(policy) != {"tools", "hooks", "orchestrator"}
             or policy["orchestrator"] not in (None, "parent")
-            or provider_preferences
             or model_role
         ):
-            raise ValueError(
-                "Restoring nested or custom-routed child work is unsupported; create a new delegation"
-            )
-        if row.get("mode") != self.host.session.coordinator.session_state.get("active_mode"):
+            raise ValueError("Child restart policy is unsupported; create a new delegation")
+        routing = row.get("routing", [])
+        if not isinstance(routing, list) or not all(isinstance(p, dict) for p in routing):
+            raise ValueError("Invalid child provider routing")
+        if provider_preferences and [p.to_dict() for p in provider_preferences] != routing:
+            raise ValueError("Changing child routing requires a new delegation")
+        preferences = [ProviderPreference.from_dict(p) for p in routing]
+        if row.get("mode") != parent.coordinator.session_state.get("active_mode"):
             raise ValueError("Inherited child mode changed; create a new delegation")
         if not isinstance(row.get("messages"), list) or not all(
             isinstance(m, dict) for m in row["messages"]
@@ -307,15 +326,17 @@ class Children:
             return await self.spawn(
                 row["agent"],
                 instruction,
-                self.host.session,
-                self.prepared.bundle.agents,
+                parent,
+                self.parents[parent_id][0].bundle.agents,
                 sub_session_id=identity,
                 tool_inheritance=policy["tools"],
                 hook_inheritance=policy["hooks"],
-                orchestrator_config=parent_orchestrator(self.host.session)
+                orchestrator_config=parent_orchestrator(parent)
                 if policy["orchestrator"] == "parent"
                 else None,
                 parent_messages=row["messages"],
+                provider_preferences=preferences or None,
+                session_metadata=row.get("metadata", {}),
             )
         finally:
             self.restoring.pop(identity, None)
@@ -341,7 +362,10 @@ class Children:
             self.save(identity)
             proxy = ChildDisplay(self, identity)
             async with self.initializing:
-                session = await row["prepared"].create_session(
+                from .composition import create_owned_session
+
+                session = await create_owned_session(
+                    row["prepared"],
                     session_id=identity,
                     parent_id=row["parent"],
                     session_cwd=Path(self.cwd),

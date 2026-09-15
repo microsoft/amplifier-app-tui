@@ -34,6 +34,66 @@ def copied(probe, count=1):
     raise AssertionError("Missing a new clipboard observation")
 
 
+def code_colours(probe, needle):
+    probe.wait(needle)
+    row = next(i for i, line in enumerate(probe.screen.display) if needle in line)
+    start = probe.screen.display[row].index(needle)
+    return {probe.screen.buffer[row][x].fg for x in range(start, start + len(needle))}
+
+
+@pytest.mark.parametrize("no_colour", [False, True])
+def test_syntax_colour_native_inspection_copy_and_plain_fallback(tmp_path, no_colour):
+    code = 'def greeting():\n    return "Hello, world"\n'
+    path = tmp_path / "syntax-scene.json"
+    path.write_text(
+        json.dumps(
+            {
+                "title": "Syntax colour fixture",
+                "draft": "Keep this draft",
+                "items": [
+                    {
+                        "id": "code",
+                        "kind": "assistant",
+                        "text": "```python\n"
+                        + code
+                        + "```\n\n```unknown-language\nplain = 'unchanged'\n```",
+                    }
+                ],
+                "system": [],
+            }
+        )
+    )
+    probe = Probe(
+        [
+            str(ROOT / "frontends/ratatui/target/release/amplifier-ratatui"),
+            "--host-json",
+            json.dumps(
+                [sys.executable, "-m", "amplifier_tui.frontend_bridge", "--scene", str(path)]
+            ),
+        ],
+        cols=80,
+        env={"NO_COLOR": "1"} if no_colour else None,
+    )
+    try:
+        probe.wait("Ready")
+        assert (len(code_colours(probe, 'return "Hello, world"')) > 1) == (not no_colour)
+        assert len(code_colours(probe, "plain = 'unchanged'")) == 1
+        capture(probe, "syntax-native-plain" if no_colour else "syntax-native-colour")
+        action(probe, "Code blocks", "Code blocks · inspect")
+        probe.send(b"python\r")
+        probe.wait("Code block · captured source")
+        assert (len(code_colours(probe, 'return "Hello, world"')) > 1) == (not no_colour)
+        capture(probe, "syntax-inspection-plain" if no_colour else "syntax-inspection-colour")
+        probe.resize(40, 40)
+        probe.wait("Hello, world")
+        probe.send(b"Copy code\r")
+        probe.wait("Source copied")
+        assert copied(probe) == code
+        draft_is(probe, "Keep this draft")
+    finally:
+        probe.close()
+
+
 def test_real_fixture_tables_code_copy_and_resume(tmp_path):
     command = [
         sys.executable,
@@ -68,6 +128,7 @@ def test_real_fixture_tables_code_copy_and_resume(tmp_path):
         probe.send(b"python\r")
         probe.wait("Code block · captured source")
         probe.wait("def greeting():")
+        assert len(code_colours(probe, "def greeting():")) > 1
         capture(probe, "structured-code-preview")
         probe.send(b"Copy code\r")
         probe.wait("Source copied")

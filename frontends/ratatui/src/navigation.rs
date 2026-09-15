@@ -18,6 +18,9 @@ pub struct Lookup {
 }
 
 impl App {
+    pub fn conversation_page(&mut self, offset: usize, query: String) {
+        self.lookup_page(None, query, offset);
+    }
     pub fn reject_lookup(&mut self, id: &str) {
         if self.nav.lookup.as_ref().is_some_and(|p| p.id == id)
             && self.nav.lookup.take().unwrap().span.is_none()
@@ -26,6 +29,10 @@ impl App {
         }
     }
     pub fn lookup(&mut self, span: Option<(usize, usize, usize)>, query: String) {
+        self.lookup_page(span, query, 0);
+    }
+
+    fn lookup_page(&mut self, span: Option<(usize, usize, usize)>, query: String, offset: usize) {
         if !self.nav.enabled || self.disconnected {
             self.status = "Local discovery unavailable in this launch".into();
             return;
@@ -41,7 +48,7 @@ impl App {
             self.menu("Saved conversations · loading…", vec![]);
         }
         self.status = "Looking up local choices…".into();
-        self.send(json!({"op": if span.is_some() { "complete_path" } else { "conversations" }, "query":query}));
+        self.send(json!({"op": if span.is_some() { "complete_path" } else { "conversations" }, "query":query, "offset":offset}));
     }
 
     pub fn receive_lookup(&mut self, value: &Value) {
@@ -105,6 +112,19 @@ impl App {
                 action: Action::Switch("new".into()),
                 detail: String::new(),
             }];
+            choices.push(Choice { label: "Search saved conversation content…".into(), action: Action::FindSaved, detail: "Search locally across saved message text; does not call a model or open a conversation.".into() });
+            let search = string(value, "query");
+            let offset = value["offset"].as_u64().unwrap_or(0) as usize;
+            if offset > 0 {
+                choices.push(Choice {
+                    label: "Previous page of conversations".into(),
+                    action: Action::ConversationPage(offset.saturating_sub(100), search.clone()),
+                    detail: String::new(),
+                });
+            }
+            if let Some(next) = value["next_offset"].as_u64() {
+                choices.push(Choice { label: "Next page of conversations".into(), action: Action::ConversationPage(next as usize, search.clone()), detail: "Continue scanning older conversations, including pages without search matches.".into() });
+            }
             for entry in value["sessions"].as_array().unwrap_or(&vec![]) {
                 let id = string(entry, "id");
                 let label = format!(
@@ -119,7 +139,7 @@ impl App {
                 );
                 choices.push(Choice {
                     label,
-                    detail: format!("{}\nDirectory: {}\nConversation: {}\nOpen saves the current draft. Target checkpoint is validated before switching.", safe(&string(entry,"title")), safe(&string(entry,"cwd")), id),
+                    detail: format!("{}\nDirectory: {}\nConversation: {}\n{}\nOpen saves the current draft. Target checkpoint is validated before switching.", safe(&string(entry,"title")), safe(&string(entry,"cwd")), id, safe(&string(entry,"match"))),
                     action: if string(entry,"status").starts_with("recovery required") { Action::RecoverChoice(id) } else { Action::Switch(id) },
                 });
             }
@@ -129,7 +149,13 @@ impl App {
             );
             let menu = self.ui.menu.as_mut().unwrap();
             menu.query = query;
-            menu.detail = "Opening saves this draft and pauses editing. Active work must finish or be stopped first. Uncertain or incompatible targets will be refused. Up to 100 most recent conversations.".into();
+            menu.detail = format!(
+                "Page {} · Content search: {} · Partial source scan: {}\n{}\nOpening saves this draft. Uncertain/incompatible targets require recovery or refuse execution.",
+                offset / 100 + 1,
+                safe(&search),
+                value["partial"] == true,
+                safe(&string(value, "scope"))
+            );
             self.status =
                 "Choose a saved conversation or start a new one · Esc returns to draft".into();
         }

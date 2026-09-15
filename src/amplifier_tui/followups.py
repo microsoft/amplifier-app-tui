@@ -26,7 +26,7 @@ class Followups:
                     or not isinstance(r.get("id"), str)
                     or not isinstance(r.get("text"), str)
                     or not 0 < len(r["text"]) <= 65536
-                    or r.get("state") not in ("queued", "dispatched")
+                    or r.get("state") not in ("queued", "dispatched", "dismissed")
                     for r in self.rows
                 )
                 or len({r["id"] for r in self.rows}) != len(self.rows)
@@ -71,9 +71,36 @@ class Followups:
             if any(r["state"] == "dispatched" for r in self.rows):
                 return False, "An admitted follow-up is running or uncertain; no retry"
             self.paused = False
+        elif op == "queue_resolve":
+            row = next((r for r in self.rows if r["id"] == request.get("id")), None)
+            if not row or row["state"] != "dispatched":
+                return False, "Only an uncertain dispatched follow-up can be resolved"
+            if not self.host.ready or (self.host.task and not self.host.task.done()):
+                return False, "Finish or stop work and restore a ready conversation first"
+            if request.get("acknowledge_unknown") is not True:
+                return (
+                    False,
+                    "Acknowledge that delivery/effects remain unknown; this will not retry or undo",
+                )
+            self.paused = True
+            self.save(
+                [
+                    {
+                        **r,
+                        "state": "dismissed",
+                        "resolution": "User acknowledged unknown delivery; no retry or rollback",
+                    }
+                    if r["id"] == row["id"]
+                    else r
+                    for r in self.rows
+                ]
+            )
         elif op in ("queue_remove", "queue_edit"):
             row = next((r for r in self.rows if r["id"] == request.get("id")), None)
-            if not row or row["state"] != "queued":
+            if not row or (
+                row["state"] != "queued"
+                and not (op == "queue_remove" and row["state"] == "dismissed")
+            ):
                 return False, "Already admitted or missing; use Stop for active work"
             if op == "queue_edit":
                 text = request.get("text")
@@ -100,7 +127,9 @@ class Followups:
             return
         if self.paused or not self.host.ready or not self.rows:
             return
-        row = self.rows[0]
+        row = next((r for r in self.rows if r["state"] != "dismissed"), None)
+        if row is None:
+            return
         if row["state"] != "queued":
             self.paused = True
             self.publish()
@@ -108,7 +137,7 @@ class Followups:
         # Persist the uncertain boundary BEFORE admission. A crash here sacrifices
         # automatic progress, never safety: dispatched input is not retried on open.
         changed = copy.deepcopy(self.rows)
-        changed[0]["state"] = "dispatched"
+        next(r for r in changed if r["id"] == row["id"])["state"] = "dispatched"
         try:
             self.save(changed)
             accepted, _ = self.host.submit(row["text"], input_id=row["id"])

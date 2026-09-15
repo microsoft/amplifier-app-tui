@@ -21,7 +21,8 @@ from amplifier_tui.conversations import resolve_resume
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", required=True, action="store_true")
-    parser.parse_args()
+    parser.add_argument("--output", default="notes/evidence/structured-reading-live.json")
+    args = parser.parse_args()
     if not os.environ.get("ANTHROPIC_API_KEY"):
         parser.error("Supply ANTHROPIC_API_KEY explicitly; no credential migration")
     state = ROOT / ".state/structured-reading-live" / uuid.uuid4().hex
@@ -62,6 +63,18 @@ def main():
             action(probe, "Code blocks", "Code blocks · inspect")
             probe.send(b"python\r")
             probe.wait("Code block · captured source")
+            probe.wait("print('read-only example')")
+            row = next(
+                i
+                for i, line in enumerate(probe.screen.display)
+                if "print('read-only example')" in line
+            )
+            start = probe.screen.display[row].index("print('read-only example')")
+            colours = {
+                probe.screen.buffer[row][x].fg
+                for x in range(start, start + len("print('read-only example')"))
+            }
+            assert len(colours) > 1, "Expected syntax colour in actual code inspection"
             capture(probe, f"structured-live-{preset}-code")
             probe.send(b"Copy code\r")
             probe.wait("Source copied")
@@ -69,7 +82,11 @@ def main():
                 re.findall(rb"\x1b\]52;c;([^\x07]*)\x07", probe.raw)[-1]
             ).decode()
             assert copied == code.group(1) + "\n"
-            top = next(i for i, row in enumerate(probe.screen.display) if "╭ Message" in row)
+            top = next(
+                i
+                for i, row in enumerate(probe.screen.display)
+                if row.strip().startswith("Message ·")
+            )
             assert "Main draft retained" in "\n".join(probe.screen.display[top + 1 : top + 4])
             assert len([e for e in read_events(path) if e["kind"] == "turn.accepted"]) == 1
             results.append(
@@ -79,6 +96,7 @@ def main():
                     "read_file_succeeded": True,
                     "table_rendered": True,
                     "code_content_copied_exactly": True,
+                    "code_syntax_coloured": True,
                     "copy_added_no_execution": True,
                     "main_draft_retained": True,
                 }
@@ -100,9 +118,7 @@ def main():
             str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in files
         },
     }
-    (ROOT / "notes/evidence/structured-reading-live.json").write_text(
-        json.dumps(receipt, indent=2) + "\n"
-    )
+    (ROOT / args.output).write_text(json.dumps(receipt, indent=2) + "\n")
 
 
 if __name__ == "__main__":

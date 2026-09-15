@@ -34,7 +34,9 @@ impl App {
         input.set_placeholder_text(match kind {
             "Rename conversation" => "New name (up to 100 characters)…",
             "Insert text file" => "Workspace-relative path · UTF-8 text, at most 64 KiB…",
+            "Attach image" => "Workspace-relative PNG/JPEG path · at most 2 MiB…",
             "Find in conversation" => "Find message text…",
+            "Search saved conversations" => "Saved message text, title, directory or ID…",
             "Correct active turn" => "Correction for this turn only (Alt+Enter newline)…",
             "Answer question" => {
                 "Your answer · Enter saves locally for review · Alt+Enter newline…"
@@ -87,13 +89,17 @@ impl App {
             KeyCode::Enter if key.kind == KeyEventKind::Press => {
                 let mut prompt = self.flow.prompt.take().unwrap();
                 let value = prompt.editor.lines().join("\n");
-                if prompt.kind == "Insert text file" {
+                if prompt.kind == "Search saved conversations" {
+                    self.conversation_page(0, value);
+                    return Some(true);
+                }
+                if prompt.kind == "Insert text file" || prompt.kind == "Attach image" {
                     self.insights.file_request = Some((
                         (self.request + 1).to_string(),
                         self.draft.lines().join("\n"),
                     ));
                     self.menu("Text file · reading", vec![]);
-                    self.send(json!({"op":"file_snapshot","path":value}));
+                    self.send(json!({"op":if prompt.kind == "Attach image" {"image_snapshot"} else {"file_snapshot"},"path":value}));
                     return Some(true);
                 }
                 if let Some((id, _)) = &prompt.question
@@ -247,6 +253,20 @@ impl App {
             Action::CopyText(body.clone()),
             "",
         )];
+        if row["state"] == "dispatched" && !self.flow.busy {
+            choices.push(choice(
+                "Resolve uncertain delivery…",
+                Action::QueueResolve(id.clone()),
+                "No automatic retry or rollback; requires explicit acknowledgement.",
+            ));
+        }
+        if row["state"] == "dismissed" {
+            choices.push(choice(
+                "Remove dismissed record (does not undo effects)",
+                Action::QueueControl("queue_remove".into(), id.clone()),
+                "Text remains copyable until explicitly removed.",
+            ));
+        }
         if row["state"] == "queued" {
             choices.push(choice(
                 "Edit waiting follow-up (pauses the queue)",

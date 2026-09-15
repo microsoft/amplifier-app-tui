@@ -4,6 +4,7 @@ Steering uses an identified envelope because the module's queue accepts strings.
 Provider selection is a separate, fail-closed control record, not model context.
 """
 
+import asyncio
 import copy
 import json
 import uuid
@@ -104,6 +105,58 @@ class RuntimeControls:
             "changes": copy.deepcopy(self.state["changes"]),
             "durable": self.path is not None,
             "scope": "Top-level conversation only. Model-role routing, goal utilities and delegated agents are unchanged. Same-vendor mounted choices only; other configuration needs a new launch.",
+        }
+
+    async def discover_models(self):
+        """Explicit advisory discovery, outside painting/keypress and without mutation."""
+        mounted = self.host.session.coordinator.get("providers") or {}
+        rows, partial = [], len(mounted) > 8
+        for name, provider in list(mounted.items())[:8]:
+            try:
+                models = await asyncio.wait_for(provider.list_models(), timeout=3)
+                if not isinstance(models, list):
+                    raise ValueError("Invalid model catalog")
+                partial |= len(models) > 128
+                for model in models[:128]:
+                    identity = (
+                        model.get("id") if isinstance(model, dict) else getattr(model, "id", None)
+                    )
+                    if (
+                        not isinstance(identity, str)
+                        or not 0 < len(identity) <= 256
+                        or not identity.isprintable()
+                    ):
+                        partial = True
+                        continue
+                    rows.append(
+                        {
+                            "provider": str(name)[:160],
+                            "model": identity,
+                            "status": "provider reported",
+                        }
+                    )
+                if not models:
+                    rows.append(
+                        {
+                            "provider": str(name)[:160],
+                            "model": "",
+                            "status": "empty catalog; availability unknown",
+                        }
+                    )
+            except Exception as exc:
+                # Exception messages can contain URLs/credentials; expose type only.
+                rows.append(
+                    {
+                        "provider": str(name)[:160],
+                        "model": "",
+                        "status": f"unavailable ({type(exc).__name__})",
+                    }
+                )
+                partial = True
+        return {
+            "rows": rows,
+            "partial": partial,
+            "scope": "Provider-reported IDs, possibly a static catalog; not credential, access, image support or selection validation. Up to 8 mounted providers / 128 IDs each; cooperative 3-second timeout per provider. Copy an ID for --setup / a new overlay. Current conversation and routing are unchanged.",
         }
 
     def select(self, request):

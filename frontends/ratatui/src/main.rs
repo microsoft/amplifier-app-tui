@@ -23,6 +23,7 @@ use std::{
     },
     time::{Duration, Instant},
 };
+mod chrome;
 mod code_blocks;
 mod composer;
 mod controls;
@@ -34,6 +35,7 @@ mod native;
 mod navigation;
 mod questions;
 mod selection;
+mod syntax;
 mod tables;
 mod transcript;
 mod workflow;
@@ -98,6 +100,8 @@ struct App {
     input: ChildStdin,
     output: Receiver<Value>,
     disconnected: bool,
+    ready: bool,
+    startup_recovery: Option<String>,
     rows: Vec<(u16, usize)>,
     tab_y: u16,
     body: Rect,
@@ -137,6 +141,7 @@ fn editor() -> TextArea<'static> {
     draft.set_cursor_style(Style::default().fg(BG).bg(GREEN));
     draft.set_selection_style(Style::default().fg(INK).bg(LINE));
     draft.set_placeholder_text("Ask, correct, or describe the next task…");
+    draft.set_wrap_mode(ratatui_textarea::WrapMode::Glyph);
     draft
 }
 
@@ -212,6 +217,8 @@ impl App {
             input,
             output,
             disconnected: false,
+            ready: false,
+            startup_recovery: None,
             rows: vec![],
             tab_y: 0,
             body: Rect::default(),
@@ -254,6 +261,7 @@ impl App {
         match v["type"].as_str().unwrap_or("") {
             "snapshot" => {
                 if v["reset"] == true {
+                    self.startup_recovery = None;
                     self.native.reset();
                     self.flow = workflow::Workflow::default();
                     self.controls = controls::Controls::default();
@@ -279,6 +287,8 @@ impl App {
                     self.draft_pending = false;
                 }
                 self.nav.session = string(&v, "session_id");
+                // Older v1 scene adapters have no readiness field; real hosts emit it.
+                self.ready = v["ready"].as_bool().unwrap_or(true);
                 self.policy = "loading".into();
                 self.nav.enabled = v["navigation"] == true;
                 self.ui.skills = v["skills"]
@@ -307,6 +317,20 @@ impl App {
                     .collect();
                 if self.draft.lines().join("\n").is_empty() {
                     self.draft.insert_str(string(&v, "draft"));
+                } else if !self.saved_draft.is_empty()
+                    && self.draft.lines().join("\n") != self.saved_draft
+                {
+                    // Keep the live editor itself: cursor, selection and undo belong to
+                    // the person already typing. Back up restored text before any write.
+                    let nonce = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_nanos();
+                    let id = format!("startup:{nonce}");
+                    self.insights.drafts.push(json!({"id":id,"kind":"startup",
+                        "source":self.nav.session,"text":self.saved_draft}));
+                    self.startup_recovery = Some(id);
+                    self.draft_pending = true;
                 }
                 if let Some(items) = v["items"].as_array() {
                     let skip = self.native.begin_replay(items.len());
@@ -404,6 +428,9 @@ impl App {
                     .collect();
             }
             "state" => {
+                if let Some(ready) = v["ready"].as_bool() {
+                    self.ready = ready;
+                }
                 self.flow.busy = v["busy"] == true;
                 self.controls.turn = if self.flow.busy {
                     string(&v, "turn_id")
@@ -478,6 +505,13 @@ impl App {
             }
             "workspace_changes" | "workspace_diff" => self.review_result(&v),
             "inspection" => self.inspection_result(v),
+            "model_catalog" => self.model_catalog_result(v),
+            "image_snapshot" => self.image_snapshot_result(v),
+            "image_draft" => {
+                if v["session_id"] == self.nav.session {
+                    self.insights.image = v.get("image").filter(|v| !v.is_null()).cloned();
+                }
+            }
             "file_snapshot" => self.file_snapshot_result(v),
             "question" if v["session_id"] == self.nav.session => {
                 let id = string(&v, "id");
@@ -532,6 +566,8 @@ impl App {
                     self.nav.switching = None;
                     if v["ok"] != true {
                         self.status = safe(&string(&v, "message"));
+                    } else {
+                        self.status = "Ready".into();
                     }
                 }
             }
@@ -550,6 +586,35 @@ impl App {
         if self.disconnected {
             self.status = "Disconnected · draft retained; no automatic retry".into();
             return;
+        }
+        if let Some(image) = &self.insights.image
+            && image["state"] == "attached"
+        {
+            if request["op"] == "queue" {
+                self.status =
+                    "Image retained · wait for idle Send; image queuing is unsupported".into();
+                return;
+            }
+            if request["op"] == "submit" {
+                request["image_id"] = image["id"].clone();
+            }
+        }
+        if !self.ready
+            && !matches!(
+                request["op"].as_str(),
+                Some("draft" | "editor_draft" | "cancel_switch")
+            )
+        {
+            self.status = "Session not ready · draft retained; send explicitly when ready".into();
+            return;
+        }
+        if matches!(
+            request["op"].as_str(),
+            Some("draft" | "submit" | "queue" | "switch")
+        ) && let Some(id) = &self.startup_recovery
+            && let Some(row) = self.insights.drafts.iter().find(|r| r["id"] == *id)
+        {
+            request["startup_backup"] = row.clone();
         }
         self.request += 1;
         let id = self.request.to_string();
@@ -805,8 +870,7 @@ fn draw(f: &mut Frame, app: &mut App) {
         return;
     }
     let a = outer;
-    let pad = if a.width >= 80 { 3 } else { 2 };
-    let inner = Rect::new(a.x + pad, a.y, a.width - 2 * pad, a.height);
+    let inner = a;
     text(f, Rect::new(inner.x, 1, 12, 1), "amplifier", GREEN);
     text(
         f,
@@ -818,8 +882,10 @@ fn draw(f: &mut Frame, app: &mut App) {
         f,
         Rect::new(inner.x, 2, inner.width, 1),
         format!(
-            "Mode: {} · Ratatui · {} · {}",
-            app.policy, app.mode, app.context
+            "Mode: {}{} · {}",
+            app.policy,
+            chrome::runtime_notice(&app.mode),
+            app.context
         ),
         MUTED,
     );
@@ -1049,24 +1115,23 @@ fn draw_footer(
         );
     }
     let composer = Rect::new(inner.x, compose_y + 1, inner.width, composer_h - 3);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_type(BorderType::Rounded)
-        .border_style(
-            Style::default().fg(if app.ui.focus.is_none() && app.ui.menu.is_none() {
-                GREEN
-            } else {
-                LINE
-            }),
-        )
-        .title(if app.nav.switching.is_some() {
-            " Opening conversation · editing paused; Esc cancels "
+    text(
+        f,
+        Rect::new(composer.x, composer.y, composer.width, 1),
+        if app.nav.switching.is_some() {
+            "Opening conversation · editing paused; Esc cancels"
         } else {
-            " Message · draft stays editable "
-        });
-    let edit = block.inner(composer);
-    f.render_widget(block, composer);
-    f.render_widget(&app.draft, edit);
+            "Message · draft stays editable"
+        },
+        GREEN,
+    );
+    let edit = Rect::new(
+        composer.x,
+        composer.y + 1,
+        composer.width,
+        composer.height - 2,
+    );
+    composer::render_fitted(&mut app.draft, edit, f.buffer_mut());
     let y = a.bottom() - 2;
     app.button(
         f,
@@ -1147,7 +1212,7 @@ fn draw_footer(
         );
     }
     f.render_widget(
-        Paragraph::new(format!(" {}", app.status)).style(
+        Paragraph::new(format!(" {}", chrome::status_label(&app.status))).style(
             Style::default()
                 .fg(if app.disconnected { RED } else { MUTED })
                 .bg(PANEL),
@@ -1187,6 +1252,7 @@ fn main() -> io::Result<()> {
                 }
             }
             app.ui.merge_history();
+            app.refresh_children();
             if app.selection.start.is_some()
                 && app.selection.dragging
                 && app.ui.menu.is_none()

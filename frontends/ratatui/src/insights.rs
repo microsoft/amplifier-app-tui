@@ -10,9 +10,113 @@ pub struct Insights {
     pub lookup: Option<String>,
     pub file_request: Option<(String, String)>,
     pub external_editor: bool,
+    pub image: Option<Value>,
+    pub watching: Option<(String, Option<String>, Instant)>,
 }
 
 impl App {
+    pub fn model_catalog_result(&mut self, value: Value) {
+        if value["session_id"] != self.nav.session
+            || self
+                .insights
+                .lookup
+                .as_ref()
+                .is_none_or(|id| value["request_id"] != *id)
+        {
+            return;
+        }
+        self.insights.lookup = None;
+        if self
+            .ui
+            .menu
+            .as_ref()
+            .is_none_or(|m| m.title != "Model catalog · querying")
+        {
+            return;
+        }
+        let choices = value["rows"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|row| Choice {
+                label: format!(
+                    "{} · {} · {}",
+                    safe(&string(row, "provider")),
+                    safe(&string(row, "model")),
+                    safe(&string(row, "status"))
+                ),
+                action: if string(row, "model").is_empty() {
+                    Action::HelpTopic("Model catalog unavailable".into(), string(row, "status"))
+                } else {
+                    Action::CopyText(string(row, "model"))
+                },
+                detail: "Enter copies the reported model ID, not a configuration change.".into(),
+            })
+            .collect();
+        self.menu("Model catalog · advisory IDs", choices);
+        self.ui.menu.as_mut().unwrap().detail =
+            format!("{}\nPartial: {}", string(&value, "scope"), value["partial"]);
+    }
+    pub fn image_snapshot_result(&mut self, value: Value) {
+        let Some((id, draft)) = &self.insights.file_request else {
+            return;
+        };
+        if value["session_id"] != self.nav.session || value["request_id"] != *id {
+            return;
+        }
+        if self.draft.lines().join("\n") != *draft
+            || self
+                .ui
+                .menu
+                .as_ref()
+                .is_none_or(|m| m.title != "Text file · reading")
+        {
+            return;
+        }
+        self.insights.file_request = None;
+        if let Some(error) = value["error"].as_str() {
+            self.ui.menu = None;
+            self.status = format!("Image not attached: {}", safe(error));
+            return;
+        }
+        self.menu(
+            "Image snapshot · confirm attachment",
+            vec![Choice {
+                label: "Attach captured image (replaces any previous image)".into(),
+                action: Action::ImageSelect(string(&value, "id")),
+                detail: String::new(),
+            }],
+        );
+        self.ui.menu.as_mut().unwrap().detail = format!(
+            "{} · {} · {} bytes\nSHA-256: {}\nMetadata preview, not an image rendering. One immutable image per idle Send. Later file changes do not change these captured bytes. Sending shares the image with the configured provider. Escape leaves the current attachment unchanged.",
+            safe(&string(&value, "path")),
+            string(&value, "media_type"),
+            value["bytes"],
+            string(&value, "sha256")
+        );
+    }
+
+    pub fn image_draft_menu(&mut self) {
+        let Some(image) = self.insights.image.clone() else {
+            self.status = "No image attached".into();
+            return;
+        };
+        self.menu(
+            "Image draft · inspect before removing",
+            vec![Choice {
+                label: "Remove image reference (never undo or retry)".into(),
+                action: Action::ImageRemove(string(&image, "id")),
+                detail: String::new(),
+            }],
+        );
+        self.ui.menu.as_mut().unwrap().detail = format!(
+            "{}\nState: {}\nSHA-256: {}\nDispatched means admission was recorded, not proof the provider saw it. A dispatched image never becomes an unsent attachment after restart.",
+            safe(&string(&image, "path")),
+            string(&image, "state"),
+            string(&image, "sha256")
+        );
+    }
+
     pub fn file_snapshot_result(&mut self, value: Value) {
         let Some((id, draft)) = &self.insights.file_request else {
             return;
@@ -84,6 +188,7 @@ impl App {
             return;
         }
         self.insights.lookup = Some((self.request + 1).to_string());
+        self.insights.watching = Some((category.clone(), child.clone(), Instant::now()));
         self.menu("Observed work · loading", vec![]);
         self.send(json!({"op":"inspect","category":category,"child":child}));
     }
@@ -99,15 +204,22 @@ impl App {
             return;
         }
         self.insights.lookup = None;
-        if self
-            .ui
-            .menu
-            .as_ref()
-            .is_none_or(|m| m.title != "Observed work · loading")
-        {
+        if self.ui.menu.as_ref().is_none_or(|m| {
+            m.title != "Observed work · loading" && !m.title.starts_with("Delegated work · scoped")
+        }) {
             return;
         }
         let category = string(&value, "category");
+        let prior = self.ui.menu.as_ref().map(|menu| {
+            let id = menu
+                .filtered()
+                .get(menu.selected)
+                .and_then(|choice| match &choice.action {
+                    Action::Observation(row) => row["id"].as_str().map(str::to_owned),
+                    _ => None,
+                });
+            (menu.query.clone(), id, menu.detail_scroll)
+        });
         let mut choices = vec![Choice {
             label: "Refresh observations".into(),
             action: Action::Inspect(category.clone(), value["child"].as_str().map(str::to_owned)),
@@ -143,6 +255,8 @@ impl App {
             match category.as_str() {
                 "children" => "Delegated work · scoped child observations",
                 "context" => "Context intelligence · observed diagnostics",
+                "instructions" => "Instruction sources · last observed resolution",
+                "recipes" => "Recipe activity · observed tool calls",
                 _ => "Activity evidence · identified runtime observations",
             },
             choices,
@@ -154,6 +268,38 @@ impl App {
             value["partial"],
             value["storage_policy"]
         );
+        if let Some((query, id, scroll)) = prior {
+            let menu = self.ui.menu.as_mut().unwrap();
+            menu.query = query;
+            menu.detail_scroll = scroll;
+            if let Some(id) = id {
+                menu.selected = menu.filtered().iter().position(|choice| matches!(&choice.action, Action::Observation(row) if row["id"] == id)).unwrap_or(0);
+            }
+        }
+    }
+
+    pub fn refresh_children(&mut self) {
+        if self.disconnected
+            || self.insights.lookup.is_some()
+            || self.flow.prompt.is_some()
+            || self
+                .ui
+                .menu
+                .as_ref()
+                .is_none_or(|m| !m.title.starts_with("Delegated work · scoped"))
+        {
+            return;
+        }
+        let Some((category, child, last)) = &mut self.insights.watching else {
+            return;
+        };
+        if last.elapsed() < Duration::from_secs(1) {
+            return;
+        }
+        *last = Instant::now();
+        let (category, child) = (category.clone(), child.clone());
+        self.insights.lookup = Some((self.request + 1).to_string());
+        self.send(json!({"op":"inspect", "category":category, "child":child}));
     }
 
     pub fn observation(&mut self, row: Value) {
@@ -177,6 +323,15 @@ impl App {
                 action: Action::Inspect("activity".into(), Some(child.into())),
                 detail: String::new(),
             });
+        }
+        for identity in row["recipe_ids"].as_array().unwrap_or(&vec![]) {
+            if let Some(identity) = identity.as_str() {
+                choices.push(Choice {
+                    label: format!("Prepare recipe review request · {}", safe(identity)),
+                    action: Action::RecipeRequest(identity.into()),
+                    detail: "Adds a request to your draft, not a recipe operation or permission grant. Send explicitly. Resume can retry unfinished steps with partial effects; completed steps belong to the runner's checkpoint.".into(),
+                });
+            }
         }
         self.menu(
             "Observed evidence · no authorship or execution implied",
@@ -248,7 +403,7 @@ impl App {
             choices,
         );
         self.ui.menu.as_mut().unwrap().detail = format!(
-            "Answers/corrections retain their original scope. Open to copy or remove; nothing is resumed or retargeted. Up to 32 drafts / 2 MiB; autosave after a 250 ms pause. {}",
+            "Answers, corrections and startup-conflict drafts retain their original scope. Open to copy or remove; nothing is resumed or retargeted. Up to 32 drafts / 2 MiB; autosave after a 250 ms pause. {}",
             self.insights.error
         );
     }

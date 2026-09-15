@@ -59,7 +59,12 @@ def catalog(state_dir):
     result = []
     for path in root.glob("*/metadata.json"):
         try:
-            value = json.loads(path.read_text())
+            # Catalog discovery must not load an arbitrarily large/corrupt record.
+            with path.open() as stream:
+                raw = stream.read(65537)
+            if len(raw) > 65536:
+                continue
+            value = json.loads(raw)
             if (
                 isinstance(value, dict)
                 and value.get("version") == 1

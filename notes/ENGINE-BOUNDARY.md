@@ -44,6 +44,17 @@ Child observers report source IDs and waiting states through the host journal, w
 imports. The native view requests a snapshot and discards late replies after dismissal/switch.
 Context diagnostics consume public usage/compaction events without invoking the context
 manager's request-building path (which could compact). Missing measurements stay unavailable.
+Instruction sources use `mentions:resolved` observations registered before initialization,
+not a full request reconstruction. Advisory model discovery runs only after an explicit
+UI confirmation through public mounted `list_models`; copy does not select. Provider
+exceptions disclose only their type, not possibly credential-bearing exception messages.
+
+Source search scans 100 conversations/page, up to 1 MiB per journal and 16 MiB per page;
+metadata discovery still enumerates the local catalog (64 KiB maximum per metadata file).
+It is not an indexed large-store database. Oversized canonical checkpoints are validated
+on opening, not fully loaded for menu discovery. Matches are excerpts with event sequence,
+never imported context. Startup picker pagination remains title/ID/directory filtering
+within a page; cross-conversation message-content search lives in the running native app.
 
 `local_drafts` stores private atomic/fsynced editor copies outside canonical context/admission.
 Original conversation/request scopes survive explicit historical recovery, but carry no
@@ -51,18 +62,33 @@ delivery authority. Corrupt records are retained and reported, never overwritten
 The client autosaves after a 250 ms pause and before leaving the editor; recent unflushed
 input is not crash-durable. Answer/correction copies can outlive their submitted request.
 
-Completed direct-child continuation is lazy and explicit through the public resume capability.
+Completed child continuation is lazy and explicit through the public resume capability.
 It validates the saved parent/root fingerprint, completed status, inherited mode and recreated
-mount-plan fingerprint before execution. Only reconstructible default-routed definitions are
-supported across restart. A running receipt is persisted before effects so the old completed
-receipt cannot authorize replay after a crash. Nested/custom-routed/interrupted children and
-old receipts fail closed. Initialization still uses Foundation's public factory; its earlier
-partial-initialization ownership gap remains. This is not recipe-process recovery.
+mount-plan fingerprint before execution. Recorded provider preferences reconstruct through
+Foundation's public resolution API; changed resolutions refuse. Nested continuation needs
+its actual parent active and never starts ancestors implicitly. A running receipt is persisted
+before effects so the old completed receipt cannot authorize replay after a crash. Interrupted
+children and unsupported/old receipts fail closed. Persistent-context child paths are scoped
+under the root conversation and child identity, before fingerprinting. Real v2 recipe-tool
+failure/reopen/resume tests separately verify completed-step skipping, not arbitrary process recovery.
+
+Root and child startup now use `create_owned_session`: acquire the public kernel session
+before awaiting initialization, mount Foundation's public resolver/deduplicator/capabilities,
+initialize, resolve pending context, and install the public system-prompt factory. On any
+startup exception/cancellation, drain acquired-handle cleanup even through repeated cancellation.
+Factory equivalence is tested against Foundation. No private lifecycle monkeypatch or UI policy
+was added to the kernel. Third-party cleanup that never returns and cancellation-time hook
+coroutine warnings remain unresolved, distinct from owning the partially initialized handle.
 
 Text input reads one descriptor-relative workspace file with no symlink traversal, a 64 KiB
 bound and before/after metadata check. Preview owns captured bytes and digest. Insertion adds
 literal text to the existing draft; it does not alter context or reread at submission. The
-string-only orchestrator seam does not advertise image attachments. External editing is an
+image path captures one PNG/JPEG of at most 2 MiB into a private atomic admission record.
+All mounted providers must advertise vision. Metadata-only UI preview confirms frozen bytes;
+explicit idle submission marks dispatch before adding a public image block to canonical context,
+then calls the ordinary string-prompt orchestrator. No implicit reread, queue conversion, retry,
+clipboard image acquisition or thumbnail decoding. Dispatch is not proof of provider receipt.
+Historical recovery leaves image records in the original conversation. External editing is an
 explicit idle-only user command, on a temporary alternate screen with raw mode suspended;
 the primary transcript survives and failure retains the original draft.
 
@@ -102,10 +128,14 @@ The navigation wave adds `WorkspaceBridge`, an app-side adapter, not a new orche
 Idle-only switching saves the source draft, prepares one candidate via the normal
 composition callback, then replaces the source after readiness. A failed candidate or
 cancelled preparation closes its acquired handle/store and leaves the source available.
-Only one candidate initializes at once; the existing partial-initialization ownership
-gap still applies. Mount-time candidate approvals are denied, not retargeted to the
+Only one candidate initializes at once; the acquired session is cleaned even if its
+initialization fails. Mount-time candidate approvals are denied, not retargeted to the
 source UI. The final source-cleanup/commit phase is not cancellable from the client;
 an exceptional cleanup failure is an error, not a claimed rollback.
+History recall finishes before the target's ready snapshot is published. Snapshot and
+switch-result publication have no intervening await; the native footer keeps "Opening"
+until the matching switch result. This prevents a Ready display while input is still
+blocked waiting for directory history. Early Enter is never deferred or silently replayed.
 The working client includes conversation identity on requests; stale identities are
 rejected, and identity-less clients cannot issue controls after switching. Snapshot
 replacement explicitly clears conversation-specific view state. Local asynchronous
@@ -134,13 +164,27 @@ The working Ratatui client uses the normal screen for conversation output, not
 blocks and final items once, with separate live pending content. Finalization consumes
 only the remaining source suffix. Real revisions are labelled rather than silently
 rewriting terminal history. Native rows are a presentation artifact, not model context.
-The live region contains mode, ordinary controls, draft and current activity; idle height
-is ten rows. Unfinished Markdown is held in an eight-row live preview; complete source
+The live region contains mode, contextual controls, draft and current activity. Ordinary
+wide idle chrome is five rows plus one empty separator/cursor-anchor row: mode heading,
+one open input row, separation, actions and status. The editor
+glyph-wraps and grows to six visible rows; controls wrap at narrow widths. Queue/Steer/Stop
+appear during work; the current mode remains above the input. No side border or prompt
+character is painted alongside any draft row, including in inspection. Native emission,
+live content, composer and inspection share the full terminal width with no outer gutter;
+Markdown indentation and dialog-internal spacing remain content structure. Ordinary live
+headers omit renderer/runtime branding; fixture/simulated labels remain explicit.
+Readiness reads simply Ready; errors and tool-outcome qualifications are not suppressed.
+The bounded conversation title remains visible when it fits, including after rename.
+Work/Review/System are available through Actions and existing keys, without a permanent tab row.
+Unfinished Markdown is held in an eight-row live preview; complete source
 remains available through Transcript inspection. Incomplete fences/tables are not frozen
 into prematurely final Markdown. This is not arbitrary streaming-source rewrite support.
 
 Review/System, menus, editors and source inspection use a temporary alternate screen;
 return restores primary output and commits newly observed work, not a second transcript.
+If inspection was resized, return/exit queries the restored primary cursor before
+clearing; the old live height is not an anchor and can otherwise erase short replies.
+Unchanged-size return/exit issues no extra query.
 Normal mouse input belongs to terminal selection; inspection enables mouse controls.
 Queue/steer/approval/question operations retain the same host identities and policy.
 No kernel, provider, orchestrator, context or runtime transport changes are required.
@@ -148,8 +192,39 @@ No kernel, provider, orchestrator, context or runtime transport changes are requ
 The client manages a fixed Ratatui live viewport: the library's default inline resize
 clears the screen on narrowing. Native history must not be cleared on resize. Growth
 also accounts for tmux pulling history onto the screen without moving its reported
-cursor. Cleanup flushes pending source, removes live chrome and restores only owned
+cursor, only on height growth with an unmoved anchor. The cursor parks on an empty live
+separator, not a wide composer border: tmux can map a border's cursor onto its wrapped
+continuation after narrowing, leaking that first border row into history. A focused real
+tmux regression counts composer headings as well as retained transcript/shell markers.
+Resize does not sleep or purge/replay history. Cleanup flushes pending source, removes live chrome and restores only owned
 terminal modes. Exit retention is separately tested from saved-conversation recovery.
+Startup preserves the preceding whole screen with primary-screen CRLF scrolling, then
+starts a fresh page. It needs no cursor query or startup CPR timeout. The transcript
+starts at the top and the composer stays bottom-aligned; the live viewport owns the
+intervening space until output fills it. Blank space keeps the terminal background.
+Exit removes that live space and places the shell immediately after emitted output.
+Full-pane previews retain the transcript; footer-only crops can omit short conversations.
+Erase owned rows individually: tmux can archive a provisional full-height frame when
+ED starts at row zero. This is not transcript replay or a history purge.
+A Unix resize cursor-position probe now has a 100 ms deadline, then scrolls a fresh page
+using CRLF; it never emits a scrollback purge. The single input owner reads at most 64 KiB
+and replays every byte through public `crossterm::event::buffer_input`, including Unicode,
+paste and partial responses. After a silent probe it does not issue another query, avoiding
+late-response attribution. Normal responding terminals take no timeout. This uses the
+[Codex Crossterm fork API](https://github.com/openai-oss-forks/crossterm/blob/45fecb9508105988f42fe6ff0441783ed3717f92/src/event.rs),
+pinned to `45fecb9508105988f42fe6ff0441783ed3717f92`; no event reader may race the probe.
+Linux PTY/tmux evidence does not establish behavior on every terminal or a character-exact
+resize anchor. A response-shaped literal spanning an already buffered paste remains an edge to probe.
+
+Readiness is an explicit additive `ready` field in real-host snapshots/state, not text
+matching. The provisional editor accepts input but does not admit or defer a submission;
+Enter before readiness retains the draft. Older v1 scene snapshots without this field
+remain compatible. Startup failures leave the editor usable. When typing races a restored
+draft, the current editor/selection/undo stays intact and the original becomes a scoped
+`startup` entry under Saved local drafts. Requests that could replace it carry the backup;
+the host persists that copy before saving/submitting/queuing/switching. Corrupt/full storage
+rejects the mutation and retains the original. Backup retries are idempotent, not retries
+of execution. Recovery never inserts text into canonical model context automatically.
 Initial historical replay projects the latest 1,000 items with a disclosure; the complete
 source remains in the client/store and new output is unaffected. The 100,000-item stress
 scene demonstrated that dumping invisible historical backlog on exit exceeded the
@@ -175,8 +250,9 @@ already admitted work rejects edit/remove. Completed admissions leave the pendin
 but retain their text, identity and outcome in the journal. There is no automatic retry.
 
 There is deliberately no cross-file transaction claim: a crash between marking dispatch
-and admission can leave an uncertain record. That record blocks release, and recovery
-is not implemented. A queued draft may still be visible if the process dies before its
+and admission can leave an uncertain record. That record blocks release until explicit idle
+acknowledgement marks it dismissed, preserving its identity/text and holding the queue.
+This is uncertainty resolution, not proof of non-execution or retry. A queued draft may still be visible if the process dies before its
 acknowledged editor-clear autosave, but returning never resubmits it. Active interrupted
 conversations remain subject to the existing completed-checkpoint-only resume gate.
 
@@ -369,6 +445,26 @@ Copying an individual hunk explicitly labels the result as an excerpt, not a com
 patch. Generic menu detail caches compare source/width/style and reflow only when those
 change, preserving coloured wrapped lines without reparsing the full diff on each key.
 These snapshots are local view state, not new canonical context or durable executions.
+
+Syntax colour uses pinned Syntect 5.3.0 with embedded grammars/themes and the Rust regex
+backend; no user grammar files, plugins or network resolution. The documented
+[line highlighter](https://docs.rs/syntect/5.3.0/syntect/easy/struct.HighlightLines.html)
+retains multiline lexical state within one block. Only token foregrounds are projected
+into Ratatui spans; terminal escape sequences are not generated from code. Existing
+display sanitization remains separate from exact source/clipboard ownership. Unfinished
+native previews remain plain, avoiding repeated parsing of growing fences.
+Highlighting accepts at most 16 KiB per Markdown render, 256 lines per block and 1024 bytes
+per line. Unknown/disabled/oversized/error cases retain plain source, not a truncated
+highlighted excerpt. Eight source-and-language cache entries avoid reparsing on resize;
+these are input/memory-work bounds, not a hard CPU deadline for a regex. Grammars initialize
+lazily; the syntax stress receipt includes cold grammar use while typing.
+Inspection stores the captured code separately from explanatory text, so Markdown-like
+code cannot become active links/headings and copying never incorporates a preview label.
+
+Textarea retains a scroll origin across viewport growth, even when all input now fits.
+For fitting drafts the app primes the public renderer at origin zero and restores the
+exact cursor/selection before painting. No draft recreation or undo-history reset occurs.
+A deterministic one-row-to-three-row test complements the real tmux inspection regression.
 
 ## Session repairs: children, modes and historical recovery
 

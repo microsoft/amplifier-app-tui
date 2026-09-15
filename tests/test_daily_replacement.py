@@ -81,6 +81,44 @@ def test_draft_validation_limits_and_corruption_preserve_original(tmp_path):
         store.close()
 
 
+@pytest.mark.parametrize("broken", [False, True])
+def test_startup_collision_backs_up_before_replacing_and_fails_closed(tmp_path, broken):
+    store = ConversationStore(tmp_path, {})
+    store.save_draft("Restored original 界")
+    host = SessionHost(store)
+    bridge = RuntimeBridge(host, None, lambda _: None, True, tmp_path)
+    backup = {
+        "id": "startup:unique-launch",
+        "kind": "startup",
+        "source": store.identity,
+        "text": store.draft,
+    }
+    if broken:
+        (store.path / "editors.json").write_text("broken original")
+    try:
+        request = {
+            "op": "draft",
+            "session_id": host.session_id,
+            "text": "Typed before startup",
+            "startup_backup": backup,
+        }
+        accepted, reason = bridge.command(request)
+        assert accepted is not broken, reason
+        if broken:
+            assert store.draft == "Restored original 界"
+            assert (store.path / "editors.json").read_text() == "broken original"
+            assert "original retained" in reason
+        else:
+            assert store.draft == "Typed before startup"
+            assert read(store.path) == [backup]
+            before = (store.path / "editors.json").stat().st_mtime_ns
+            assert bridge.command(request)[0]
+            assert (store.path / "editors.json").stat().st_mtime_ns == before
+            assert not bridge.command({**request, "session_id": "other"})[0]
+    finally:
+        store.close()
+
+
 async def test_child_observations_and_restored_catalog_do_not_resume(prepared, tmp_path):
     store = ConversationStore(tmp_path, {})
     host = SessionHost(store)
@@ -119,8 +157,11 @@ async def test_context_and_activity_are_read_only_and_scoped(host, tmp_path):
     assert bridge.command({"op": "inspect", "category": "context", "session_id": host.session_id})[
         0
     ]
-    assert "42" in json.dumps(output) and "999" not in json.dumps(output)
-    assert "800" in json.dumps(output)
+    # UUIDs can contain "999". Check the observations, never incidental identity text.
+    observations = [json.loads(row["detail"])["observation"] for row in output[-1]["rows"]]
+    assert {"input_tokens": 42, "output_tokens": 7} in observations
+    assert {"before_tokens": 800, "after_tokens": 400} in observations
+    assert not any(value.get("input_tokens") == 999 for value in observations)
     assert await host.session.coordinator.get("context").get_messages() == before
     assert not host.session.coordinator.get("providers")["fixture"].calls
 

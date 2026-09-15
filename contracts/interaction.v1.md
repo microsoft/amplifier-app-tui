@@ -24,7 +24,7 @@ This describes the destination, not a claim that every interaction is implemente
 ## The promises
 
 1. **Make ordinary actions discoverable.** Send, queue management, active correction, provider selection, stop, decisions, evidence, conversation naming/search/copy and navigation have visible, keyboard-focusable paths; shortcuts are optional accelerators.
-   Resume without an explicit identity offers a picker. Queue-next-turn and steer-current-turn are distinguishable beside the composer; the active mode remains visible outside menus.
+   Resume without an explicit identity offers a paged picker and bounded local content search across saved conversations, disclosing scope and partial results without importing context. Queue-next-turn and steer-current-turn are distinguishable beside the composer; the active mode remains visible outside menus.
    Broken: A person needs a memorized Ctrl chord to complete the ordinary workflow, or a displayed action cannot be reached by keyboard.
    Affected: new users and people who cannot use a mouse.
 
@@ -33,7 +33,7 @@ This describes the destination, not a claim that every interaction is implemente
    Affected: people writing corrections while tools and decisions arrive.
 
 3. **Preserve rich input intent.** Up/Down recall history only at editor line boundaries and restore the draft on return; supported references retain meaning, and text recall never invents missing attachments.
-   Recall includes same-directory submissions without importing model context. Explicit text-file snapshots disclose path/digest and preview before insertion; external editing returns to an unsent draft and preserves it on failure. Unsupported media are refused, not silently converted.
+   Recall includes same-directory submissions without importing model context. Explicit file/image snapshots disclose path/digest before attachment or insertion; media admission requires a compatible provider and immutable bytes, never a path reread or silent text conversion. External editing returns to an unsent draft and preserves it on failure.
    Broken: A visually intact draft submits a corrupted reference or missing attachment, or cancelled history recall destroys the original draft.
    Affected: people assembling and recalling instructions; durable retention belongs to continuity.v1.
 
@@ -80,6 +80,8 @@ Which CLI discovery and provider-selection policies should be adopted for ordina
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Extend P3 to capability-backed immutable image input. | Steward requested the full backlog; string-only submission cannot carry image bytes, while the public context/provider formats support image blocks. |
+| 2026-09-14 | Extend P1 to paged saved-work discovery and source content search. | Steward authorized all reviewed backlog items; title-only filtering of the first 100 records cannot locate older work. |
 | 2026-09-14 | Clarify P6's local newcomer guidance. | Steward requested approachability beyond the development workspace; terse shortcut hints do not explain ordinary tasks. |
 | 2026-09-13 | Define P3's explicit text snapshots and external editing. | Steward authorized composer work; the current string-only runtime seam does not establish image attachment support. |
 | 2026-09-13 | Clarify P1/P3's picker, mode indicator, queue/steer distinction and directory recall. | Steward's ordinary workflow exposed hidden controls and session-only recall. |

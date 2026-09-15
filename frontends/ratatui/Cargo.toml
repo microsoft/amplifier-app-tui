@@ -15,3 +15,9 @@ signal-hook = "0.3"
 base64 = "0.22"
 pulldown-cmark = "=0.13.0"
 unicode-segmentation = "1"
+syntect = { version = "=5.3.0", default-features = false, features = ["default-syntaxes", "default-themes", "regex-fancy"] }
+libc = "0.2"
+
+[patch.crates-io]
+# Codex's pinned input-replay seam: retain bytes read during bounded terminal probes.
+crossterm = { git = "https://github.com/openai-oss-forks/crossterm", rev = "45fecb9508105988f42fe6ff0441783ed3717f92" }

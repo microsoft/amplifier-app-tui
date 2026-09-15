@@ -63,6 +63,7 @@ class SessionHost:
         self.controls = None
         self.children = None
         self.modes = None
+        self.images = None
         self.questions = Questions(self)
         self.interactive_questions = False
         self.capabilities = {
@@ -129,17 +130,24 @@ class SessionHost:
         initializer = logging.getLogger("amplifier_core._session_init")
         initializer.addHandler(diagnostics)
         try:
-            self.session = await prepared.create_session(
+            from .composition import create_owned_session
+
+            self.session = await create_owned_session(
+                prepared,
                 session_id=self.session_id,
                 session_cwd=cwd,
                 approval_system=self,
                 display_system=self,
+                observer=self._observe,
             )
             if self._closed:
                 raise RuntimeError("Session was closed during startup")
             if diagnostics.failed:
                 raise RuntimeError("Module initialization reported a failure; inspect diagnostics")
             coordinator = self.session.coordinator
+            from .file_input import ImageDraft
+
+            self.images = ImageDraft(self.store)
             for point in ("orchestrator", "context", "providers"):
                 if not coordinator.get(point):
                     raise RuntimeError(f"Required mount missing: {point}")
@@ -241,7 +249,7 @@ class SessionHost:
         finally:
             initializer.removeHandler(diagnostics)
 
-    def submit(self, text: str, input_id=None) -> tuple[bool, str]:
+    def submit(self, text: str, input_id=None, image_id=None) -> tuple[bool, str]:
         if not text.strip():
             return False, "Write a message first."
         if not self.ready:
@@ -251,6 +259,19 @@ class SessionHost:
                 False,
                 "A turn is running. Your draft is retained; use distinct queue or correction controls.",
             )
+        image = None
+        try:
+            if image_id and not self.supports_images():
+                return (
+                    False,
+                    "Mounted provider/context does not advertise image input; draft retained",
+                )
+            if self.images:
+                image = self.images.admit(image_id)
+            elif image_id:
+                return False, "Image input unavailable"
+        except (ValueError, OSError) as exc:
+            return False, str(exc)
         self.turn_id = uuid.uuid4().hex
         self.questions.count = 0
         self.outcome = None
@@ -262,18 +283,66 @@ class SessionHost:
         self._request_index = 0
         self.session.coordinator.cancellation.reset()
         self.current_input_id = input_id
-        self.emit("turn.accepted", f"{self.turn_id}:user", text=text, input_id=input_id)
+        self.emit(
+            "turn.accepted",
+            f"{self.turn_id}:user",
+            text=text,
+            input_id=input_id,
+            image={k: v for k, v in image.items() if k != "data"} if image else None,
+        )
         if self.store and self.store.draft == text:
             self.store.save_draft("")
-        self.task = asyncio.create_task(self._execute(text))
+        if image:
+            self.emit(
+                "display.message",
+                f"{self.turn_id}:image",
+                text=f"Image snapshot: {image['path']} · {image['bytes']} bytes · SHA-256 {image['sha256']}",
+            )
+        self.task = asyncio.create_task(self._execute(text, image))
         return True, self.turn_id
 
-    async def _execute(self, text):
+    def supports_images(self):
+        if not self.session:
+            return False
+        providers = self.session.coordinator.get("providers") or {}
+        # Conservative across routing: every mounted provider must advertise vision.
+        try:
+            return (
+                bool(providers)
+                and all(
+                    "vision" in provider.get_info().capabilities for provider in providers.values()
+                )
+                and callable(getattr(self.session.coordinator.get("context"), "add_message", None))
+            )
+        except Exception:
+            return False
+
+    async def _execute(self, text, image=None):
         self._execution_started = True
         status, message = "unknown", "No completion evidence was received."
         try:
             if self._stop_requested:
                 raise asyncio.CancelledError
+            if image:
+                await self.session.coordinator.get("context").add_message(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Explicit image snapshot: {image['path']} · SHA-256 {image['sha256']}",
+                            },
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": image["media_type"],
+                                    "data": image["data"],
+                                },
+                            },
+                        ],
+                    }
+                )
             reply = await self.session.execute(text)
             status = {
                 "success": "completed",
@@ -282,7 +351,13 @@ class SessionHost:
                 "budget_exhausted": "incomplete",
                 "incomplete": "incomplete",
             }.get(self.outcome, "unknown")
-            message = "Turn ended; tool results remain independent."
+            message = {
+                "completed": "Turn complete.",
+                "failed": "Turn failed.",
+                "interrupted": "Stopped; partial effects may remain.",
+                "incomplete": "Turn incomplete.",
+                "unknown": "No completion evidence was received.",
+            }[status]
             # Streaming blocks already own text. A non-streaming replacement can
             # still provide a useful response without pretending it emitted deltas.
             if reply and not self.blocks:
@@ -324,7 +399,10 @@ class SessionHost:
             if total:
                 failed = sum(v["failed"] for v in tools.values())
                 unknown = sum(v["unknown"] + v["running"] for v in tools.values())
-                message += f" Observed tools: {total} calls, {failed} failed, {unknown} unresolved; not a task-acceptance verdict."
+                if failed or unknown:
+                    message += (
+                        f" Tools: {failed} failed, {unknown} unresolved. See Activity evidence."
+                    )
             self.emit(
                 "turn.ended", f"{self.turn_id}:outcome", status=status, message=message, tools=tools
             )
@@ -351,6 +429,37 @@ class SessionHost:
         if data.get("session_id") not in (None, "", self.session_id):
             return HookResult()
         block_id = str(data.get("block_index", data.get("block_id", "0")))
+        if event == "mentions:resolved":
+            for row in data.get("resolutions", [])[:256]:
+                if not isinstance(row, dict):
+                    continue
+                observation = {
+                    k: row.get(k)
+                    for k in ("mention", "resolved_path", "source_type", "content_hash", "is_new")
+                }
+                identity = hashlib.sha256(
+                    json.dumps(observation, sort_keys=True).encode()
+                ).hexdigest()
+                self.emit(
+                    "context.observed",
+                    f"instruction:{identity}",
+                    event=event,
+                    name=row.get("mention")
+                    or row.get("resolved_path")
+                    or "Resolved instruction source",
+                    status="observed resolved",
+                    observation=observation,
+                )
+            if data.get("failed") or len(data.get("resolutions", [])) > 256:
+                self.emit(
+                    "context.observed",
+                    f"{self.turn_id}:instructions:{self.sequence + 1}",
+                    event=event,
+                    name="Instruction resolution limits/failures",
+                    status="partial",
+                    observation={"failed": data.get("failed", [])[:256], "partial": True},
+                )
+            return HookResult()
         if event in ("llm:response", "context:compaction", "context:tool_result_ingress_truncated"):
             value = data.get("usage") if event == "llm:response" else data
             if value is not None:
@@ -518,6 +627,7 @@ class RuntimeBridge:
         self.emit(
             {
                 "type": "snapshot",
+                "ready": self.host.ready,
                 "session_id": self.host.session_id,
                 "reset": reset,
                 "navigation": self.navigation_enabled,
@@ -533,7 +643,29 @@ class RuntimeBridge:
             }
         )
 
+    def preserve_startup_draft(self, request):
+        """Back up late-arriving restored text before replacing or submitting a draft."""
+        from .local_drafts import save
+
+        row = request.get("startup_backup")
+        if row is None:
+            return True, "No startup conflict"
+        if request.get("session_id") != self.host.session_id:
+            return False, "Startup draft belongs to another conversation"
+        if not isinstance(row, dict) or row.get("kind") != "startup":
+            return False, "Invalid startup draft backup"
+        try:
+            return save(self.host.store, {"row": row})
+        except (ValueError, OSError) as exc:
+            return (
+                False,
+                f"Startup draft backup failed: {exc}; original retained, copy new text before exiting",
+            )
+
     def command(self, request):
+        preserved, reason = self.preserve_startup_draft(request)
+        if not preserved:
+            return False, reason
         if request.get("op") in ("modes", "mode_select"):
             if not self.host.ready or self.host.modes is None:
                 return False, "Mode controls require a ready session"
@@ -556,7 +688,13 @@ class RuntimeBridge:
         if op == "inspect":
             if request.get("session_id") != self.host.session_id:
                 return False, "Inspection belongs to another conversation"
-            if request.get("category") not in ("children", "context", "activity"):
+            if request.get("category") not in (
+                "children",
+                "context",
+                "instructions",
+                "activity",
+                "recipes",
+            ):
                 return False, "Unknown inspection category"
             self.emit(
                 {
@@ -613,7 +751,7 @@ class RuntimeBridge:
         if op == "submit":
             text = request.get("text")
             return (
-                self.host.submit(text)
+                self.host.submit(text, image_id=request.get("image_id"))
                 if isinstance(text, str)
                 else (False, "Text must be a string")
             )
@@ -642,6 +780,7 @@ class RuntimeBridge:
                 emit(
                     {
                         "type": "state",
+                        "ready": self.host.ready,
                         "status": status,
                         "approval": self.pending,
                         "busy": event.kind not in ("session.ready", "turn.ended"),

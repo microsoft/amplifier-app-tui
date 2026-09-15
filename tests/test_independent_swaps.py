@@ -97,3 +97,54 @@ async def test_persistent_context_restoration_policy_is_not_generic_recovery(tmp
     assert path.read_bytes() == original
     assert "Module-owned original" in str(await second.get_messages())
     assert "Requested replacement" not in str(await second.get_messages())
+
+
+@pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])
+async def test_persistent_children_have_isolated_context_and_explicit_continuation(
+    prepared, tmp_path, loop
+):
+    workspace = Path(
+        os.environ.get("AMPLIFIER_TUI_SOURCE_ROOT", Path(__file__).resolve().parents[2])
+    )
+    value, report = prepared
+    session = copy.deepcopy(value.mount_plan["session"])
+    session["context"] = {
+        "module": "context-persistent",
+        "source": str(workspace / "amplifier-module-context-persistent"),
+        "config": {"transcript_path": str(tmp_path / "root-messages.jsonl"), "memory_files": []},
+    }
+    session["orchestrator"] = {
+        "module": loop,
+        "source": str(workspace / f"amplifier-module-{loop}"),
+        "config": {},
+    }
+    value.bundle.session = copy.deepcopy(session)
+    value.mount_plan["session"] = session
+    store = ConversationStore(tmp_path / "state", {})
+    host = SessionHost(store)
+    try:
+        await host.open(value, report, tmp_path)
+        first = await host.children.spawn("self", "First child only", host.session, {})
+        second = await host.children.spawn("self", "Second child only", host.session, {})
+        path = store.path / "child-context" / first["session_id"] / "messages.jsonl"
+        other = store.path / "child-context" / second["session_id"] / "messages.jsonl"
+        assert (
+            "First child only" in path.read_text() and "Second child only" not in path.read_text()
+        )
+        assert (
+            "Second child only" in other.read_text() and "First child only" not in other.read_text()
+        )
+        assert host.submit("Root only")[0]
+        await host.task
+        assert "First child only" not in (tmp_path / "root-messages.jsonl").read_text()
+    finally:
+        await host.close()
+    resumed = SessionHost(ConversationStore(tmp_path / "state", {}, store.identity))
+    try:
+        await resumed.open(value, report, tmp_path)
+        original_other = other.read_bytes()
+        await resumed.children.resume(first["session_id"], "Explicit child continuation")
+        assert "Explicit child continuation" in path.read_text()
+        assert other.read_bytes() == original_other
+    finally:
+        await resumed.close()

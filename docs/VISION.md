@@ -9,15 +9,15 @@ The adopted method and its provenance are described in [Converge practice](../no
 Amplifier TUI replaces the Amplifier CLI experience with a polished terminal workspace, as responsive as its CLI.
 It learns from Codex's proven interaction and terminal behavior while Amplifier's ecosystem owns execution.
 A person understands and influences work; Work, Review and System share one conversation and composer.
-Conversation has the space; routine machinery is quiet and detail is available on demand.
-The interface carries the agreed concept's hierarchy into terminal cells and uses the available width.
+Conversation has the space; routine machinery is quiet, the composer grows with the person's words, and startup accepts editing without implicit submission.
+The normal terminal opens a full-height, edge-to-edge workspace with no outer horizontal gutters; borderless bottom input keeps selections clean and implementation branding stays quiet.
 Visible actions and contextual choices make the experience usable without memorizing shortcuts.
 The conversation outlives screens and engines; returning offers a picker and same-directory input recall.
 Follow-up work has a visible waiting place; stopping never starts another task behind the person.
 Corrections distinguish being accepted from reaching active work; neither implies a new turn.
 Conversation provider choices have a visible scope and survive returning to the same work.
 Questions invite deliberate answers without granting permission; workspace review distinguishes observations from attribution.
-People can name, find and copy their conversation without involving a model.
+People can name, find and copy work across their saved conversations without involving a model.
 The ordinary conversation accumulates native terminal history; selection and tmux scrolling need no special view.
 Exiting leaves readable work behind; a compact live composer coexists with transcript-aware terminal previews.
 Export and retained conversation state remain distinct from terminal rows and never execute history.
@@ -25,9 +25,9 @@ Waiting questions offer an answer where the question is shown, including at narr
 Delegation and recipes expose child progress, waiting reasons, scoped evidence and explicit continuation limits.
 The current mode stays visible; mode changes retain module enforcement and returning restores their policy.
 Interrupted work remains readable and can seed an explicitly acknowledged new conversation without replay.
-Markdown and code stay readable; history, file snapshots and external editing preserve the unsent draft.
+Markdown and syntax-coloured code stay readable without changing copied source; history, file snapshots and external editing preserve the unsent draft.
 Bundles bring instructions, tools, providers and behaviors without owning the interface.
-Installation delivers an identifiable native client without a development workspace or silent policy migration; newcomers learn and diagnose setup without executing work or exposing private conversation data.
+Installation delivers an identifiable native client without a development workspace or local compiler for supported release platforms; newcomers configure providers deliberately, without silent policy migration or exposing private conversation data.
 The [composition contract](../contracts/composition.v1.md) names the replaceable seams.
 [Session](../contracts/session.v1.md), [presentation](../contracts/presentation.v1.md),
 [continuity](../contracts/continuity.v1.md), [ecosystem](../contracts/ecosystem.v1.md) and
@@ -122,6 +122,11 @@ Rendering and transport do not monopolize input or cancellation; process and lan
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Extend discovery across saved conversations and make compiler-free release installation explicit. | Steward requested the entire reviewed replacement-readiness backlog; the current picker stops at 100 records and Git installation requires local Rust tooling. |
+| 2026-09-14 | Clarify source-preserving code colour. | Continued steward authorization; READ-02's monochrome code remains a visible reading gap. Unknown languages and bounded highlighting must retain readable source. |
+| 2026-09-14 | Specify zero outer horizontal gutters. | Steward identified the remaining three-column side padding and explicitly requested its removal. |
+| 2026-09-14 | Specify a fresh full-height starting workspace and borderless input; quiet live branding. | Steward explicitly requested full-screen appearance, terminal/tmux-friendly copying and removal of Ratatui/LIVE RUNTIME labels. Native shell/transcript retention remains required. |
+| 2026-09-14 | Make content-sized chrome and non-submitting startup explicit. | Steward approved the [direct Codex study](../notes/CODEX-TERMINAL-SOURCE-STUDY.md); our fixed ten-row footer crowded ordinary replies. Native retention remains authoritative over upstream history-purging resize. |
 | 2026-09-14 | Make newcomer guidance and privacy-conscious setup inspection explicit. | Steward requested approachability for others; launch help assumes developer knowledge and diagnostics provide paths without actionable checks. |
 | 2026-09-13 | Specify installable native delivery and identifiable runtime. | Steward requested uv tool installation from a private Git repository; development-only launch obscures which capabilities are running. |
 | 2026-09-13 | Clarify child visibility, retained local editors and context diagnostics. | Steward authorized the next daily-replacement wave; child receipts and local logging lacked an ordinary inspection path. |

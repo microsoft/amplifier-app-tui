@@ -23,12 +23,12 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
 ## The promises
 
 1. **Keep both presets meaningful.** anchors and anchors-amp-dev resolve their recursive definitions and expose the capabilities the host actually supports.
-   Installed launch resolves supported presets without workspace checkouts, names version/storage, and never silently substitutes the historical UI or imports shared CLI state. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
+   Supported release wheels include the native client without requiring a local compiler. Launch resolves presets without workspace checkouts, names version/storage, and never silently substitutes the historical UI or imports shared CLI state. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
    Broken: A preset name loads a hard-coded lookalike, or agent instructions imply a running external service.
    Affected: people selecting bundles and authors composing them.
 
 2. **Honor composition policy.** Selected sources, overlays, provider selection and effective configuration remain attributable; exclusions and incompatibilities are explicit. Conversation-provider changes use a supported module capability while idle, retain its compatibility guards, and disclose whether other routing is unaffected.
-   Mode changes retain transition/tool guards and their durable state. Local capture, remote dispatch, observed context usage and unavailable diagnostics are disclosed separately.
+   Mode changes retain transition/tool guards and their durable state. Explicit model discovery is advisory, never an implicit selection or credential-validity claim. Local capture, remote dispatch, observed context usage and unavailable diagnostics are disclosed separately.
    Broken: A replacement silently omits a policy hook or substitutes a provider to make a demonstration work.
    Affected: operators relying on the configured behavior and its provenance.
 
@@ -70,6 +70,8 @@ Which authored CLI policies need explicit TUI equivalents rather than configurat
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Clarify advisory model discovery in P2. | Steward authorized provider/model setup; module catalogs must not bypass selection guards or imply a successful model request. |
+| 2026-09-14 | Specify compiler-free supported release wheels in P1. | Steward authorized the installation backlog; source installation currently requires Rust/Cargo and a linker. Source builds remain explicit. |
 | 2026-09-14 | Clarify P1's actionable, privacy-conscious setup checks. | Steward requested newcomer approachability; local diagnosis should not require sharing machine paths or trial model calls. |
 | 2026-09-13 | Extend P1 to installable native launch and identifiable storage/runtime. | Steward requested uv tool install from private Git; current launcher depends on sibling checkouts and a separately built binary. |
 | 2026-09-13 | Clarify P2/P6's context diagnostics and child visibility. | Steward authorized replacement-readiness work; generic child rows hide progress and waiting scope. |

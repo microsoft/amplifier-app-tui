@@ -23,7 +23,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
 ## The promises
 
 1. **Retain identity.** Resume restores conversation, working directory, composition identity, explicit conversation-provider selection and canonical context before accepting work; incompatible or uncertain checkpoints or control state refuse execution explicitly.
-   Explicit completed-child continuation verifies its parent, reconstructed composition and inherited mode; inspection alone never starts it, and unsupported or interrupted child records refuse execution.
+   Explicit completed-child continuation verifies its parent, reconstructed composition, routing and inherited mode; inspection never starts it and unsupported/interrupted records refuse execution. Nested continuation requires its actual parent active and never starts ancestors implicitly.
    Broken: Resuming into an unintended directory breaks the returning person's task.
    Affected: the boundary's clients and the person relying on them.
 
@@ -64,6 +64,7 @@ How does a replacement context manager preserve canonical history independently 
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-14 | Clarify P1's nested-parent and routing preservation. | Steward authorized deeper delegated continuity; durable child records must not become implicit ancestor execution. |
 | 2026-09-13 | Specify P1's guarded completed-child continuation. | Steward requested durable delegated workflows; existing receipts retain context but lose executable composition across restart. |
 | 2026-09-13 | Clarify P2's retained answer/correction drafts and non-delivery on recovery. | Steward authorized daily-replacement work; these editors currently exist only in client memory. |
 | 2026-09-13 | Clarify P5's non-destructive recovery path. | Stop left the steward's journal intact but inaccessible through ordinary resume. |
