@@ -58,8 +58,10 @@ download the matching wheel, then run `uv tool install ./<downloaded-wheel>.whl`
 Linux wheels are not manylinux/musl or older-distribution compatibility claims. macOS
 wheels contain one architecture each, with the named deployment floor, not universal2.
 Each asset has an adjacent SHA-256/install receipt. `scripts/release_wheel.py` and the
-manual four-platform workflow verify isolated installation with Cargo absent, native
+manual workflow verify isolated installation with Cargo absent, native
 executable loading and installed fixture tool/resume/terminal-restoration behavior.
+The development workflow now tests five runners, including Ubuntu 22.04; that does not
+replace the four published rc3 platform assets. See the [development validation](notes/evidence/afk-validation.md).
 This is an early candidate, not complete cross-platform certification.
 
 The repository is private. Authenticate GitHub/Git with an account that has access
@@ -234,7 +236,9 @@ launcher uses the separate user-data directory described above.
   public-message excerpts from child receipts retained during explicit recovery. Child
   source identity/hash and uncertain status remain visible. Missing/oversized/corrupt
   receipts are labelled unavailable; media/private module state is not restored. This
-  neither restarts interrupted children nor resumes crash-uncertain recipe steps.
+  never automatically restarts children or resumes crash-uncertain recipe steps.
+  Eligible direct children offer a separate, confirmed public-context continuation
+  under a new identity, as described above; private-state reconstruction is unsupported.
 - **Actions → Search saved conversations** searches saved titles/IDs/directories and recent
   user/assistant message text, without opening sessions or calling a model. Previous/Next
   pages inspect 100 conversations each; partial scans are disclosed. Startup Resume uses
@@ -259,7 +263,8 @@ launcher uses the separate user-data directory described above.
   text with original request scope, separate from model context. Open to copy or explicitly
   remove. Text may already have been submitted; its saved copy is not an admission record.
   It never auto-submits or retargets after restart/recovery. Limits: 32 drafts / 2 MiB total,
-  65536 characters each; autosave after a 250 ms input pause, plus editor dismissal/submission
+  65536 characters each; autosave after 250 ms of pending edits even during continuous
+  typing, plus editor dismissal/submission
   and normal quit. Sudden death before a save can lose the latest edit. Storage errors are
   visible; copy the text before exiting. Recovered drafts retain their original conversation ID.
 - **Actions → Insert text file** (`/attach`) reads one explicitly named workspace-relative

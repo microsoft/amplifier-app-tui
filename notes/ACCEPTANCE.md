@@ -33,10 +33,10 @@ are available from the development checkout on relaunch, not by hot-reloading a 
 - Twelve actual independent module combinations exercise Allow, Deny and repeated Stop:
   two loops by two contexts by three decisions; denied/stopped tools perform zero effects.
 
-Integrated gate: **468 Python tests passed in 214.56 seconds**, with candidates, both
-presets and independent swaps enabled, **no warnings reported**. The subsequent added
-historical-root child-adoption case passes alongside same-root adoption (two focused
-cases). **35 Rust tests**, NO_COLOR, all-target Clippy and **3 Bun tests** pass.
+Final integrated gate: **469 Python tests passed in 211.23 seconds**, with candidates, both
+presets and independent swaps enabled, **no warnings reported**. This includes same-root
+and historical-root child adoption plus private-context/foreign-lineage refusal assertions.
+**35 Rust tests**, NO_COLOR, all-target Clippy and **3 Bun tests** pass.
 Direction remains DRAFT: 585 contract lines / 49 production files. No upstream code changed.
 
 Live lifecycle gate: both presets pass completed read, no-replay resume, then Stop/exit
@@ -50,9 +50,12 @@ paint p95 **68.3 ms** (includes F4, action search and selection). Indexing compl
 bounded refreshes, 2.11 seconds total; source journals remain unchanged. This does not
 establish matched-policy CLI latency, cold installation performance or exhaustive scale.
 
-Local wheel and five-platform CI checks are being recorded separately. The CI extension
-adds Ubuntu 22.04 and a real PNG pasteboard check restricted to disposable macOS runners;
-configuration alone is not a pass or physical-desktop certification.
+Local compiler-free wheel install/PTY and all five CI platform jobs pass, including Ubuntu
+22.04 and actual PNG pasteboard tests on both disposable macOS runners. The exact CI Linux
+ARM64 wheel passes installed live delegation/read/resume on both presets outside the checkout.
+[Candidate provenance and artifact digests](evidence/afk-validation.md) separate this evidence
+from published rc3 assets and physical-desktop certification. Temporary CI uploads were removed
+after reviewed evidence capture; local private artifacts and existing releases remain intact.
 
 ## Confirmed review, historical children and release breadth (2026-09-15)
 

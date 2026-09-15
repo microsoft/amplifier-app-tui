@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import hashlib
 import json
 
@@ -66,6 +67,20 @@ async def test_interrupted_child_adoption_is_owned_new_execution(prepared, tmp_p
         assert not bridge.command(request)[0]
         request["confirm"] = True
         assert not bridge.command({**request, "sha256": "stale"})[0]
+        assert not bridge.command({**request, "source": "f" * 32})[0]
+        # Even a valid source capture cannot authorize a private context module.
+        original_session = copy.deepcopy(host.children.prepared.bundle.session)
+        operation = host.children.recovery_operation(
+            source_id, identity, request["sha256"], request["text"]
+        )
+        host.children.prepared.bundle.session["context"]["module"] = "unsupported-private-context"
+        try:
+            with pytest.raises(ValueError, match="private-state reconstruction refused"):
+                await operation()
+            assert not host.children.active and not host.children.recovering
+            assert path.read_bytes() == original
+        finally:
+            host.children.prepared.bundle.session = original_session
         assert bridge.command(request)[0]
         await host.task
         assert path.read_bytes() == original
