@@ -7,12 +7,21 @@ The comparison includes the entire path, not just IPC microbenchmarks or rendere
 
 ## Current measurement and policy gap
 
+The rc5 [validation record](evidence/rc5-validation.md) adds 30 alternating actual
+CLI/native fixture-runtime pairs. Native startup-to-ready p95 is 267.8 ms and first
+visible fixture output p95 is 125.6 ms; the corresponding CLI observations are 508.3
+and 628.7 ms. **The prepared policies differ**, so these are non-equivalent diagnostic
+measurements, not a speedup or non-regression verdict. Final-visible output is recorded
+separately. Native-process RSS excludes its host and is not a cross-topology comparison.
+The runtime benchmark requires a strict private policy-comparison receipt and a new
+exclusive output path; `--native-only` omits the historical OpenTUI comparator.
+
 `scripts/compare_runtime_policy.py --cli CAPTURE --tui CAPTURE --output NEW_RECEIPT`
 now validates the capture shape and compares ordered module inventories, source/config,
 instructions, session policy and kernel version. Exit 1 means differences; exit 2 means
 invalid evidence. Exit 0 only means the compared prepared fields match: credential
 values were omitted, and request-time schemas/policy/execution still require proof.
-Fresh isolated CLI 0.1.1 / TUI 0.3.0rc5.dev0 captures on core 1.6.1 still differ in session,
+Fresh isolated CLI 0.1.1 / TUI 0.3.0rc5 captures on core 1.6.1 still differ in session,
 instruction, tool-count and hook-count fields. No latency verdict is inferred from them.
 
 The rc4 experiment now captures actual prepared policies through the installed isolated
@@ -21,9 +30,15 @@ use core 1.6.1 and the same fixture source. The CLI adds `tool-mode`, `tool-skil
 `hooks-mode`, `hooks-approval`, `hooks-routing` and `hooks-wayfinder`; the TUI's minimal
 fixture has none of those extra modules. This confirms a real composition mismatch,
 not merely an inferred source-code difference. It does not characterize full presets.
+The separate rc5 `anchors` preparation now compares a real preset too: ordered tool
+IDs agree, while instructions, skills/filesystem/recipe configurations and hook
+inventory differ. CLI terminal hooks and wayfinder are among those differences.
+Prepared session fingerprints agree in that capture, not the whole composition.
+The minimal-fixture timing table does not measure this separate preset capture.
 Reproduce with `scripts/capture_runtime_policy.py --kind cli|tui --state NEW_STATE
 --output NEW_RECEIPT` under the respective interpreter, optionally `--sources MAP` for
-the TUI. State must be a new subdirectory of this checkout's `.state`; use the isolated
+the TUI, and `--bundle URI` for an explicitly selected bundle instead of the fixture.
+State must be a new subdirectory of this checkout's `.state`; use the isolated
 CLI environment, never the daily shared environment. Receipts contain module inventories
 and policy hashes and must stay private: hashing does not anonymize guessable content.
 

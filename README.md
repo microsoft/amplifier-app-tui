@@ -15,11 +15,13 @@ Read [current direction](docs/VISION.md), [derived work](notes/PLAN.md), and
 [what the comparison evaluates](notes/FRONTEND-EVALUATION.md).
 The [workflow coverage map](notes/PARITY.md) separates working paths from remaining parity gaps.
 
-The development checkout is now the `0.3.0rc5` candidate, under release verification.
+The development checkout and private prerelease are now `0.3.0rc5`.
 It adds guarded nested-child adoption under a new root, recipe recovery explanations,
 Stop with a retained replacement draft, prioritized pasted-draft persistence,
 request-specific declared budget observations and fresh JUnit report evidence. Existing
-rc4 wheels stay unchanged until a separately reviewed rc5 release is available.
+releases stay unchanged. See [rc5 validation](notes/evidence/rc5-validation.md): 514
+integrated tests, both-preset live nested recovery, five platform jobs and the exact
+installed ARM64 wheel's live checks. Relaunch `amplifier-tui` to load checkout changes.
 
 The preceding `0.3.0rc5.dev0` increment was separate from the published rc4 wheels.
 It adds legacy persistent-child policy verification, deliberate uncertain-correction
@@ -56,7 +58,7 @@ Git installation requires **uv, Git, Rust/Cargo (tested
 with Rust 1.93), and a C linker**. The build embeds the native executable in a
 platform-specific wheel; normal launches need neither a source checkout nor Cargo.
 
-The private [0.3.0rc4 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc4)
+The private [0.3.0rc5 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc5)
 provides compiler-free wheels. Authenticate with an account that has repository access,
 download the matching wheel, then run `uv tool install ./<downloaded-wheel>.whl`.
 
@@ -728,4 +730,4 @@ Read [vision](docs/VISION.md), [composition contract](contracts/composition.v1.m
 The [Converge practice note](notes/CONVERGE.md) pins the adopted method and explains
 amendment, work derivation and the boundary with the future Converge app.
 Contracts are draft targets, not claims that continuity and later slices are shipped.
-This repo is local-only until explicitly published or backed up.
+Source and reviewed prereleases are retained in the private repository linked above.

@@ -13,13 +13,18 @@ private state or unequal runtime policy into successful parity.
 
 | Item | Source promises | Gap and action | Observable completion / falsifier | State |
 |---|---|---|---|---|
-| PERF-06 | performance.v1:1, performance.v1:2, performance.v1:7 | Refresh actual-entrypoint runtime timing and reproducible policy capture across selected bundles | Private immutable receipts; policy disagreement prevents a parity verdict | Implementing |
-| RECOVER-06 | continuity.v1:5, ecosystem.v1:6 | Guard nested public-context adoption and explain recipe checkpoint outcomes | Validate ancestry and effective policy; no ancestor/unknown-step replay | Implementing |
-| STEER-04 | session.v1:6, session.v1:8 | Explicit Stop with replacement draft retained | Confirmation stops only current work; zero automatic follow-up admission | Implementing |
-| CONTEXT-07 | composition.v1:3, ecosystem.v1:2 | Observe request-specific declared output reservations and public budget events | Bounded allowlisted numbers, identified request, no private meter or current occupancy claim | Implementing |
-| REVIEW-09 | presentation.v1:7, continuity.v1:3 | Correlate fresh structured JUnit reports with a command's captured source versions | Stale/invalid/unsafe reports refuse attribution; no semantic coverage inference | Implementing |
-| INPUT-09 | continuity.v1:2, presentation.v1:2 | Prioritize persistence of pasted drafts without sending | Native paste remains unsent and reaches storage before ordinary debounce | Implementing |
-| RELEASE-06 | ecosystem.v1:1, ecosystem.v1:2 | Document provider-auth seams and ship reviewed rc5 wheels | Source/artifact privacy review, five platform gates, exact installed-live and download verification | Implementing |
+| PERF-06 | performance.v1:1, performance.v1:2, performance.v1:7 | Refresh actual-entrypoint runtime timing and explicit-bundle policy capture | Private immutable receipts; policy disagreement prevents a parity verdict | Implemented: 30 alternating actual-entrypoint pairs; fresh prepared policies still differ. No matched-policy latency verdict |
+| RECOVER-06 | continuity.v1:5, ecosystem.v1:6 | Guard nested public-context adoption and explain recipe checkpoint outcomes | Validate ancestry and effective policy; no ancestor/unknown-step replay | Implemented: real ancestry refusal tests and both live presets pass new-root persistent adoption with originals unchanged. Missing-checkpoint recipe resume refuses without repeating the completed write; arbitrary private recovery remains open |
+| STEER-04 | session.v1:6, session.v1:8 | Explicit Stop with replacement draft retained | Confirmation stops only current work; zero automatic follow-up admission | Implemented: native confirmation/cancel, retained draft and no follow-up admission pass. Earlier effects are not undone; sending remains separate |
+| CONTEXT-07 | composition.v1:3, ecosystem.v1:2 | Observe request-specific provider-dispatch declarations | Bounded allowlisted numbers, identified request, no private meter or current occupancy claim | Implemented: public event observation retains supported numeric limits only. Non-reporting modules, effective budget and current occupancy remain unknown |
+| REVIEW-09 | presentation.v1:7, continuity.v1:3 | Correlate fresh structured JUnit reports with a command's captured source versions | Stale/invalid/unsafe reports refuse attribution; no semantic coverage inference | Implemented: actual pytest pass/fail report counts and hash; unchanged/invalid/ambiguous reports refuse fresh attribution. Semantic coverage and exclusive causality remain open |
+| INPUT-09 | continuity.v1:2, presentation.v1:2 | Prioritize persistence of pasted drafts without sending | Native paste remains unsent and reaches storage before ordinary debounce | Implemented: native multiline paste reaches storage within 200 ms, zero turns, both lines rendered. Unacknowledged final keys and physical platform breadth remain open |
+| RELEASE-06 | ecosystem.v1:1, ecosystem.v1:2 | Document provider-auth seams and ship reviewed rc5 wheels | Source/artifact privacy review, five platform gates, exact installed-live and download verification | Private rc5 published at 67150fd; four reviewed pairs redownloaded byte-identical, all five jobs and exact ARM installed-live pass. Auth seam documented; TUI OAuth and wider physical-platform compatibility remain open |
+
+All seven bounded advances have [rc5 evidence](evidence/rc5-validation.md). The remaining
+gaps in each row are not additional completed promises. Next triage should choose a
+concrete failing workflow or module seam from the [coverage map](PARITY.md), not recycle
+these delivery records as seven indistinguishable “parity complete” tasks.
 
 ## Historical wave — post-rc4 reliability and compatibility
 

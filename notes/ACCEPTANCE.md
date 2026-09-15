@@ -1,5 +1,30 @@
 # First vertical slice — acceptance evidence
 
+## rc5 recovery, control and release checkpoint (2026-09-15)
+
+Private `0.3.0rc5` is published at `67150fd825ea71b2dd231adfe6da3ec5450c6b24`.
+[rc5 validation](evidence/rc5-validation.md) owns exact scope, timings, artifact hashes,
+failed-diagnostic lessons and remaining limits. All eight selected wheel/receipt assets
+were redownloaded byte-identical; previous releases remain unchanged.
+
+Seven scoped advances: guarded nested interrupted public-context adoption; recipe
+checkpoint explanations; explicit Stop retaining an unsent replacement; provider
+dispatch reservations; fresh JUnit report evidence; prioritized paste persistence;
+actual-entrypoint policy/timing and reviewed release/auth-boundary documentation.
+Continuity P5 was amended before deriving nested adoption. Destination vision and all
+contracts remain DRAFT; no formal verdict or complete CLI parity is claimed.
+
+Full suite: **514 passed in 226.55 seconds**, candidates/presets/swaps enabled, no warnings.
+Native controls passed again after strengthening the paste capture assertion. Both live
+presets pass nested persistent-child adoption with original child/ancestor receipts and
+context unchanged. All five platform jobs pass; the exact CI ARM wheel passes both live
+presets outside the checkout. Independent source/artifact/evidence privacy review passed.
+Thirty paired actual-entrypoint fixture measurements retain a **NOT ESTABLISHED** latency
+verdict because prepared policies differ. Renderer first usable p95 is 58.3 ms; editing
+p95 is 18.5–20.1 ms across nine native stress cells. These are distinct workloads.
+
+Historical records below retain the tested scope of their earlier revisions.
+
 ## Post-rc4 seven-area development increment (2026-09-15)
 
 Development source `d45f913d654246feb4e76d136341577d910c4011`, version `0.3.0rc5.dev0`;
