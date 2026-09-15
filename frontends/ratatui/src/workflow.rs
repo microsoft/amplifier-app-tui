@@ -105,7 +105,7 @@ impl App {
                                 "",
                             )],
                         );
-                        self.ui.menu.as_mut().unwrap().detail = "This starts new execution with captured public messages. Verified results are retained; missing outcomes are UNKNOWN, never automatically retried. Original receipt stays unchanged. Requires unchanged simple context/stateless loop and mode; unsupported private state refuses. The new instruction can cause new tool effects. Escape cancels.".into();
+                        self.ui.menu.as_mut().unwrap().detail = "This starts new execution with captured public messages. Verified results are retained; missing outcomes are UNKNOWN, never automatically retried. Original receipt stays unchanged. Requires unchanged supported simple/persistent context, stateless loop and mode; persistent adoption uses a fresh isolated store. Unsupported private state refuses. The new instruction can cause new tool effects. Escape cancels.".into();
                     }
                     return Some(true);
                 }
