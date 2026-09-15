@@ -44,6 +44,7 @@ def test_context_policy_is_visible_without_sending_the_draft(tmp_path):
         action(probe, "Context intelligence", "Context budget policy")
         probe.wait("configuration, not occupancy")
         probe.send(b"\x1b[B\r")
+        probe.wait("Context intelligence · configuration snapshot")
         probe.wait("Explicit configuration only")
         assert "Observed sequences" not in probe.text
         assert "configuration snapshot" in probe.text

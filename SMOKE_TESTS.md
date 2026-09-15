@@ -7,7 +7,9 @@ exactly before execution. A module's existing-file restore policy is never bypas
 `test_change_evidence.py` links exact unchanged versions to earlier agent observations,
 refuses changed versions, and retains unresolved pre-tool evidence once. Context-policy
 tests distinguish configuration rows from actual usage/compaction observations; native
-inspection opens the detail without sending its retained draft. Unique table-cell resize
+inspection opens the detail without sending its retained draft. Native detail checks
+wait for the new menu title before asserting detail: the same text may already
+be visible in the preceding selection preview. Unique table-cell resize
 matching is approximate; repeated/ambiguous cells must fall back rather than guess.
 `capture_runtime_policy.py` runs under the respective isolated CLI/TUI interpreter with
 a fresh `--state` directory. Keep its receipts private: hashes and module IDs are not
