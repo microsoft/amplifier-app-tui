@@ -22,6 +22,7 @@ from .inspection import (
     Inspection,
     add_usage,
     call_usage_text,
+    usage_receipt_id,
     usage_totals,
     usage_values,
 )
@@ -193,6 +194,8 @@ class SessionHost:
             text=call_usage_text(values, actual, agent=agent, duration_ms=duration),
             usage_call={k: str(v) if k == "cost_usd" else v for k, v in values.items()},
             usage_scope="session" if session_only else "turn",
+            usage_receipt_id=usage_receipt_id(data),
+            usage_session_id=child_id or self.session_id,
             provider=actual,
             duration_ms=duration,
             child_id=child_id,

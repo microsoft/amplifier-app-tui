@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 from interaction_probe import action, capture  # noqa: E402
 from questions_probe import wait_ready  # noqa: E402
+from shared_session_probe import READING_REPLY  # noqa: E402
 from terminal_probe import Probe  # noqa: E402
 from test_reading_terminal import draft_is, scene  # noqa: E402
 from test_workflow_terminal import events  # noqa: E402
@@ -39,6 +40,50 @@ def code_colours(probe, needle):
     row = next(i for i, line in enumerate(probe.screen.display) if needle in line)
     start = probe.screen.display[row].index(needle)
     return {probe.screen.buffer[row][x].fg for x in range(start, start + len(needle))}
+
+
+@pytest.mark.parametrize("width", [40, 80, 175])
+def test_mixed_markdown_retains_exact_copy_and_draft_at_terminal_widths(tmp_path, width):
+    path = tmp_path / "reading-scene.json"
+    path.write_text(
+        json.dumps(
+            {
+                "title": "Structured reading fixture",
+                "draft": "Keep this draft",
+                "items": [{"id": "reading", "kind": "assistant", "text": READING_REPLY}],
+                "system": [],
+            }
+        )
+    )
+    probe = Probe(
+        [
+            str(ROOT / "frontends/ratatui/target/release/amplifier-ratatui"),
+            "--host-json",
+            json.dumps(
+                [sys.executable, "-m", "amplifier_tui.frontend_bridge", "--scene", str(path)]
+            ),
+        ],
+        cols=width,
+        rows=50,
+    )
+    try:
+        probe.wait("Reading check complete.")
+        if width >= 80:
+            rows = probe.screen.display
+            continuation = next(row for row in rows if "A continuation paragraph" in row)
+            assert continuation.startswith("   A continuation paragraph")
+            heading = next(i for i, row in enumerate(rows) if "### Sources" in row)
+            assert not rows[heading - 1].strip()
+        capture(probe, f"mixed-markdown-{width}")
+        action(probe, "Assistant replies", "Assistant replies · latest")
+        probe.send(b"\r")
+        probe.wait("Message · retained source preview")
+        probe.send(b"Copy message\r")
+        probe.wait("Source copied")
+        assert copied(probe) == READING_REPLY
+        draft_is(probe, "Keep this draft")
+    finally:
+        probe.close()
 
 
 @pytest.mark.parametrize("no_colour", [False, True])

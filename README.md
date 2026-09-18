@@ -116,7 +116,9 @@ identify their task and latest observed child activity. Per-call usage is one li
 directly below activity; only an assistant response keeps a blank line before usage;
 expand it for full routing, time, duration, cache-aware input/output/total and cost. Turn and
 session costs include observed child calls; absent cost is unknown, not zero. Older
-conversations without per-call accounting disclose unavailable earlier usage.
+conversations import recorded CLI accounting into Session, not the next Turn.
+Earlier receipts are inspectable in Activity; missing or uncorrelated accounting
+remains explicitly partial.
 While a turn runs, its working indicator shows elapsed time, reported call count,
 cumulative **Turn usage**, turn cost and session cost, including agents. Repeated
 inputs count again per call: this is usage, not the current context size. Time advances during

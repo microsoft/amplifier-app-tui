@@ -34,6 +34,18 @@ class FixtureProvider:
     def parse_tool_calls(self, response):
         return response.tool_calls or []
 
+    async def _respond(self, response):
+        if self.config.get("usage") is not None:
+            await self.coordinator.hooks.emit(
+                "llm:response",
+                {
+                    "provider": "fixture",
+                    "model": "fixture",
+                    "usage": self.config["usage"],
+                },
+            )
+        return response
+
     async def complete(self, request, **kwargs):
         self.calls.append(request)
         await asyncio.sleep(self.config.get("delay", 0.05))
@@ -42,19 +54,21 @@ class FixtureProvider:
         last_user = max((i for i, m in enumerate(request.messages) if m.role == "user"), default=0)
         has_result = any(m.role == "tool" for m in request.messages[last_user + 1 :])
         if not has_result:
-            return ChatResponse(
-                content=[],
-                tool_calls=[
-                    ToolCall(
-                        id=uuid.uuid4().hex,
-                        name="request_user_input"
-                        if self.config.get("questions")
-                        else self.config.get("tool", "fixture_probe"),
-                        arguments={"questions": self.config["questions"]}
-                        if self.config.get("questions")
-                        else self.config.get("arguments", {"text": "fixture payload"}),
-                    )
-                ],
+            return await self._respond(
+                ChatResponse(
+                    content=[],
+                    tool_calls=[
+                        ToolCall(
+                            id=uuid.uuid4().hex,
+                            name="request_user_input"
+                            if self.config.get("questions")
+                            else self.config.get("tool", "fixture_probe"),
+                            arguments={"questions": self.config["questions"]}
+                            if self.config.get("questions")
+                            else self.config.get("arguments", {"text": "fixture payload"}),
+                        )
+                    ],
+                )
             )
         reply = self.config.get(
             "reply", "Fixture round trip complete. Inspect the tool result for evidence."
@@ -69,7 +83,7 @@ class FixtureProvider:
                 },
             )
             await asyncio.sleep(self.config.get("delay", 0.05))
-        return ChatResponse(content=[TextBlock(text=reply)])
+        return await self._respond(ChatResponse(content=[TextBlock(text=reply)]))
 
 
 async def mount(coordinator, config):

@@ -24,8 +24,11 @@ This is the first bidirectional session slice, **not complete feature parity**:
   simultaneous cross-client editing or prevent an old CLI overwriting newer data.
 - TUI-only pending input, pins, modes, goals and child receipts are retained, but
   are not yet a shared CLI control format. Changed/incompatible controls can refuse
-  native resume; do not edit their checkpoint by hand. Historical CLI costs are
-  marked unavailable rather than presented as a complete session total.
+  native resume; do not edit their checkpoint by hand.
+- Historical CLI costs are read from recorded model-call receipts and reconciled
+  with TUI observations. Earlier usage contributes to Session, not the next Turn;
+  inspect its receipts in Activity. Missing logs, uncorrelated observations and
+  import limits disclose partial accounting rather than an invented complete total.
 - Unknown outcomes, incomplete tool pairing and uncertain checkpoints refuse native
   execution. Export for inspection; no prior call is automatically replayed.
 - Canonical loading currently accepts at most 10,000 messages / 8 MiB. Arbitrary

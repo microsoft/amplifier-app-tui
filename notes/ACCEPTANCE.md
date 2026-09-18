@@ -21,7 +21,6 @@ not a paid-model, personal-account, latency-parity or arbitrary private-state cl
 
 ## Current checks
 
-The focused shared-session/direction/entrypoint corpus passes **67 tests** (9.09s).
 Coverage includes no-fallback discovery, canonical storage for explicit policy,
 metadata-only housekeeping, same-ID history/configuration, unknown metadata,
 external names, canonical-digest invalidation, private drafts and graceful-stop return.
@@ -29,12 +28,23 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The default Python suite passes **652 tests, 318 opt-in skips** (139.45s), recorded
-privately in `.evidence/shared-only-default.xml`. The actual-entrypoint round-trip
-probe, including explicit isolated composition, passes. No Rust renderer code is
-changed by this work. Ruff lint/format and direction/archive integrity checks pass.
-The native navigation/session/shared-store gate passes **44 tests** (22.19s), with
-private receipt `.evidence/shared-only-native.xml`.
+The default Python suite passes **662 tests, 321 opt-in skips**, recorded
+privately in `.evidence/shared-reading-default.xml`. Rust renderer/native tests pass
+**70 tests**, with release build and strict Clippy clean. Ruff lint/format and
+direction checks pass. The mixed-reading terminal and accounting corpus passes
+**19 tests** (11.07s), including exact source copy and retained draft at 40/80/175
+columns. The CLI owner tests pass **2353 tests**, with one skip and one expected
+failure; its resume-list fix has synthetic store and actual Click coverage.
+The focused native reading, tmux, shared-store and flow gate passes **71 tests,
+7 preset-gated skips** (55.02s), privately recorded in
+`.evidence/shared-reading-native.xml`.
+After the CLI pin update, **77 tests** pass with native/preset gates enabled
+(42.35s), including resolver comparison, shared return, actual entrypoint workflows,
+usage scope/recovery and Activity preview/copy; receipt `.evidence/shared-reading-pin.xml`.
+Thirty warm simulated decision/resize samples measure decision-open p95 **12.4 ms**,
+shrink-to-80-column p95 **18.4 ms** and grow-to-175-column p95 **51.8 ms**. Draft and
+pending decision survive; no provider or CLI latency parity is inferred. Private
+receipt `.evidence/shared-reading-experience.json` includes source hashes and samples.
 [SMOKE_TESTS](../SMOKE_TESTS.md) owns additional opt-in preset, terminal, service,
 module-swap and installed-artifact gates. Overlapping suites are not additive counts.
 No user transcript or account is a synthetic test fixture.
@@ -42,9 +52,30 @@ No user transcript or account is a synthetic test fixture.
 ## Reading and presentation
 
 Current source comparison is in [MARKDOWN-GAPS](MARKDOWN-GAPS.md). Structural list
-wrapping, block separation, quote continuation and link presentation remain real
-gaps. This pass investigates them; it does not claim a Markdown renderer fix.
-Existing strong/emphasis/code/table parsing is not proof of complete layout parity.
+wrapping, loose/tight spacing, quote continuation and heading hierarchy have mixed
+block coverage. Journal streaming is compared with the complete styled projection
+at every character boundary at 40/80/175 columns. Native terminal captures were
+inspected at laptop and narrow widths. HTML-entity-decoded controls remain inert.
+Links suppress only exact label/destination duplication; no OSC hyperlinks or blind
+URL hiding are claimed. Original Markdown and code copy remain unchanged.
+
+## Recorded accounting and CLI discovery
+
+Historical root, child and utility usage comes from canonical event receipts plus
+identified native observations. Explicit metadata/fork ancestry determines child
+ownership. Kernel receipt identity joins observers, never token-value equality or
+time proximity. Imported receipts seed Session, not the next Turn, and remain
+inspectable in Activity. Reopening does not duplicate totals or canonical bytes.
+Missing, conflicting, oversized and uncorrelated sources produce partial accounting.
+The actual CLI/TUI round-trip probe mounts hooks-logging, reconciles exact synthetic
+reported costs and uses a mixed Markdown answer without paid model calls.
+
+CLI discovery requires a saved transcript, retaining log-only diagnostics on disk.
+Resume lists label their nonblank transcript-line counts as messages, not user turns.
+The app pins tested CLI commit `e2f665137189b48dca1f8778c24f23aa25fddc60`.
+[CLI PR346](https://github.com/microsoft/amplifier-app-cli/pull/346) passes all eight
+Linux/macOS/Windows unit/integration CI jobs and CLA. Normal reviewer approval is
+still required; the pin includes the fix without claiming it is merged into CLI main.
 
 ## Remaining boundaries
 
@@ -55,8 +86,9 @@ Existing strong/emphasis/code/table parsing is not proof of complete layout pari
   unknown effects; the canonical recovery workflow is not yet implemented.
 - Native pins/modes/goals/held input/child controls are not a common CLI private-state
   format. Unsupported state must refuse rather than silently disappear.
-- Earlier CLI costs are not imported yet. Available event receipts are the source
-  for future accounting; estimates or transcript-token guesses are not substitutes.
+- Historical accounting is bounded to 512 directory metadata candidates, 128 event
+  logs / 64 MiB and 10,000 receipts. Gaps are disclosed; unavailable costs are never
+  estimated from transcript tokens or model prices.
 - Canonical loading is bounded to 10,000 messages / 8 MiB. Broader module-private
   state and actual-entrypoint persistent-context combinations need separate checks.
 - Real provider authorization, personal service destinations and physical devices

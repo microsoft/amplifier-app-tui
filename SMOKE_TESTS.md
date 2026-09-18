@@ -1,6 +1,6 @@
 # Verification guide
 
-Shared-session gate: run `uv run --no-sync pytest -q tests/test_shared_sessions.py`
+Shared-session gate: run `uv run --no-sync pytest -q tests/test_shared_sessions.py tests/test_shared_usage.py`
 for actual CLI SessionStore round trips, same-ID canonical writeback, directory-local
 picker/search/recall, session settings, preserved unknown metadata, no-replay startup,
 changed-CLI projection rebuilding, reminder filtering, explicit branch context,
@@ -8,7 +8,9 @@ stale-write/uncertainty/symlink refusal, private export and reversible TUI visib
 When independent loop/context packages are installed, four combinations also verify
 module-owned private system history survives resume without entering the CLI's public
 transcript. Missing packages explicitly skip those checks; never use shared-home
-defaults for the persistent-context fixture.
+defaults for the persistent-context fixture. Accounting checks cover root/child/utility
+receipts, recorded forks, repeat-resume deduplication, conflicting/missing/symlinked
+logs and capture bounds. Preserve canonical bytes; earlier costs never enter a new Turn.
 Run `uv run --no-sync python scripts/shared_session_probe.py` serially with other
 PTY tests. It creates a fresh disposable CLI environment/home, uses actual CLI
 entrypoints and default app behaviors, then resumes the same identity in native TUI
@@ -17,10 +19,21 @@ the CLI ownership guard. Local bundle overrides require file URIs for fragments.
 Only the provider/tool are deterministic fixtures; no paid calls are authorized.
 Inspect private `shared-session-*` captures and require new-turn tool outcomes,
 no transcript growth before Send, unchanged root-session count and restored TTY.
+The probe mounts actual hooks-logging and reconciles fixture usage across returns.
+Its mixed Markdown answer exercises nested lists, loose paragraphs, quotes, headings,
+code, Unicode and links; narrow screens correctly retain the opening text in history
+instead of requiring both the opening prompt and the answer tail on one screen.
 The probe also starts/resumes an explicit isolated composition under its owned
 `--cli-home`, asserts canonical storage and rejects a parallel live journal store.
 Raw probe logs/settings/transcripts are private and must never be published. This
-does not certify concurrent writers, private-control equivalence or complete costs.
+does not certify concurrent writers, private-control equivalence or complete costs
+when the source receipts are missing.
+
+Structural reading gate: build the native frontend, then run
+`TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q tests/test_structured_reading_terminal.py tests/test_reading_terminal.py tests/test_tmux_scrollback.py`.
+Inspect `mixed-markdown-*` captures at 40/80/175 columns. Exact source copy and draft
+preservation are independent assertions. Rust tests compare styled incremental and
+completed Markdown at every character boundary and reject parser-decoded controls.
 
 Release upgrade gate: `scripts/release_wheel.py --terminal --scripting --upgrade-from
 PATH_TO_PRIOR_WHEEL` requires the published wheel's adjacent `.receipt.json`, verifies

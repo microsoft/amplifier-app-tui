@@ -78,12 +78,17 @@ Structured child events stay under their observed parent, not timing-guessed roo
 The primary terminal screen retains committed output for terminal/tmux copy and
 scrollback. Inspection temporarily owns an alternate view without replacing retained
 history. Rendering consumes source text; display wrapping never changes copied source.
-Markdown structural and link gaps are recorded in [MARKDOWN-GAPS](MARKDOWN-GAPS.md).
+Structural Markdown prefixes preserve wrapped list and quote scope; copied source
+is unchanged. Parser-decoded controls are sanitized too. Conservative links retain
+nonredundant destinations; capabilities are recorded in [MARKDOWN-GAPS](MARKDOWN-GAPS.md).
 
 Call usage uses observed identity, reported values and parent attribution; no
-estimates of in-flight generation. Earlier CLI usage without imported accounting
-receipts remains unavailable. Do not present a partial total as the complete session.
-Full private-control/accounting interchange remains in [PLAN](PLAN.md).
+estimates of in-flight generation. Resume reads bounded canonical event logs and
+explicit descendant ownership, reconciling native observations by kernel receipt
+identity, never equal amounts or nearby timestamps. Historical totals seed Session,
+not Turn; detailed receipts live in the Activity sidecar. Canonical source bytes are
+read-only. Missing, conflicting, bounded or uncorrelated evidence stays partial.
+Full private-control interchange remains in [PLAN](PLAN.md).
 
 ## Verification and publication
 

@@ -46,6 +46,32 @@ def usage_totals():
     return {"requests": 0, "reported": {}, "totals": {}}
 
 
+def usage_receipt_id(data):
+    """The kernel's emit identity shared by logging and host observation hooks.
+
+    Do not use the observer's clock, a model iteration, or equal token counts as
+    identity. Older observations without the kernel timestamp remain uncorrelated.
+    """
+    import hashlib
+
+    stamp, session = data.get("timestamp"), data.get("session_id")
+    if not isinstance(stamp, str) or not isinstance(session, str):
+        return None
+    try:
+        if datetime.fromisoformat(stamp.replace("Z", "+00:00")).tzinfo is None:
+            return None
+    except ValueError:
+        return None
+    fields = (
+        session,
+        stamp,
+        *(data.get(k) for k in ("request_id", "span_id", "provider", "model", "purpose")),
+    )
+    if any(v is not None and not isinstance(v, str) for v in fields):
+        return None
+    return "receipt:" + hashlib.sha256(json.dumps(fields).encode()).hexdigest()
+
+
 def add_usage(total, values):
     """Add one provider response without retaining all prior usage dictionaries."""
     total["requests"] += 1
@@ -103,7 +129,17 @@ class CallUsage:
         self.turn_id = None
         self.legacy = False
         for event in events:
-            if event.kind == "display.message" and isinstance(
+            if event.payload.get("accounting_snapshot"):
+                snapshot = event.payload["accounting_snapshot"]
+                self.session = {
+                    **snapshot,
+                    "totals": usage_values(snapshot["totals"]),
+                    "reported": dict(snapshot["reported"]),
+                }
+                self.turn, self.turn_id = usage_totals(), None
+                self.legacy = bool(event.payload.get("partial"))
+                self.seen.clear()
+            elif event.kind == "display.message" and isinstance(
                 event.payload.get("usage_call"), dict
             ):
                 self.add(
@@ -690,7 +726,14 @@ class Inspection:
         )
         public_text = (
             payload.get("text")
-            if event.kind == "display.message" and payload.get("source") in ("thinking", "usage")
+            if (event.kind == "display.message" and payload.get("source") in ("thinking", "usage"))
+            or (
+                event.kind == "activity.observed"
+                and (
+                    isinstance(payload.get("usage_call"), dict)
+                    or payload.get("accounting_snapshot")
+                )
+            )
             else block.get("text") or block.get("thinking")
         )
         public_text = public_text if isinstance(public_text, str) else None
@@ -765,7 +808,9 @@ class Inspection:
             text = row["public_text"]
 
             value["label"] = (
-                "Usage"
+                row["label"]
+                if payload.get("accounting_snapshot")
+                else "Usage"
                 if payload.get("source") == "usage"
                 else "Thinking"
                 if thinking
