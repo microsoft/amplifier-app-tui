@@ -22,7 +22,7 @@ dependencies = [
 
 [[package]]
 name = "amplifier-app-tui"
-version = "0.3.0rc5"
+version = "0.3.0rc6"
 source = { editable = "." }
 dependencies = [
     { name = "amplifier-app-cli" },
@@ -82,7 +82,7 @@ wheels = [
 [[package]]
 name = "amplifier-foundation"
 version = "1.0.0"
-source = { git = "https://github.com/microsoft/amplifier-foundation?branch=main#8a8e4f11918afd38ea8fe8f69cbec002226324f7" }
+source = { git = "https://github.com/microsoft/amplifier-foundation?rev=8a8e4f11918afd38ea8fe8f69cbec002226324f7#8a8e4f11918afd38ea8fe8f69cbec002226324f7" }
 dependencies = [
     { name = "amplifier-core" },
     { name = "pyyaml" },

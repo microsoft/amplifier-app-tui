@@ -24,9 +24,24 @@ jobs:
         run: rustup toolchain install 1.93.0 --profile minimal && rustup default 1.93.0
       - name: Native unit tests
         run: cargo test --release --locked --manifest-path frontends/ratatui/Cargo.toml
+      - name: Download prior release for same-environment upgrade verification
+        id: prior
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$RUNNER_OS/$RUNNER_ARCH" in
+            Linux/ARM64) platform=linux_aarch64 ;;
+            Linux/X64) platform=linux_x86_64 ;;
+            macOS/ARM64) platform=macosx_14_0_arm64 ;;
+            macOS/X64) platform=macosx_15_0_x86_64 ;;
+            *) exit 1 ;;
+          esac
+          wheel="amplifier_app_tui-0.3.0rc5-py3-none-${platform}.whl"
+          gh release download v0.3.0rc5 --pattern "$wheel*" --dir .state/prior-release
+          echo "wheel=.state/prior-release/$wheel" >> "$GITHUB_OUTPUT"
       - name: Build and install without Cargo on PATH
         id: wheel
-        run: uv run --no-project --with pyte==0.8.2 python scripts/release_wheel.py --terminal --ci-clipboard
+        run: uv run --no-project --with pyte==0.8.2 python scripts/release_wheel.py --terminal --scripting --ci-clipboard --upgrade-from '${{ steps.prior.outputs.wheel }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: wheel-${{ matrix.os }}

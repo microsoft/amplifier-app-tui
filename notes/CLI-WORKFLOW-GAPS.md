@@ -17,8 +17,8 @@ policy. They work on the CLI store, not the native store. This is supported entr
 compatibility, not a second native implementation of every wizard. Native ordinary
 Resume stays directory-local; structured adoption is not original private-state resume.
 
-Remaining delivery/verification boundaries: computer-use approval transport awaits
-required upstream review; personal remote destinations/devices, real account login,
+Computer-use approval transport is merged upstream (PR 19, 2026-09-18).
+Remaining verification boundaries: personal remote destinations/devices, real account login,
 arbitrary private module state, and billed provider behavior are not certified by
 offline fixtures. No speculative service/device dashboards were added. Exact failed-
 then-corrected and final gate evidence belongs in [ACCEPTANCE](ACCEPTANCE.md).

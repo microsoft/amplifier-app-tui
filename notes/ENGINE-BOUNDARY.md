@@ -192,7 +192,8 @@ It describes transport, not consent. Computer-use's upstream hook prefers that
 capability, preserving legacy TTY fallback only when absent; explicit false or invalid
 values fail closed. Normal ask_user/deny/defaults and actual decision ownership remain
 unchanged. The workspace source override exercises the patched upstream module without
-rewriting declared mount policy; published installs need that upstream change delivered.
+rewriting declared mount policy. Upstream PR 19 merged on 2026-09-18; installations
+still need a resolved module revision containing that fix, not merely a new TUI version.
 
 Explicit launcher subcommands and the `cli` prefix replace the process with the pinned
 CLI before importing runtime policy. Cwd, environment, literal argv, stdio, home guards

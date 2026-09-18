@@ -15,6 +15,33 @@ from amplifier_tui.host import SessionHost
 from amplifier_tui.launcher import CLI_COMMANDS, PACKAGE, arguments, cli_command, state_directory
 
 
+def test_prior_release_upgrade_requires_matching_reviewed_artifact(tmp_path, monkeypatch):
+    import hashlib
+    from zipfile import ZipFile
+
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    from release_wheel import verify_prior_wheel
+
+    wheel = tmp_path / "example-0.1-py3-none-any.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr("example/__init__.py", "# Synthetic prior-release artifact\n")
+    receipt = wheel.with_name(wheel.name + ".receipt.json")
+    with pytest.raises(FileNotFoundError):
+        verify_prior_wheel(wheel)
+    payload = {"wheel": wheel.name, "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest()}
+    receipt.write_text(json.dumps(payload))
+    verify_prior_wheel(wheel)
+    receipt.write_text(json.dumps({**payload, "wheel_sha256": "0" * 64}))
+    with pytest.raises(ValueError, match="does not match"):
+        verify_prior_wheel(wheel)
+    receipt.write_text(json.dumps({**payload, "wheel": "different.whl"}))
+    with pytest.raises(ValueError, match="does not match"):
+        verify_prior_wheel(wheel)
+    receipt.write_text(" " * (1024 * 1024 + 1))
+    with pytest.raises(ValueError, match="exceeds"):
+        verify_prior_wheel(wheel)
+
+
 def test_cli_compatibility_entrypoint_preserves_argv_and_default_tui(monkeypatch):
     from amplifier_tui import launcher
 

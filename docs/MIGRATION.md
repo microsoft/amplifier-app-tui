@@ -58,7 +58,7 @@ calls or incompatible modules refuse without changing the source conversation. T
 is not original-identity CLI resume: original policy, credentials and module-private
 state are unavailable. Configured startup hooks can still run when the new session mounts.
 
-## Session controls without changing shared settings
+## Session controls and deliberate shared saves
 
 Actions can insert goal, tool-configuration, directory and login commands into an empty
 composer. Insertion is unsent; review arguments, then Send. Local controls cannot be queued.
@@ -67,7 +67,9 @@ composer. Insertion is unsent; review arguments, then Send. Local controls canno
 |---|---|
 | `/goal --max-turns 5 CONDITION` | Sets the streaming loop's goal; no turn starts until the next Send. Omitting the limit means unlimited continuation and possible charges. |
 | `/goal` / `/goal clear` | Inspect or clear; active goals retain their cap across supported TUI resume. |
-| `/config tools disable NAME` / `enable NAME` | Mutates the actual root mount through Foundation; persists for this TUI conversation. Leave modes first. |
+| `/config CATEGORY disable NAME` / `enable NAME` | Changes supported tool/provider/context/agent/behavior policy through Foundation; persists for this conversation. Leave modes first. Hooks remain inspection-only. |
+| `/config diff` / `/config set PATH VALUE` | Shows edited paths without values; `set` stages scalar module metadata, not live reinitialization. Credentials use provider-owned setup. |
+| `/config save --scope SCOPE --confirm` | Choose `project`, `local` or `global` explicitly to save configurator policy for new conversations. Existing conversations retain their own policy. |
 | `/allowed-dirs add PATH` / `remove PATH` / `list` | Changes the supported root filesystem write/edit allowlist. Quote paths containing spaces. |
 | `/denied-dirs add PATH` / `remove PATH` / `list` | Changes the corresponding denylist; deny wins. Neither list restricts bash or children. |
 | `/provider use NAME` / `auto` / `status` | Existing conversation pin capability, with durable selection and same-vendor limits. |
@@ -75,11 +77,19 @@ composer. Insertion is unsent; review arguments, then Send. Local controls canno
 | `/mode NAME on` / `off`, `/mode off`, `/mode info NAME` | Module-enforced transition or authored definition. `/mode NAME` toggles. |
 | `/mode NAME PROMPT` or `/NAME PROMPT` | Applies a discovered mode through its policy, then sends the trailing prompt only if activation succeeds. |
 
-These are root-session controls, not global configuration or an OS sandbox. Delegated
-sessions, routing and other tools keep their own policy. Re-enable locally disabled
-tools before changing mode; the two policies must not silently undo each other. Missing
-or uncertain saved controls refuse resume. Other configuration changes require an
-explicit new composition; arbitrary `/config set/save` is not advertised as applied.
+Controls affect the current conversation unless you explicitly save shared policy.
+They are not an OS sandbox. Delegated sessions, routing and other tools keep their
+own policy. Re-enable locally disabled tools before changing mode; the two policies
+must not silently undo each other. Missing or uncertain saved controls refuse resume.
+Metadata edits do not reinitialize running modules. A shared save uses the CLI's
+settings paths and may change YAML formatting/comments. See the
+[loaded-configuration and session-operation guide](GETTING-STARTED.md) for exact
+guards, context clearing, turn branches, direct tools and reversible archival.
+
+Canonical CLI sessions remain available through `amplifier-tui resume`,
+`amplifier-tui continue` and `amplifier-tui session …`: these are explicit pinned-CLI
+handoffs operating on the CLI store. They are distinct from native `--resume`, which
+uses the TUI store. Neither silently converts private state into the other format.
 
 Export a readable UTF-8 transcript from the old client. For this app,
 `amplifier-tui --export` prints the location of a private Markdown export. Review that
