@@ -266,15 +266,30 @@ def reference_messages(value):
     ]
 
 
-def history(state_dir, identity, *, structured=False):
-    entry = resolve_resume(state_dir, identity)
+def history(state_dir, identity, *, structured=False, cwd=None, cli_home=None):
+    from dataclasses import asdict
+
+    from .conversations import SharedConversationStore, entry_path
+
+    entry = resolve_resume(state_dir, identity, cwd=cwd, cli_home=cli_home)
     identity = entry["id"]
-    directory = Path(state_dir) / "conversations" / identity
-    with (directory / "events.jsonl").open("rb") as stream:
-        data = stream.read(16 * 1024 * 1024 + 1)
-    if len(data) > 16 * 1024 * 1024:
-        raise ValueError("History exceeds the 16 MiB recovery/export bound")
-    rows = [json.loads(line) for line in data.splitlines()]
+    directory = entry_path(state_dir, entry)
+    rows = None
+    if entry.get("shared_session"):
+        from .cli_compat import read_session_file
+
+        raw = read_session_file(cli_home, cwd, identity, "transcript.jsonl", 8 * 1024 * 1024)
+        checkpoint = directory / "checkpoint.json"
+        marker = json.loads(checkpoint.read_text()) if checkpoint.exists() else {}
+        if marker.get("canonical_sha256") != hashlib.sha256(raw).hexdigest():
+            messages = [json.loads(line) for line in raw.splitlines() if line.strip()]
+            rows = [asdict(e) for e in SharedConversationStore.observations(messages, identity)]
+    if rows is None:
+        with (directory / "events.jsonl").open("rb") as stream:
+            data = stream.read(16 * 1024 * 1024 + 1)
+        if len(data) > 16 * 1024 * 1024:
+            raise ValueError("History exceeds the 16 MiB recovery/export bound")
+        rows = [json.loads(line) for line in data.splitlines()]
     if any(
         not isinstance(r, dict) or r.get("session_id") != identity or r.get("sequence") != i
         for i, r in enumerate(rows, 1)
@@ -288,8 +303,6 @@ def history(state_dir, identity, *, structured=False):
         if row["kind"] == "text.final":
             finals.add(row["item_id"])
     if structured:
-        from dataclasses import asdict
-
         return entry, json.dumps(
             {
                 "version": 1,
@@ -321,10 +334,10 @@ def history(state_dir, identity, *, structured=False):
     return entry, "".join(parts)
 
 
-def export(state_dir, identity, format="markdown"):
+def export(state_dir, identity, format="markdown", *, cwd=None, cli_home=None):
     if format not in ("markdown", "json"):
         raise ValueError("Choose markdown or json export")
-    _, text = history(state_dir, identity, structured=format == "json")
+    _, text = history(state_dir, identity, structured=format == "json", cwd=cwd, cli_home=cli_home)
     if len(text.encode()) > 32 * 1024 * 1024:
         raise ValueError("Rendered export exceeds the 32 MiB bound")
     directory = Path(state_dir) / "exports"

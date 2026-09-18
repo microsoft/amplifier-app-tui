@@ -1,5 +1,14 @@
 # Everyday CLI gap analysis — 2026-09-16
 
+## New priority — bidirectional native adoption (2026-09-18)
+
+The steward supersedes the handoff-only disposition below: full CLI experience and
+shared-data compatibility are the baseline. SHARED-01–04 in [PLAN](PLAN.md) own this
+work. The first slice shares canonical project sessions, ordinary Resume, directory
+recall/search and session-scoped settings. Native/private-control equivalence,
+cooperative cross-client ownership and historical accounting remain explicit gaps.
+Historical rows below do not certify those newly required round trips.
+
 ## Follow-up boundary — 2026-09-18
 
 The historical table below describes the original gaps, not a current backlog.

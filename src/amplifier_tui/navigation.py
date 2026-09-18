@@ -10,10 +10,11 @@ from collections import OrderedDict
 from pathlib import Path
 
 from .conversations import (
-    ConversationStore,
     atomic_json,
     catalog,
     checkpoint_status,
+    entry_path,
+    open_conversation,
     resolve_resume,
 )
 from .followups import Followups
@@ -63,12 +64,12 @@ def file_candidates(cwd, query):
     return {"candidates": matches[:80], "truncated": truncated or len(matches) > 80}
 
 
-def session_choices(state_dir, current, *, cwd=None, offset=0, query=""):
+def session_choices(state_dir, current, *, cwd=None, offset=0, query="", cli_home=None):
     if type(offset) is not int or not 0 <= offset <= 100000:
         raise ValueError("Invalid conversation page")
     if not isinstance(query, str) or len(query) > 256 or (query and not query.isprintable()):
         raise ValueError("Search requires at most 256 printable characters")
-    entries = catalog(state_dir, cwd=cwd)
+    entries = catalog(state_dir, cwd=cwd, cli_home=cli_home)
     choices = []
     matches, partial = {}, False
     if query:
@@ -92,9 +93,7 @@ def session_choices(state_dir, current, *, cwd=None, offset=0, query=""):
             # Older checkpoints predate title metadata. Inspect only a bounded
             # prefix of this app's private journal, never the tool workspace.
             try:
-                with (
-                    Path(state_dir) / "conversations" / identity / "events.jsonl"
-                ).open() as stream:
+                with (entry_path(state_dir, entry) / "events.jsonl").open() as stream:
                     for line in stream.read(65536).splitlines():
                         event = json.loads(line)
                         if event.get("kind") == "turn.accepted":
@@ -106,11 +105,16 @@ def session_choices(state_dir, current, *, cwd=None, offset=0, query=""):
         status = "current" if identity == current else "saved · validated when opened"
         if identity != current:
             try:
-                status_hint = checkpoint_status(
-                    Path(state_dir) / "conversations" / identity / "checkpoint.json"
-                )
+                checkpoint = entry_path(state_dir, entry) / "checkpoint.json"
+                status_hint = checkpoint_status(checkpoint) if checkpoint.exists() else None
+                if entry.get("shared_session"):
+                    status = "shared CLI/TUI session · close other client before opening"
                 if status_hint is not None and status_hint != "ready":
-                    status = "recovery required · original preserved"
+                    status = (
+                        "unavailable · shared session incomplete; export for inspection"
+                        if entry.get("shared_session")
+                        else "recovery required · original preserved"
+                    )
             except (OSError, ValueError):
                 status = "unavailable · invalid checkpoint"
         match = matches.get(identity, "")
@@ -148,6 +152,11 @@ class WorkspaceBridge(RuntimeBridge):
         self.transport_emit = self.emit
         self.emit = self.publish
 
+    @property
+    def cli_home(self):
+        launch = self.host.store.metadata["launch"] if self.host.store else {}
+        return launch.get("cli_home") if launch.get("settings_policy") == "cli" else None
+
     def publish(self, value):
         if self.history_loading and value.get("type") == "state" and value.get("ready"):
             self.history_state = value
@@ -166,7 +175,7 @@ class WorkspaceBridge(RuntimeBridge):
 
         identity = self.host.session_id
         value = await asyncio.to_thread(
-            recall, self.state_dir, self.cwd, identity, include_current=True
+            recall, self.state_dir, self.cwd, identity, include_current=True, cli_home=self.cli_home
         )
         if identity == self.host.session_id:
             self.emit({"type": "input_history", "session_id": identity, **value})
@@ -348,7 +357,11 @@ class WorkspaceBridge(RuntimeBridge):
 
             try:
                 path = export(
-                    self.state_dir, self.host.session_id, request.get("format", "markdown")
+                    self.state_dir,
+                    self.host.session_id,
+                    request.get("format", "markdown"),
+                    cwd=self.resume_cwd,
+                    cli_home=self.cli_home,
                 )
             except (OSError, ValueError) as exc:
                 return False, str(exc)
@@ -706,6 +719,7 @@ class WorkspaceBridge(RuntimeBridge):
                     cwd=self.resume_cwd,
                     offset=request.get("offset", 0),
                     query=request.get("query", ""),
+                    cli_home=self.cli_home,
                 )
             elif request["op"] == "complete_command":
                 result = self.host.local_commands.complete(
@@ -769,7 +783,7 @@ class WorkspaceBridge(RuntimeBridge):
             if target != "new":
                 # A menu snapshot is not authority. Check before recovery writes
                 # or candidate mounting, including requests from stale clients.
-                resolve_resume(self.state_dir, target, cwd=self.resume_cwd)
+                resolve_resume(self.state_dir, target, cwd=self.resume_cwd, cli_home=self.cli_home)
             if self.lookup_task and not self.lookup_task.done():
                 self.lookup_task.cancel()
                 await asyncio.gather(self.lookup_task, return_exceptions=True)
@@ -785,7 +799,9 @@ class WorkspaceBridge(RuntimeBridge):
             launch = (
                 self.host.store.metadata["launch"]
                 if target == "new"
-                else resolve_resume(self.state_dir, target, cwd=self.resume_cwd)["launch"]
+                else resolve_resume(
+                    self.state_dir, target, cwd=self.resume_cwd, cli_home=self.cli_home
+                )["launch"]
             )
             current = self.host.store.metadata["launch"]
             if (launch.get("settings_policy", "isolated"), launch.get("cli_home")) != (
@@ -834,7 +850,7 @@ class WorkspaceBridge(RuntimeBridge):
             if not Path(launch["cwd"]).is_dir():
                 raise ValueError("Recorded working directory no longer exists")
             candidate = SessionHost(
-                ConversationStore(self.state_dir, launch, None if target == "new" else target)
+                open_conversation(self.state_dir, launch, None if target == "new" else target)
             )
             if fork_name:
                 candidate.store.set_title(fork_name)
@@ -863,6 +879,7 @@ class WorkspaceBridge(RuntimeBridge):
                 Path(launch["cwd"]),
                 candidate.session_id,
                 include_current=True,
+                cli_home=self.cli_home,
             )
             self.switch_committing = True
             if self.pump:

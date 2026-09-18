@@ -231,7 +231,12 @@ class SessionHost:
         self.fingerprint = hashlib.sha256(
             json.dumps(prepared.mount_plan, sort_keys=True, default=str).encode()
         ).hexdigest()
-        if self.store and self.store.saved and self.store.saved["fingerprint"] != self.fingerprint:
+        if (
+            self.store
+            and self.store.saved
+            and self.store.saved["fingerprint"] is not None
+            and self.store.saved["fingerprint"] != self.fingerprint
+        ):
             raise ValueError("Effective module configuration changed; resume refused")
         diagnostics = InitializationDiagnostics()
         initializer = logging.getLogger("amplifier_core._session_init")
@@ -287,16 +292,36 @@ class SessionHost:
                     raise RuntimeError(f"Required mount missing: {point}")
             if self.store:
                 context = coordinator.get("context")
+                shared = getattr(self.store, "shared_session", False)
+                if shared:
+                    self.call_usage.legacy |= self.store.metadata.get(
+                        "shared_history_unaccounted", False
+                    )
+                    self.store.canonical_launch["bundle"] = report.get(
+                        "selected_bundle"
+                    ) or self.store.canonical_launch.get("bundle")
                 if not all(
                     callable(getattr(context, name, None))
                     for name in ("get_messages", "set_messages")
                 ):
                     raise RuntimeError("Context module does not support canonical history resume")
                 if self.store.saved:
-                    await context.set_messages(copy.deepcopy(self.store.saved["messages"]))
-                    if portable_history(await context.get_messages()) != portable_history(
-                        self.store.saved["messages"]
-                    ):
+
+                    def comparable(messages):
+                        if shared:
+                            from amplifier_foundation import sanitize_message
+
+                            messages = [
+                                sanitize_message(m)
+                                for m in messages
+                                if m.get("role") not in ("system", "developer")
+                            ]
+                        return portable_history(messages)
+
+                    restored = comparable(self.store.saved["messages"])
+                    if comparable(await context.get_messages()) != restored:
+                        await context.set_messages(copy.deepcopy(self.store.saved["messages"]))
+                    if comparable(await context.get_messages()) != restored:
                         raise RuntimeError(
                             "Context module did not restore canonical history; resume refused"
                         )
@@ -480,6 +505,11 @@ class SessionHost:
                 False,
                 "A turn is running. Your draft is retained; use distinct queue or correction controls.",
             )
+        if getattr(self.store, "shared_session", False):
+            try:
+                self.store.assert_current()
+            except (OSError, ValueError) as exc:
+                return False, str(exc)
         if text.lstrip().startswith("/") and operation is None and preflight is None:
             if (
                 input_id is not None

@@ -54,7 +54,7 @@ def atomic_json(path, value):
         Path(temporary).unlink(missing_ok=True)
 
 
-def catalog(state_dir, *, cwd=None, archived=False):
+def catalog(state_dir, *, cwd=None, archived=False, cli_home=None):
     root = Path(state_dir) / "conversations"
     directory = Path(cwd).resolve() if cwd is not None else None
     result = []
@@ -84,14 +84,50 @@ def catalog(state_dir, *, cwd=None, archived=False):
                 result.append((path.stat().st_mtime_ns, value))
         except (OSError, ValueError, RuntimeError):
             continue
+    if cli_home is not None and directory is not None:
+        from .cli_compat import shared_session_catalog
+
+        shared = shared_session_catalog(cli_home, directory, archived=archived)
+        identities = {entry["id"] for _, entry in shared}
+        result = [row for row in result if row[1]["id"] not in identities] + shared
     return [value for _, value in sorted(result, key=lambda row: row[0], reverse=True)]
 
 
-def archive_conversation(state_dir, identity, *, cwd, archived):
+def entry_path(state_dir, entry):
+    if entry.get("shared_session"):
+        from .cli_compat import session_directory
+
+        launch = entry["launch"]
+        return session_directory(launch["cli_home"], launch["cwd"]) / entry["id"] / ".tui"
+    return Path(state_dir) / "conversations" / entry["id"]
+
+
+def open_conversation(state_dir, launch, resume=None):
+    if launch.get("shared_session"):
+        return SharedConversationStore(state_dir, launch, resume)
+    return ConversationStore(state_dir, launch, resume)
+
+
+def archive_conversation(state_dir, identity, *, cwd, archived, cli_home=None):
     """Reversible metadata-only housekeeping under the same single-writer lock."""
-    if not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{32}", identity):
+    if (
+        not isinstance(identity, str)
+        or not re.fullmatch(r"[A-Za-z0-9-]{1,160}", identity)
+        or identity == "latest"
+    ):
         raise ValueError("Use an exact conversation ID from this directory, not latest")
     path = Path(state_dir) / "conversations" / identity
+    shared = None
+    if cli_home is not None:
+        from .cli_compat import shared_session_entry
+
+        try:
+            shared = shared_session_entry(cli_home, cwd, identity)
+        except FileNotFoundError:
+            pass
+        if shared:
+            path = entry_path(state_dir, shared)
+            path.mkdir(mode=0o700, exist_ok=True)
     metadata = path / "metadata.json"
     if path.is_symlink() or metadata.is_symlink() or not path.is_dir():
         raise ValueError("Conversation unavailable; no change made")
@@ -103,11 +139,16 @@ def archive_conversation(state_dir, identity, *, cwd, archived):
             raise ValueError(
                 "Close the conversation in every client before archiving/restoring"
             ) from exc
-        with metadata.open() as stream:
-            raw = stream.read(65537)
-        if len(raw) > 65536:
-            raise ValueError("Conversation metadata exceeds housekeeping limit")
-        value = json.loads(raw)
+        if metadata.exists():
+            with metadata.open() as stream:
+                raw = stream.read(65537)
+            if len(raw) > 65536:
+                raise ValueError("Conversation metadata exceeds housekeeping limit")
+            value = json.loads(raw)
+        elif shared:
+            value = shared
+        else:
+            raise ValueError("Conversation metadata missing")
         launch = value.get("launch") if isinstance(value, dict) else None
         recorded = launch.get("cwd") if isinstance(launch, dict) else None
         if (
@@ -125,8 +166,8 @@ def archive_conversation(state_dir, identity, *, cwd, archived):
         os.close(lock)
 
 
-def resolve_resume(state_dir, identity, *, cwd=None):
-    entries = catalog(state_dir, cwd=cwd)
+def resolve_resume(state_dir, identity, *, cwd=None, cli_home=None):
+    entries = catalog(state_dir, cwd=cwd, cli_home=cli_home)
     if identity == "latest" and entries:
         return entries[0]
     for entry in entries:
@@ -156,15 +197,22 @@ def checkpoint_status(path):
 
 
 class ConversationStore:
-    def __init__(self, state_dir, launch, resume=None):
-        self.identity = resume or uuid.uuid4().hex
-        if not re.fullmatch(r"[0-9a-f]{32}", self.identity):
+    def __init__(self, state_dir, launch, resume=None, *, _path=None, _identity=None):
+        self.identity = _identity or resume or uuid.uuid4().hex
+        pattern = r"[A-Za-z0-9-]{1,160}" if _path is not None else r"[0-9a-f]{32}"
+        if not re.fullmatch(pattern, self.identity):
             raise ValueError("Invalid conversation identity")
-        self.path = Path(state_dir) / "conversations" / self.identity
+        self.path = _path or Path(state_dir) / "conversations" / self.identity
         if resume and not self.path.is_dir():
             raise ValueError("Conversation not found")
         self.path.mkdir(mode=0o700, parents=True, exist_ok=True)
-        self.lock = os.open(self.path / "lock", os.O_CREAT | os.O_RDWR, 0o600)
+        if self.path.is_symlink():
+            raise ValueError("Conversation directory cannot be a symlink")
+        if _path is not None:
+            for name in ("metadata.json", "checkpoint.json", "events.jsonl", "draft.json"):
+                if (self.path / name).is_symlink():
+                    raise ValueError("Shared session sidecar files cannot be symlinks")
+        self.lock = os.open(self.path / "lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
         self.journal = None
         try:
             try:
@@ -183,9 +231,10 @@ class ConversationStore:
                     raise ValueError("Unsupported or corrupt conversation metadata")
                 if self.metadata.get("archived"):
                     raise ValueError("Conversation is archived; restore explicitly before resuming")
-                if self.metadata["launch"] != launch:
+                if self.metadata["launch"] != launch and _path is None:
                     raise ValueError("Resume composition or working directory does not match")
-                self.saved = json.loads((self.path / "checkpoint.json").read_text())
+                self.metadata["launch"] = launch
+                self.saved = self.load_checkpoint()
                 if self.saved.get("version") != 1 or self.saved.get("status") != "ready":
                     raise ValueError(
                         "Conversation has uncertain/incomplete work; resume refused. No work replayed. "
@@ -211,12 +260,19 @@ class ConversationStore:
             else:
                 atomic_json(self.path / "metadata.json", self.metadata)
                 self.save_draft("")
-            fd = os.open(self.path / "events.jsonl", os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+            fd = os.open(
+                self.path / "events.jsonl",
+                os.O_CREAT | os.O_APPEND | os.O_WRONLY | os.O_NOFOLLOW,
+                0o600,
+            )
             self.journal = os.fdopen(fd, "a")
         except BaseException:
             os.close(self.lock)
             self.lock = None
             raise
+
+    def load_checkpoint(self):
+        return json.loads((self.path / "checkpoint.json").read_text())
 
     def record(self, event):
         # Admission is fsynced before execution starts. Other observations flush
@@ -235,7 +291,7 @@ class ConversationStore:
     def manual_title(self):
         source = self.metadata.get("title_source")
         if source:
-            return source == "user"
+            return source in ("user", "external")
         # Older releases did not track provenance. Preserve any title that
         # cannot be established as their exact first-prompt fallback.
         first = next((e for e in self.restored_events if e.kind == "turn.accepted"), None)
@@ -315,3 +371,245 @@ class ConversationStore:
         if self.lock is not None:
             os.close(self.lock)
             self.lock = None
+
+
+class SharedConversationStore(ConversationStore):
+    """CLI owns transcript/metadata; this app owns only the .tui observation sidecar.
+
+    The old CLI does not cooperate with our lock. Sequential client switching is
+    supported; digest checks detect stale writers, not a distributed transaction.
+    """
+
+    def __init__(self, state_dir, launch, resume=None):
+        from amplifier_app_cli.session_store import SessionStore
+
+        from .cli_compat import session_directory, shared_session_entry
+
+        identity = resume or str(uuid.uuid4())
+        if not re.fullmatch(r"[A-Za-z0-9-]{1,160}", identity):
+            raise ValueError("Invalid shared session identity")
+        root = session_directory(launch["cli_home"], launch["cwd"])
+        self.canonical_path = root / identity
+        # Reject symlinked descendants before mounting modules or creating state.
+        home = Path(launch["cli_home"])
+        for path in (home, *reversed(root.parents[:2]), root, self.canonical_path):
+            if path.is_symlink():
+                raise ValueError("Shared session directories cannot be symlinks")
+        self.cli_store = SessionStore(base_dir=root)
+        self.shared_session = True
+        self.canonical_launch = launch
+        if resume:
+            entry = shared_session_entry(home, launch["cwd"], identity)
+            if entry["archived"]:
+                raise ValueError("Conversation is archived")
+        else:
+            self.canonical_path.mkdir(mode=0o700)
+            self.cli_store.save(identity, [], self._metadata(identity, []))
+        self.canonical_messages, self.canonical_digest = self._read_canonical(identity)
+        path = self.canonical_path / ".tui"
+        existing = (path / "events.jsonl").exists()
+        super().__init__(
+            state_dir, launch, identity if existing else None, _path=path, _identity=identity
+        )
+        try:
+            if not existing:
+                self._seed_view()
+            if not resume:
+                # Fresh forks/imports must reach the host's explicit transfer path.
+                self.saved = None
+            canonical = self.cli_store.get_metadata(identity)
+            if canonical.get("name"):
+                if canonical["name"] != self.metadata.get("title"):
+                    self.metadata["title_source"] = "external"
+                self.metadata["title"] = canonical["name"]
+            atomic_json(self.path / "metadata.json", self.metadata)
+        except BaseException:
+            self.close()
+            raise
+
+    def _metadata(self, identity, messages):
+        from datetime import UTC, datetime
+
+        from .cli_compat import read_session_file
+
+        existing = {}
+        if (self.canonical_path / "metadata.json").exists():
+            launch = self.canonical_launch
+            existing = json.loads(
+                read_session_file(
+                    launch["cli_home"], launch["cwd"], identity, "metadata.json", 65536
+                )
+            )
+            if not isinstance(existing, dict):
+                raise ValueError("Invalid canonical metadata; nothing overwritten")
+        bundle = self.canonical_launch.get("bundle") or existing.get("bundle", "unknown")
+        if "://" not in bundle and Path(bundle).exists():
+            bundle = Path(bundle).resolve().as_uri()
+        return {
+            **existing,
+            "session_id": identity,
+            "created": existing.get("created", datetime.now(UTC).isoformat()),
+            "bundle": bundle,
+            "working_dir": self.canonical_launch["cwd"],
+            "turn_count": sum(m.get("role") == "user" for m in messages),
+        }
+
+    def _read_canonical(self, identity=None):
+        import hashlib
+
+        from .cli_compat import read_session_file
+        from .recovery import public_history
+
+        launch = self.canonical_launch
+        raw = read_session_file(
+            launch["cli_home"],
+            launch["cwd"],
+            identity or self.identity,
+            "transcript.jsonl",
+            8 * 1024 * 1024,
+        )
+        messages = [json.loads(line) for line in raw.splitlines() if line.strip()]
+        public_history(messages)  # Validation only; never repair or execute old tools.
+        return messages, hashlib.sha256(raw).hexdigest()
+
+    def assert_current(self):
+        from .cli_compat import shared_session_entry
+
+        shared_session_entry(
+            self.canonical_launch["cli_home"], self.canonical_launch["cwd"], self.identity
+        )
+        if self._read_canonical()[1] != self.canonical_digest:
+            raise ValueError(
+                "CLI transcript changed while this client was open; close and resume again. Nothing overwritten."
+            )
+
+    def load_checkpoint(self):
+        saved = super().load_checkpoint()
+        if saved.get("status") != "ready":
+            raise ValueError(
+                "Shared session has uncertain/incomplete work; inspect before resuming"
+            )
+        if saved.get("canonical_sha256") != self.canonical_digest:
+            events = [
+                json.loads(line) for line in (self.path / "events.jsonl").read_text().splitlines()
+            ]
+            if len(events) != saved.get("sequence") or any(
+                e.get("sequence") != i or e.get("session_id") != self.identity
+                for i, e in enumerate(events, 1)
+            ):
+                raise ValueError("TUI journal contains incomplete work; shared resume refused")
+            # Preserve prior observations. Only the derived view is rebuilt; drafts
+            # and child receipts are retained. No history becomes pending work.
+            archive = self.path / "views" / uuid.uuid4().hex
+            archive.mkdir(parents=True, mode=0o700)
+            for name in ("events.jsonl", "checkpoint.json"):
+                (self.path / name).rename(archive / name)
+            self.journal = os.fdopen(
+                os.open(self.path / "events.jsonl", os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600),
+                "w",
+            )
+            try:
+                self._seed_view()
+                saved = super().load_checkpoint()
+            finally:
+                self.journal.close()
+                self.journal = None
+        return {**saved, "messages": self.canonical_messages, "fingerprint": None}
+
+    @staticmethod
+    def observations(messages, identity):
+        from .cli_compat import session_message_visible
+        from .events import tool_status
+
+        events = []
+        turn = 0
+
+        def emit(kind, item, **payload):
+            event = Event(identity, len(events) + 1, f"history:{turn}", kind, item, payload)
+            events.append(event)
+
+        for index, message in enumerate(messages):
+            if message.get("role") != "tool" and not session_message_visible(message):
+                continue
+            role, content = message["role"], message.get("content", "")
+            if isinstance(content, list):
+                content = "\n".join(
+                    b.get("text", "")
+                    for b in content
+                    if isinstance(b, dict) and isinstance(b.get("text", ""), str)
+                )
+            if role == "user":
+                turn += 1
+                emit("turn.accepted", f"history:user:{index}", text=content)
+            elif role == "assistant":
+                if content:
+                    emit("text.final", f"history:text:{index}", text=content)
+                for call in message.get("tool_calls") or []:
+                    function = call.get("function", call)
+                    arguments = function.get("arguments", {})
+                    if isinstance(arguments, str):
+                        try:
+                            arguments = json.loads(arguments)
+                        except ValueError:
+                            arguments = {"raw": arguments}
+                    emit(
+                        "tool.updated",
+                        call["id"],
+                        name=function.get("name") or function.get("tool", "tool"),
+                        arguments=arguments,
+                        status="unknown",
+                    )
+            elif role == "tool":
+                emit(
+                    "tool.ended",
+                    message["tool_call_id"],
+                    result=content,
+                    status=tool_status("tool:post", content),
+                )
+        return events
+
+    def _seed_view(self):
+        self.metadata["shared_history_unaccounted"] = bool(self.canonical_messages)
+        self.restored_events = self.observations(self.canonical_messages, self.identity)
+        for event in self.restored_events:
+            self.record(event)
+        self._save_marker(self.canonical_messages, len(self.restored_events), None, True)
+
+    def _save_marker(self, messages, sequence, fingerprint, ready):
+        self.journal.flush()
+        os.fsync(self.journal.fileno())
+        marker = dict(
+            version=1,
+            status="ready" if ready else "uncertain",
+            sequence=sequence,
+            fingerprint=fingerprint,
+            canonical_sha256=self.canonical_digest,
+        )
+        atomic_json(self.path / "checkpoint.json", marker)
+        self.saved = {**marker, "messages": messages}
+
+    def checkpoint(self, messages, sequence, fingerprint, ready):
+        self.assert_current()
+        # Mark pending before the CLI's two-file save. A crash is uncertainty,
+        # never permission to reuse an older UI snapshot as canonical context.
+        self._save_marker(messages, sequence, fingerprint, False)
+        self.cli_store.save(self.identity, messages, self._metadata(self.identity, messages))
+        self.canonical_messages, self.canonical_digest = self._read_canonical()
+        self._save_marker(self.canonical_messages, sequence, fingerprint, ready)
+        os.utime(self.path / "metadata.json", None)
+
+    def set_title(self, title, *, generated=False, description=None):
+        if not super().set_title(title, generated=generated, description=description):
+            return False
+        self.cli_store.update_metadata(
+            self.identity,
+            {
+                "name": self.metadata["title"],
+                **(
+                    {"description": self.metadata["description"]}
+                    if "description" in self.metadata
+                    else {}
+                ),
+            },
+        )
+        return True

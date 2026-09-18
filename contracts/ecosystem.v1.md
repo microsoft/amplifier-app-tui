@@ -4,7 +4,6 @@ The supported behavior that survives replacing an implementation.
 Parent: [composition.v1](composition.v1.md); lifecycle belongs to [session.v1](session.v1.md).
 
 ## Who builds against this
-
 Bundle and module authors, host builders, and people choosing their runtime composition.
 This contract protects independent parts, not a particular frontend language or host class.
 
@@ -23,7 +22,7 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
 ## The promises
 
 1. **Keep both presets meaningful.** anchors and anchors-amp-dev resolve their recursive definitions and expose the capabilities the host actually supports.
-   Supported release wheels include the native client without requiring a local compiler. Launch resolves presets without workspace checkouts, names version/storage and selected settings policy, and never silently substitutes the historical UI or migrates saved conversations. Explicit CLI-compatible policy reads layered settings without rewriting them; isolated policy remains available. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
+   Supported release wheels include the native client without requiring a local compiler. Ordinary launch uses existing CLI configuration and shared session data; isolated policy remains explicit. CLI workflow and required bundle/module host-service parity is the baseline, with additive TUI capabilities and named gaps until verified. Launch resolves presets without workspace checkouts and never silently substitutes a historical UI or migrates legacy isolated history. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
    Broken: A preset name loads a hard-coded lookalike, or agent instructions imply a running external service.
    Affected: people selecting bundles and authors composing them.
 
@@ -64,11 +63,12 @@ Record exclusions, unsupported paths and untested modules rather than upgrading 
 ## Open questions
 
 Which independent context/orchestrator implementations best probe the first replacement host?
-Existing CLI administration, scripting and continuation use pinned policy adapters; incompatible private state requires explicit adoption, not a false resume claim.
+Which remaining CLI-private controls need shared app-layer persistence to make switching lossless? Named incompatible state must not be presented as supported same-identity continuation.
 
 ## Changelog
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-18 | Make CLI parity and shared-data adoption the P1 baseline. | Steward prioritizes reversible adoption: users can alternate clients without migrating their conversations or settings. |
 | 2026-09-17 | Specify P4's legacy terminal-output compatibility seam. | Source audit found redirected print/Rich/log output discarded; private bounded inspection preserves it without leaking raw logs into conversation history. |
 | 2026-09-17 | Clarify P6's admission/retention boundary and preserve interactive obligations across child processes. | CLI comparison found extra host depth/concurrency/retained-record and subprocess refusals; its headless subprocess helper alone does not carry approvals, questions or live observations. |
 | 2026-09-17 | Extend P5 to CLI host safety and complete bounded diagnostics. | Steward approved implementing CLI capabilities and required bundle/module host support after the source audit. |

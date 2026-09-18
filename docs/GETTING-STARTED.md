@@ -95,9 +95,10 @@ CLI administration and scripting are also available from this entrypoint:
 `amplifier-tui run --help`. Use `amplifier-tui cli --help` for the full CLI menu.
 These commands run the pinned CLI directly, preserving its settings, credentials,
 permissions, stdin and text/JSON output. They do not open the native interface.
-`amplifier-tui session ...` operates on CLI sessions; `amplifier-tui --resume`
-opens the TUI's directory-local conversation picker. Neither silently converts
-the other application's private session state.
+`amplifier-tui session ...` uses CLI session commands; `amplifier-tui --resume`
+opens a native directory-local picker including those same CLI conversations.
+Close one client before opening the other. Shared canonical history is supported;
+private controls still have [switching limits](MIGRATION.md).
 
 Actions → Loaded configuration inserts `/config` without sending. Send it to inspect
 loaded providers, tools, hooks, context entries, agent definitions and behaviors.
@@ -185,7 +186,7 @@ Escape returns to the same unsent draft. Optional shortcut: F4 opens Actions.
 | Inspect module prints/logs | Actions → Runtime output shows a bounded private stdout/stderr tail. Refresh for new output; review before copying. It spans this app process, not a particular agent, and is not saved to conversation history |
 | Copy or scroll | Normal terminal selection / tmux copy mode; Transcript for reflow |
 | Change tool policy | Modes; the current mode stays visible |
-| Find previous work | Resume, or Actions → Search saved conversations in this launch directory; CLI sessions offers explicit historical import |
+| Find previous work | Resume, or Actions → Search saved conversations in this launch directory; ordinary CLI sessions retain their identity without import |
 | Invoke a discovered skill | Type `/` and search its name/alias, e.g. `memory review`; Enter inserts the command, then Send invokes it. `/skill NAME arguments` also works |
 | Find recipe files | Actions → Recipe files, or `/recipes`; choose a local candidate to append an unsent review request. Recipe activity is separate; the runtime's `list` operation lists active runs |
 | Include images | Actions → Attach image; preview and confirm up to four workspace PNG/JPEG snapshots |
@@ -232,13 +233,15 @@ The picker, search, listing and `--resume latest` only consider that resolved di
 parent/child directories are separate, and an explicit ID cannot switch to another root.
 No local matches never falls back to conversations elsewhere.
 Reopening does not repeat tools or automatically release queued work. Normal installed
-state lives under `$XDG_DATA_HOME/amplifier-tui`, usually `~/.local/share/amplifier-tui`.
-Use `--state-dir` to explicitly select another store. CLI history is not silently migrated:
-in CLI policy, choose Resume → CLI sessions and explicitly confirm a historical-text
-import into a new conversation. The original is unchanged and no tools replay.
+CLI-policy sessions live in the CLI's project/session store, with TUI-specific
+sidecars. Close the TUI and use `amplifier resume ID` to continue in CLI, or close
+CLI and use native `--resume` to return. Legacy isolated TUI state lives under
+`$XDG_DATA_HOME/amplifier-tui`, usually `~/.local/share/amplifier-tui`; `--state-dir`
+selects that legacy store and derived caches, not a second canonical CLI history.
 Cleanly stopped work with validated saved context resumes normally. Unverified or
-incomplete state requires explicit recovery into a new conversation, keeping the
-original unchanged. Recovery retains validated public messages when available;
+incomplete isolated-store state requires explicit recovery into a new conversation,
+keeping the original unchanged. Shared-session uncertainty currently requires
+inspection/export; see [switching limits](MIGRATION.md). Isolated recovery retains validated public messages when available;
 otherwise it supplies historical reference text, not exact restoration of arbitrary
 tool/context state. Neither path replays work automatically.
 

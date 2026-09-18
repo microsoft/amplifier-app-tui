@@ -48,6 +48,13 @@ hooks may contact their configured services during startup. Sources are executab
 code; trust them before launching. First launch may download/install dependencies.
 Model calls cost money; filesystem and shell tools are not an OS sandbox.
 
+To continue existing CLI work, close the CLI and run `amplifier-tui --resume` in
+that same project. Ordinary CLI-policy sessions share the CLI's session ID,
+transcript, metadata and session-scoped settings. After closing the TUI, use
+`amplifier resume ID` or `amplifier continue` to return to CLI. No import is needed.
+Switch sequentially: concurrent CLI/TUI writers are not supported. Legacy isolated
+TUI conversations stay in their original store. See [switching limits](docs/MIGRATION.md).
+
 Use `--settings-policy isolated` to opt out of CLI configuration; its default preset
 needs `ANTHROPIC_API_KEY`. Explicit `--preset`, `--bundle` or `--overlay` also defaults
 to isolated policy. `--setup` creates a reviewed provider overlay, not a stored key.
@@ -72,8 +79,9 @@ to quit, defaulting to **No**; Enter or Escape stays. Ctrl-Q or Actions → Quit
 explicitly exits even during work. A selected
 transcript region still gives Ctrl-C its copy behavior. Cleanly stopped turns can
 resume normally without replaying tools. If completion cannot be verified or saved
-context is incomplete, Resume offers explicit recovery into a new conversation,
-preserving the original and disclosing unknown effects.
+context is incomplete, legacy isolated Resume offers explicit new-conversation recovery;
+shared sessions currently require inspection/export. Originals and unknown effects
+remain explicit; see the switching limits above.
 Configured session naming supplies automatic titles after enough conversation context;
 an explicit Rename always takes precedence.
 

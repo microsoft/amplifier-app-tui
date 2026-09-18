@@ -1,5 +1,25 @@
 # Verification guide
 
+Shared-session gate: run `uv run --no-sync pytest -q tests/test_shared_sessions.py`
+for actual CLI SessionStore round trips, same-ID canonical writeback, directory-local
+picker/search/recall, session settings, preserved unknown metadata, no-replay startup,
+changed-CLI projection rebuilding, reminder filtering, explicit branch context,
+stale-write/uncertainty/symlink refusal, private export and reversible TUI visibility.
+When independent loop/context packages are installed, four combinations also verify
+module-owned private system history survives resume without entering the CLI's public
+transcript. Missing packages explicitly skip those checks; never use shared-home
+defaults for the persistent-context fixture.
+Run `uv run --no-sync python scripts/shared_session_probe.py` serially with other
+PTY tests. It creates a fresh disposable CLI environment/home, uses actual CLI
+entrypoints and default app behaviors, then resumes the same identity in native TUI
+at 175×50 and 40×20. Never reuse a CLI environment claimed by another home or bypass
+the CLI ownership guard. Local bundle overrides require file URIs for fragments.
+Only the provider/tool are deterministic fixtures; no paid calls are authorized.
+Inspect private `shared-session-*` captures and require new-turn tool outcomes,
+no transcript growth before Send, unchanged root-session count and restored TTY.
+Raw probe logs/settings/transcripts are private and must never be published. This
+does not certify concurrent writers, private-control equivalence or complete costs.
+
 Release upgrade gate: `scripts/release_wheel.py --terminal --scripting --upgrade-from
 PATH_TO_PRIOR_WHEEL` requires the published wheel's adjacent `.receipt.json`, verifies
 its name/hash and scans both artifacts before installing. It seeds real fixture turns
