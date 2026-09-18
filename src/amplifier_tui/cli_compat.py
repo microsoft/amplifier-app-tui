@@ -27,7 +27,7 @@ def skill_commands(session):
         return []
 
 
-def settings_for(cwd, home):
+def settings_for(cwd, home, session_id=None):
     import yaml
     from amplifier_app_cli.lib.settings import AppSettings, SettingsPaths
 
@@ -35,10 +35,18 @@ def settings_for(cwd, home):
         Path(home) / "settings.yaml",
         Path(cwd) / ".amplifier/settings.yaml",
         Path(cwd) / ".amplifier/settings.local.yaml",
+        session_directory(home, cwd) / session_id / "settings.yaml" if session_id else None,
     )
     # Unlike the CLI's permissive reader, never silently discard malformed policy.
     merged = {}
-    for path in (paths.global_settings, paths.project_settings, paths.local_settings):
+    for path in (
+        paths.global_settings,
+        paths.project_settings,
+        paths.local_settings,
+        paths.session_settings,
+    ):
+        if path is None:
+            continue
         if path.exists():
             try:
                 with path.open() as stream:
@@ -125,7 +133,7 @@ def apply_settings(bundle, settings):
     return bundle
 
 
-async def compose_cli(source, overlays, sources, *, cwd, home):
+async def compose_cli(source, overlays, sources, *, cwd, home, session_id=None):
     from amplifier_app_cli.lib.bundle_loader.discovery import AppBundleDiscovery
     from amplifier_app_cli.lib.bundle_loader.prepare import (
         _append_agents_instruction_tail,
@@ -137,7 +145,7 @@ async def compose_cli(source, overlays, sources, *, cwd, home):
 
     from .composition import provider_instances
 
-    settings = settings_for(cwd, home)
+    settings = settings_for(cwd, home, session_id)
     discovery = AppBundleDiscovery(
         search_paths=[Path(cwd) / ".amplifier/bundles", Path(home) / "bundles"]
     )
@@ -209,13 +217,14 @@ async def compose_cli(source, overlays, sources, *, cwd, home):
                     ("global", settings.paths.global_settings),
                     ("project", settings.paths.project_settings),
                     ("local", settings.paths.local_settings),
+                    ("session", settings.paths.session_settings),
                 )
-                if path.exists()
+                if path is not None and path.exists()
             ],
             "policy_differences": [
                 "Terminal printing hooks replaced by structured TUI projection",
                 "Declared behavior failures refuse startup; no optional silent omission",
-                "TUI conversation checkpoints remain separate; CLI import is explicit",
+                "Canonical sessions are shared; TUI display state is a separate sidecar",
                 "Mounted recipes tool receives app-owned ephemeral file-discovery guidance",
             ],
             "provider_instance_policy": "Pinned CLI id-to-instance_id and provider merge semantics",
@@ -227,6 +236,126 @@ def session_directory(home, cwd):
     # Same deterministic path policy as the pinned CLI; no cwd mutation for lookup.
     slug = str(Path(cwd).resolve()).replace("/", "-").replace("\\", "-").replace(":", "")
     return Path(home) / "projects" / (slug if slug.startswith("-") else "-" + slug) / "sessions"
+
+
+def shared_session_entry(home, cwd, identity):
+    """Read-only native discovery. CLI metadata, not a stale UI title, wins."""
+    import json
+
+    # Mirror the pinned CLI's two pure metadata rules without importing its
+    # eager __init__/main bootstrap in a read-only launcher or custom-home picker.
+    if "_" in identity:
+        raise ValueError("Choose a root conversation, not a delegated session")
+    metadata = json.loads(read_session_file(home, cwd, identity, "metadata.json", 65536))
+    if not isinstance(metadata, dict) or metadata.get("session_id", identity) != identity:
+        raise ValueError("Invalid shared session metadata")
+    if (
+        metadata.get("working_dir")
+        and Path(metadata["working_dir"]).resolve() != Path(cwd).resolve()
+    ):
+        raise ValueError("Session belongs to another working directory")
+    bundle = metadata.get("bundle")
+    bundle = bundle.removeprefix("bundle:") if bundle and bundle != "unknown" else None
+    launch = dict(
+        fixture=False,
+        bundle=bundle,
+        overlays=[],
+        sources=None,
+        cwd=str(Path(cwd).resolve()),
+        settings_policy="cli",
+        cli_home=str(Path(home).resolve()),
+        shared_session=True,
+    )
+    sidecar = session_directory(home, cwd) / identity / ".tui"
+    prior = {}
+    if sidecar.exists():
+        if sidecar.is_symlink():
+            raise ValueError("Shared session sidecar cannot be a symlink")
+        path = sidecar / "metadata.json"
+        if path.exists():
+            if path.is_symlink() or path.stat().st_size > 65536:
+                raise ValueError("Invalid shared session sidecar")
+            prior = json.loads(path.read_text())
+            if prior.get("version") != 1 or prior.get("id") != identity:
+                raise ValueError("Invalid shared session sidecar identity")
+            for key in ("overlays", "sources", "required_tools"):
+                if key in prior.get("launch", {}):
+                    launch[key] = prior["launch"][key]
+    return {
+        "version": 1,
+        "id": identity,
+        "launch": launch,
+        "title": metadata.get("name")
+        or metadata.get("title")
+        or prior.get("title", "Untitled conversation"),
+        "archived": bool(prior.get("archived")),
+        "shared_session": True,
+    }
+
+
+def shared_session_catalog(home, cwd, *, archived=False):
+    root = session_directory(home, cwd)
+    if not root.is_dir() or root.is_symlink():
+        return []
+    rows = []
+    for path in root.iterdir():
+        if not path.is_dir() or path.is_symlink() or path.name.startswith("."):
+            continue
+        try:
+            entry = shared_session_entry(home, cwd, path.name)
+            if entry["archived"] == archived:
+                rows.append(((path / "metadata.json").stat().st_mtime_ns, entry))
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            continue
+    return sorted(rows, key=lambda row: row[0], reverse=True)
+
+
+def session_message_visible(message):
+    """Pinned CLI display-only rule, also usable before its eager key bootstrap.
+
+    Differential tests compare its reminder grammar with the real CLI predicate.
+    Never use this filter on canonical messages sent to a context module.
+    """
+    import re
+
+    if not isinstance(message, dict):
+        return False
+    if message.get("role") == "assistant":
+        return True
+    if message.get("role") != "user":
+        return False
+    metadata = message.get("metadata")
+    if (
+        not isinstance(metadata, dict)
+        or metadata.get("ephemeral") is not True
+        or metadata.get("persisted") is not True
+    ):
+        return True
+    content = message.get("content")
+    if isinstance(content, str):
+        texts = [content.strip()]
+    elif isinstance(content, list) and content:
+        if any(
+            not isinstance(b, dict) or b.get("type") != "text" or not isinstance(b.get("text"), str)
+            for b in content
+        ):
+            return True
+        texts = [b["text"].strip() for b in content if b["text"].strip()]
+    else:
+        return True
+    if not texts:
+        return True
+    for text in texts:
+        match = re.fullmatch(r"<system-reminders>(.*?)</system-reminders>", text, re.S)
+        tag = "system-reminders"
+        if match is None:
+            match = re.fullmatch(
+                r'<system-reminder(?: source="[^"]*")?>(.*?)</system-reminder>', text, re.S
+            )
+            tag = "system-reminder"
+        if match is None or re.search(r"</?" + tag + r"[> \t\r\n]", match[1]):
+            return True
+    return False
 
 
 def read_session_file(home, cwd, identity, filename, limit):

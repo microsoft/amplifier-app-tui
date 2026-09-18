@@ -22,6 +22,7 @@ def parser():
     result.add_argument("--bundle", help="Bundle path or URI (explicit; no implicit CLI settings)")
     result.add_argument("--settings-policy", choices=("isolated", "cli"), default="isolated")
     result.add_argument("--cli-home", type=Path)
+    result.add_argument("--legacy-store", action="store_true", help=argparse.SUPPRESS)
     result.add_argument("--overlay", action="append", default=[], help="Ordered bundle overlay")
     result.add_argument(
         "--fixture", action="store_true", help="Deterministic provider/tool; no live AI"
@@ -119,7 +120,11 @@ def run(args, runtime_output=None):
             sources,
             install_deps=not args.no_install,
             progress=target.background,
-            cli_policy={"cwd": args.cwd.resolve(), "home": args.cli_home}
+            cli_policy={
+                "cwd": args.cwd.resolve(),
+                "home": args.cli_home,
+                "session_id": target.session_id,
+            }
             if args.settings_policy == "cli"
             else None,
         )
@@ -133,7 +138,7 @@ def run(args, runtime_output=None):
         await target.open(prepared, report, args.cwd.resolve())
 
     if args.bridge:
-        from .conversations import ConversationStore
+        from .conversations import open_conversation
         from .frontend_bridge import serve
         from .navigation import WorkspaceBridge
 
@@ -143,15 +148,18 @@ def run(args, runtime_output=None):
             if args.resume and not required:
                 from .conversations import resolve_resume
 
-                required = resolve_resume(args.state_dir, args.resume)["launch"].get(
-                    "required_tools", []
-                )
+                required = resolve_resume(
+                    args.state_dir,
+                    args.resume,
+                    cwd=args.cwd,
+                    cli_home=args.cli_home if args.settings_policy == "cli" else None,
+                )["launch"].get("required_tools", [])
             imported = None
             if args.import_transcript:
                 from .recovery import import_reference
 
                 imported = import_reference(args.import_transcript)
-            store = ConversationStore(
+            store = open_conversation(
                 args.state_dir,
                 {
                     "fixture": args.fixture,
@@ -160,7 +168,11 @@ def run(args, runtime_output=None):
                     "sources": str(args.sources.resolve()) if args.sources else None,
                     "cwd": str(args.cwd.resolve()),
                     **(
-                        {"settings_policy": "cli", "cli_home": str(args.cli_home)}
+                        {
+                            "settings_policy": "cli",
+                            "cli_home": str(args.cli_home),
+                            **({"shared_session": True} if not args.legacy_store else {}),
+                        }
                         if args.settings_policy == "cli"
                         else {}
                     ),
@@ -190,7 +202,11 @@ def run(args, runtime_output=None):
                 SourceMap.read(Path(launch["sources"]) if launch["sources"] else None),
                 install_deps=not args.no_install,
                 progress=target.background,
-                cli_policy={"cwd": Path(launch["cwd"]), "home": Path(launch["cli_home"])}
+                cli_policy={
+                    "cwd": Path(launch["cwd"]),
+                    "home": Path(launch["cli_home"]),
+                    "session_id": target.session_id,
+                }
                 if launch.get("settings_policy") == "cli"
                 else None,
             )

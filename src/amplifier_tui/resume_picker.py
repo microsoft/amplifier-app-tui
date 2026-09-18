@@ -4,10 +4,10 @@ import curses
 import sys
 
 
-def choose(state_dir, *, cwd):
+def choose(state_dir, *, cwd, cli_home=None):
     from amplifier_tui.navigation import session_choices
 
-    rows = session_choices(state_dir, None, cwd=cwd)
+    rows = session_choices(state_dir, None, cwd=cwd, cli_home=cli_home)
     if not rows["sessions"]:
         raise ValueError(
             "No saved conversations in this working directory; start a new conversation"
@@ -18,7 +18,7 @@ def choose(state_dir, *, cwd):
         picker,
         rows,
         lambda offset, query="": session_choices(
-            state_dir, None, cwd=cwd, offset=offset, query=query
+            state_dir, None, cwd=cwd, offset=offset, query=query, cli_home=cli_home
         ),
     )
 

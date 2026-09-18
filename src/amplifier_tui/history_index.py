@@ -8,12 +8,15 @@ import time
 import uuid
 from pathlib import Path
 
+from .conversations import entry_path
+
 READ_BUDGET = 16 * 1024 * 1024
 LINE_LIMIT = 1024 * 1024
 REFRESH_SECONDS = 1.0
 
 
 def connect(root):
+    Path(root).mkdir(mode=0o700, parents=True, exist_ok=True)
     path = Path(root) / "history-index.sqlite3"
     fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
     os.close(fd)
@@ -78,7 +81,9 @@ def refresh(db, root, entries, *, budget=READ_BUDGET, prune=True):
                 partial = True
                 break
             identity = entry["id"]
-            path = Path(root) / "conversations" / identity / "events.jsonl"
+            path = entry_path(root, entry) / "events.jsonl"
+            if entry.get("shared_session"):
+                path = path.parent.parent / "transcript.jsonl"
             try:
                 with path.open("rb") as stream:
                     stat = os.fstat(stream.fileno())
@@ -124,6 +129,22 @@ def refresh(db, root, entries, *, budget=READ_BUDGET, prune=True):
                         position = stream.tell()
                         try:
                             event = json.loads(line)
+                            if entry.get("shared_session") and isinstance(event, dict):
+                                from .cli_compat import session_message_visible
+
+                                if not session_message_visible(event):
+                                    continue
+                                role = event.get("role")
+                                if role not in ("user", "assistant") or not isinstance(
+                                    event.get("content"), str
+                                ):
+                                    continue
+                                event = {
+                                    "session_id": identity,
+                                    "kind": "turn.accepted" if role == "user" else "text.final",
+                                    "payload": {"text": event["content"]},
+                                    "sequence": start,
+                                }
                             if not isinstance(event, dict) or event.get("session_id") != identity:
                                 source_partial = True
                                 continue

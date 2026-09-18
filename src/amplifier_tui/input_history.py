@@ -3,13 +3,13 @@
 import json
 from pathlib import Path
 
-from .conversations import catalog
+from .conversations import catalog, entry_path
 
 
-def recall(state_dir, cwd, current, *, include_current=False):
+def recall(state_dir, cwd, current, *, include_current=False, cli_home=None):
     root, cwd = Path(state_dir), Path(cwd).resolve()
     rows, budget, partial = [], 16 * 1024 * 1024, False
-    entries = catalog(root)
+    entries = catalog(root, cwd=cwd, cli_home=cli_home)
     for entry in entries:
         try:
             matches = Path(entry["launch"]["cwd"]).resolve() == cwd
@@ -22,7 +22,9 @@ def recall(state_dir, cwd, current, *, include_current=False):
             partial = True
             break
         try:
-            path = root / "conversations" / entry["id"] / "events.jsonl"
+            path = entry_path(root, entry) / "events.jsonl"
+            if entry.get("shared_session"):
+                path = path.parent.parent / "transcript.jsonl"
             with path.open("rb") as stream:
                 size = path.stat().st_size
                 take = min(size, budget, 1024 * 1024)
@@ -39,6 +41,16 @@ def recall(state_dir, cwd, current, *, include_current=False):
                     event = json.loads(line)
                     if not isinstance(event, dict):
                         partial = True
+                        continue
+                    if entry.get("shared_session"):
+                        from .cli_compat import session_message_visible
+
+                        if not session_message_visible(event):
+                            continue
+                        if event.get("role") == "user" and isinstance(event.get("content"), str):
+                            text = event["content"]
+                            if len(text) <= 65536:
+                                messages.append((0, text))
                         continue
                     if (
                         event.get("session_id") == entry["id"]

@@ -1,5 +1,58 @@
 # First vertical slice — acceptance evidence
 
+## Shared CLI/TUI sessions — first bidirectional slice (2026-09-18)
+
+SHARED-01/02 moves ordinary CLI-policy launches onto the pinned CLI's canonical
+project/session store, with TUI-only observations, drafts and controls in a `.tui`
+sidecar. The same identity, transcript, metadata, session name and settings scopes
+survive sequential CLI → TUI → CLI → TUI use. Directory-local discovery, startup
+Resume, in-app history/search and export also include existing CLI sessions. Legacy
+isolated TUI sessions remain readable; they are not silently migrated or discarded.
+
+The actual-entrypoint probe passed with the real CLI application and native TUI,
+an owned temporary home/project and deterministic provider/tool fixtures. It selects
+the CLI-created conversation from the ordinary startup picker at **175×50**, sends
+an explicit TUI turn, continues through the CLI, then resumes at **40×20**. A second
+case starts an ordinary new TUI session and continues it through the CLI, preserving
+the first session's bytes. Resuming does not execute a provider/tool or append a
+turn. Developer inspection of the private terminal captures confirms shared history,
+tool names and user-message styling; injected CLI reminders are hidden only from
+presentation, not removed from canonical context. No paid model or personal account
+is used. Run `scripts/shared_session_probe.py` as described in SMOKE_TESTS.
+
+The final default suite passed **650 tests, 318 opt-in skips** (137.22s); the focused
+native navigation/session/shared-store gate passed **47 tests, 2 skips** (23.41s).
+An additional compatibility/install/history gate passed **64 tests, 2 skips**
+(6.86s). Private receipts are `.evidence/shared-sessions-default-final.xml`,
+`.evidence/shared-sessions-focused.xml` and `.evidence/shared-sessions-final-focused.xml`.
+These are overlapping suites, not additive coverage counts. Regressions cover
+canonical round trips, unknown metadata retention, session settings, drafts,
+external renames, stale writes, tool-pair validation, no-follow reads, shared
+graceful-stop/resume, public-context branches and metadata-only TUI archiving.
+Discovery is tested without importing CLI bootstrap; the display-only reminder
+predicate is checked against the actual pinned CLI renderer. Raw logs, captures,
+temporary configuration and real user transcripts are not publication artifacts.
+
+The final shared-session corpus passed **29 tests** (5.37s), including four added
+loop-basic/loop-streaming × context-simple/context-persistent combinations. These
+use the actual independent modules and canonical CLI store, preserve persistent
+module-owned system history, keep it out of the public transcript, and complete
+two explicit turns across no-replay resume. This is module/store integration, not
+an actual CLI-entrypoint test with every persistent-context configuration. Rust
+**66 tests** pass; Ruff lint/format (554 files) and direction checks pass, retaining
+600 DRAFT contract lines and 50 production sources.
+
+This is **not full interchangeable-client parity yet**. The current CLI does not
+honor a shared lifetime writer lease: close one client before opening the same
+session in the other. TUI detects stale canonical writes but cannot promise atomic
+cross-client exclusion. Interrupted shared sessions fail closed; a new shared-store
+recovery workflow remains needed. Private module state, pending controls, goals,
+mode/model pins and historical CLI usage accounting are not a common cross-client
+format. Earlier CLI costs remain explicitly unavailable, not a fabricated total.
+Actual-entrypoint persistent-context switching and these remaining controls belong
+to SHARED-03/04. No kernel or CLI source was changed, no full latency-parity
+claim is made, and the previously published rc6 wheels do not contain this slice.
+
 ## rc6 readiness — current verification (2026-09-18)
 
 This wave packages the merged CLI-parity implementation; no kernel, runtime or

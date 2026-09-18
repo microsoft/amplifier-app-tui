@@ -190,7 +190,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
     parser = argument_parser(workspace)
     args = parser.parse_args(argv)
     if args.archive or args.restore or args.list_archived or args.confirm:
-        allowed = {"archive", "restore", "list_archived", "confirm", "state_dir", "cwd"}
+        allowed = {"archive", "restore", "list_archived", "confirm", "state_dir", "cwd", "cli_home"}
         if any(
             value != parser.get_default(name)
             for name, value in vars(args).items()
@@ -199,17 +199,24 @@ def arguments(argv=None, workspace=None, require_terminal=False):
             parser.error("Housekeeping is separate; use only --state-dir/--cwd with these options")
         if bool(args.archive or args.restore) != args.confirm:
             parser.error("Archive/restore requires an exact ID and --confirm; no change made")
+        from amplifier_foundation.paths.resolution import get_amplifier_home
+
         from .conversations import archive_conversation, catalog
 
         try:
             directory = (args.cwd or Path.cwd()).resolve()
+            home = (args.cli_home or get_amplifier_home()).resolve()
             if args.list_archived:
-                for row in catalog(args.state_dir, cwd=directory, archived=True):
+                for row in catalog(args.state_dir, cwd=directory, archived=True, cli_home=home):
                     print(f"{row['id']}  {row.get('title', 'Untitled')}")
             else:
                 identity = args.archive or args.restore
                 archive_conversation(
-                    args.state_dir, identity, cwd=directory, archived=bool(args.archive)
+                    args.state_dir,
+                    identity,
+                    cwd=directory,
+                    archived=bool(args.archive),
+                    cli_home=home,
                 )
                 print(
                     f"{'Archived' if args.archive else 'Restored'} {identity}. History retained; nothing executed."
@@ -276,7 +283,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
                     "native_binary": str(binary),
                     "native_available": binary.is_file() and os.access(binary, os.X_OK),
                     "state_directory": str(args.state_dir.resolve()),
-                    "shared_cli_state": "New ordinary launches read CLI settings; saved conversations retain their policy. Session import is explicit; diagnostics do not read shared settings/history.",
+                    "shared_cli_state": "Ordinary CLI-policy sessions share canonical project history and settings. Close one client before opening the other. Legacy isolated stores remain intact; diagnostics do not read shared settings/history.",
                     "source_policy": "explicit workspace overrides"
                     if workspace
                     else "remote bundle sources",
@@ -304,20 +311,22 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         or args.sources
         or args.no_questions
         or args.settings_policy
-        or args.cli_home
     ):
         parser.error("--resume/--recover restores composition and cwd; omit composition overrides")
     launch_cwd = (args.cwd or Path.cwd()).resolve()
+    from amplifier_foundation.paths.resolution import get_amplifier_home
+
+    discovery_home = (args.cli_home or get_amplifier_home()).resolve()
     if args.export:
         from amplifier_tui.recovery import export
 
-        print(export(args.state_dir, args.export))
+        print(export(args.state_dir, args.export, cwd=launch_cwd, cli_home=discovery_home))
         parser.exit()
     if args.resume == "picker":
         from .resume_picker import choose
 
         try:
-            selected = choose(args.state_dir, cwd=launch_cwd)
+            selected = choose(args.state_dir, cwd=launch_cwd, cli_home=discovery_home)
         except ValueError as exc:
             parser.error(str(exc))
         if selected is None:
@@ -339,7 +348,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
     if args.list_sessions:
         from amplifier_tui.conversations import catalog
 
-        for entry in catalog(args.state_dir, cwd=launch_cwd):
+        for entry in catalog(args.state_dir, cwd=launch_cwd, cli_home=discovery_home):
             print(f"{entry['id']}  {entry['launch']['cwd']}")
         parser.exit()
     if args.resume:
@@ -355,13 +364,14 @@ def arguments(argv=None, workspace=None, require_terminal=False):
             or args.no_questions
             or args.import_transcript
             or args.settings_policy
-            or args.cli_home
         ):
             parser.error(
                 "--resume restores composition and cwd; do not supply preset/bundle/overlay/cwd/sources"
             )
         try:
-            entry = resolve_resume(args.state_dir, args.resume, cwd=launch_cwd)
+            entry = resolve_resume(
+                args.state_dir, args.resume, cwd=launch_cwd, cli_home=discovery_home
+            )
         except ValueError as exc:
             parser.error(str(exc))
         saved = entry["launch"]
@@ -388,6 +398,8 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         parser.error("--cli-home requires --settings-policy cli")
     if policy == "cli":
         host += ["--settings-policy", "cli"]
+        if args.resume and not saved.get("shared_session"):
+            host.append("--legacy-store")
         if args.cli_home:
             host += ["--cli-home", str(args.cli_home.resolve())]
     if args.fixture:

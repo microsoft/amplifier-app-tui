@@ -5,7 +5,23 @@ Authority: [the steward's approved direction](DIRECTION-REVIEW.md), amended into
 All contract details remain draft targets. This is a local work record, not a formal
 Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
-## Active readiness wave — 2026-09-18
+## Active priority — interchangeable CLI/TUI clients (2026-09-18)
+
+The steward supersedes the handoff-only parity disposition below. Full CLI parity
+and reversible adoption are the destination; prior release gates do not establish it.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| SHARED-01 | continuity.v1:1, continuity.v1:3, ecosystem.v1:1, ecosystem.v1:2 | Share canonical project sessions | Directory-local Resume lists CLI history and preserves ID/context through CLI/TUI/CLI without import or replay | Delivered sequential shared-session slice; actual CLI/native round trip, startup picker and new-TUI-to-CLI checks pass; precise limits in ACCEPTANCE |
+| SHARED-02 | continuity.v1:1, continuity.v1:2, ecosystem.v1:2 | Session settings and display sidecars | Session-scoped settings, names and metadata survive; stale TUI projections never replace newer CLI history | Delivered settings/name/metadata preservation and canonical-digest projection rebuild; private-control and accounting interchange remain SHARED-04 |
+| SHARED-03 | continuity.v1:1, continuity.v1:5, ecosystem.v1:5 | Writer ownership and interrupted/module-private state | Cooperative clients refuse simultaneous writes; crash and persistent-context round trips never fabricate completion | Conflict detection first; old CLI lacks a lifetime lease; simultaneous editing remains unsupported |
+| SHARED-04 | interaction.v1:6, ecosystem.v1:1, ecosystem.v1:6 | Close remaining interactive/private-control gaps | Verify pins/modes/goals/children/recipes/costs and installed entrypoints against actual CLI | Next after canonical session slice; no full-parity claim yet |
+
+Use isolated homes and synthetic sessions for round trips, never personal histories
+as writable fixtures. Legacy isolated TUI stores remain intact, not auto-migrated.
+Current CLI/TUI switching is sequential: close one client before opening the other.
+
+## Previous readiness wave — 2026-09-18
 
 Five readiness areas follow the completed CLI-parity batch.
 Direction is unchanged: this work verifies existing promises, ships their current

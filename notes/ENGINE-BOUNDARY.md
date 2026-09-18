@@ -1,5 +1,34 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Shared canonical sessions — new direction (2026-09-18)
+
+Ordinary CLI-policy launch uses the CLI project/session directory and SessionStore
+transcript/metadata format, with the same session identity in either client. The TUI
+keeps observation journals, drafts and UI controls in a namespaced sidecar, not a
+second authoritative message checkpoint. Session-scoped CLI settings participate in
+composition. Legacy isolated TUI conversations stay available without auto-migration.
+No kernel changes or execution during history projection are authorized by resume.
+
+The current CLI has no lifetime writer lease. Initial interoperability is sequential:
+close one client before opening the other. TUI-side ownership and canonical digest
+checks reject detected stale writes but cannot make unmodified CLI writers cooperate.
+Cross-client leases and private-control round trips remain explicit follow-up gates;
+ordinary history sharing alone does not establish complete CLI parity. Previous
+import-only/handoff-only descriptions below record historical decisions, superseded
+by this direction for ordinary CLI-compatible sessions.
+
+Implementation lessons: canonical CLI messages use both core `tool`/`arguments`
+and provider `function` envelopes; projections must handle both without changing
+the source. CLI's persisted-reminder filter is presentation-only: dropping those
+messages from canonical context would change runtime behavior. A new shared store
+must remain a fresh host admission, so explicit branch/import handling is not
+shadowed by an empty seeded display checkpoint. Namespaced journals have their own
+schema and must never replace CLI `events.jsonl`. Checkpoints persist a canonical
+digest, not messages; saved context in memory is loaded from the CLI transcript.
+Writer conflicts, invalid metadata, incomplete pairs and uncertain TUI journals
+refuse writes/continuation. Earlier projections are retained when CLI advances.
+Archive is only a native visibility marker; CLI's list/delete semantics are unchanged.
+
 ## Entrypoint and closed-session housekeeping (2026-09-18)
 
 Archive/restore is a confirmed launcher metadata operation under the existing

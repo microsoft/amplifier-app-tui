@@ -57,7 +57,7 @@ This describes the destination, not a claim that every interaction is implemente
 
 ## Not in v1
 
-A mandated Codex keymap, a new runtime permission vocabulary, or a claim of complete CLI policy parity. Queue, steer, resume and delegation are enabled only with their session/ecosystem obligations.
+A mandated Codex keymap or a new runtime permission vocabulary. CLI parity is the destination, not an unverified release claim. Queue, steer, shared-project resume and delegation are enabled only with their session/ecosystem obligations.
 
 ## How the kit checks it
 

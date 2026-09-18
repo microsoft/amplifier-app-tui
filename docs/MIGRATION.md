@@ -1,9 +1,41 @@
-# Bring earlier work without replaying it
+# Switch between CLI and TUI without migrating your conversation
 
-New ordinary launches now read CLI global/project/local configuration without rewriting
-it. Saved TUI conversations retain their recorded policy (older records are isolated).
-Credentials, queues and sessions are not silently copied. Keep the original state
-directory and use one of these explicit paths. `--settings-policy isolated` opts out.
+Ordinary CLI-policy launches now use the CLI's canonical project/session store.
+Close one client before opening the other. In the same working directory, run
+`amplifier-tui --resume` and choose your CLI conversation, or use `--resume ID` /
+`--resume latest`. After closing the TUI, `amplifier resume ID` or
+`amplifier continue` uses the same identity and transcript. No import or conversion.
+The in-app Resume list, saved-message search and Up/Down recall include CLI sessions
+from that directory, not its parents, children or unrelated projects.
+
+Configuration reads global/project/local and session-scoped CLI settings without
+rewriting them. Credentials remain provider-owned. Canonical data stays under
+`$AMPLIFIER_HOME/projects/<project-slug>/sessions/<session-id>` (normally in
+`~/.amplifier`). The `.tui` child directory holds drafts, observation history and
+TUI controls, not an authoritative copy of the model conversation. If CLI history
+advances while TUI is closed, reopening rebuilds the displayed history and retains
+older TUI observations under `.tui/views`. Persisted injected reminders stay in
+canonical context but do not appear as user messages or input recall.
+
+This is the first bidirectional session slice, **not complete feature parity**:
+
+- Close one client before opening the other. Current CLI writers do not share a
+  lifetime lease. TUI locking and detected-stale-write refusal cannot guarantee
+  simultaneous cross-client editing or prevent an old CLI overwriting newer data.
+- TUI-only pending input, pins, modes, goals and child receipts are retained, but
+  are not yet a shared CLI control format. Changed/incompatible controls can refuse
+  native resume; do not edit their checkpoint by hand. Historical CLI costs are
+  marked unavailable rather than presented as a complete session total.
+- Unknown outcomes, incomplete tool pairing and uncertain checkpoints refuse native
+  execution. Shared-session recovery is not yet the isolated-store recovery flow;
+  export for inspection instead. No prior call is automatically replayed.
+- Canonical loading currently accepts at most 10,000 messages / 8 MiB. Arbitrary
+  module-private state and cross-client persistent-context combinations still need
+  individual verification. A successful context readback is required before Send.
+
+Legacy isolated TUI conversations remain in their original `--state-dir` and retain
+their recorded policy. They are not silently migrated. Explicit isolated launch,
+historical import and public-context adoption remain available for other purposes.
 
 ## Credential and interactive-login boundaries
 
@@ -86,10 +118,9 @@ settings paths and may change YAML formatting/comments. See the
 [loaded-configuration and session-operation guide](GETTING-STARTED.md) for exact
 guards, context clearing, turn branches, direct tools and reversible archival.
 
-Canonical CLI sessions remain available through `amplifier-tui resume`,
-`amplifier-tui continue` and `amplifier-tui session …`: these are explicit pinned-CLI
-handoffs operating on the CLI store. They are distinct from native `--resume`, which
-uses the TUI store. Neither silently converts private state into the other format.
+`amplifier-tui resume`, `amplifier-tui continue` and `amplifier-tui session …` still
+open pinned-CLI workflows. Native `--resume` now discovers the shared CLI project
+store as well as legacy isolated TUI conversations; it does not copy private state.
 
 Export a readable UTF-8 transcript from the old client. For this app,
 `amplifier-tui --export` prints the location of a private Markdown export. Review that
