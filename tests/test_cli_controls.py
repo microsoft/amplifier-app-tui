@@ -122,6 +122,8 @@ async def test_command_completion_is_cached_scoped_and_never_executes(host, monk
     assert "mode " not in values("/config tools disable ")
     assert values("/config tools dis") == ["disable "]
     assert values("/config tools disable fixture") == ["fixture_probe "]
+    assert values("/tool inv") == ["invoke "]
+    assert values("/tool invoke fix") == ["fixture_probe "]
     assert values("/goal --m") == ["--max-turns "]
     assert not values("/goal A free-form condition")
     assert controls.complete("/provider use fixture", 17)["candidates"] == []

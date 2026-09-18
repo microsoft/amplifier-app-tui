@@ -36,6 +36,11 @@ pub(super) enum Action {
     InlineToggle,
     Transcript,
     Export,
+    ExportJson,
+    ClearContext,
+    ClearContextApply,
+    ForkTurn(usize, Option<String>),
+    ForkTurnApply(usize, Option<String>),
     Modes,
     ModeNamed(String),
     ModeChoice(Option<String>, Option<String>),
@@ -368,7 +373,11 @@ impl App {
                     choice("Loaded configuration — inspect without changing settings (insert unsent)", Action::CommandDraft("/config".into())),
                     choice("Available agent definitions — inspect (insert unsent)", Action::CommandDraft("/config agents".into())),
                     choice("Configure tools — root-session controls (insert unsent)", Action::CommandDraft("/config tools".into())),
+                    choice("Direct tool — inspect schema before invoking (insert unsent)", Action::CommandDraft("/tool info ".into())),
                     choice("Configuration changes — inspect disabled items and edited paths (insert unsent)", Action::CommandDraft("/config diff".into())),
+                    choice("Branch conversation — list captured turns (insert unsent)", Action::CommandDraft("/fork".into())),
+                    choice("Clear context and goal — keep conversation history", Action::ClearContext),
+                    choice("Export structured observations — private JSON", Action::ExportJson),
                     choice("Allowed directories — filesystem scope (insert unsent)", Action::CommandDraft("/allowed-dirs list".into())),
                     choice("Denied directories — filesystem scope (insert unsent)", Action::CommandDraft("/denied-dirs list".into())),
                     choice("Provider login — module-owned authentication (insert unsent)", Action::CommandDraft("/provider login ".into())),
@@ -611,6 +620,35 @@ impl App {
                 }
             }
             Action::Export => self.send(json!({"op":"export"})),
+            Action::ExportJson => self.send(json!({"op":"export", "format":"json"})),
+            Action::ClearContext => {
+                if !self.ready || self.flow.busy {
+                    self.status = "Finish or stop active work before clearing context".into();
+                } else {
+                    self.menu("Clear context and goal?", vec![
+                        choice("No — keep current context", Action::View(self.view)),
+                        choice("Clear context; retain history and backup", Action::ClearContextApply),
+                    ]);
+                    self.ui.menu.as_mut().unwrap().detail = "Same conversation, empty model context. History, draft, settings and prior effects remain. A private backup is retained; pending input is held. Nothing is sent.".into();
+                }
+            }
+            Action::ClearContextApply => self.send(json!({"op":"clear_context", "confirm":true})),
+            Action::ForkTurn(turn, name) => {
+                if !self.ready || self.flow.busy || !self.nav.enabled {
+                    self.status = "Branching requires an idle saved conversation".into();
+                } else {
+                    self.menu(format!("Branch through turn {turn}?"), vec![
+                        choice("No — stay here", Action::View(self.view)),
+                        choice("Create public-context branch", Action::ForkTurnApply(turn, name)),
+                    ]);
+                    self.ui.menu.as_mut().unwrap().detail = "New identity under current launch configuration. Original retained; no tools replayed or effects undone. Pins, modes, goals, local controls, queues and private module state are not copied. Send separately to continue.".into();
+                }
+            }
+            Action::ForkTurnApply(turn, name) => {
+                self.nav.switching = Some((self.request + 1).to_string());
+                self.send(json!({"op":"switch", "target":"new", "fork_turn":turn, "fork_name":name, "confirm_fork":true, "draft":self.draft.lines().join("\n")}));
+                self.ui.menu = None;
+            }
             Action::Modes => self.send(json!({"op":"modes"})),
             Action::ModeNamed(name) => self.send(json!({"op":"modes","select":name})),
             Action::ModeChoice(name,current) => {
@@ -1101,8 +1139,11 @@ impl App {
                 "system",
                 "config",
                 "children",
+                "clear",
+                "fork",
                 "status",
                 "tools",
+                "tool",
                 "skill",
                 "cli-sessions",
                 "skills",
@@ -1163,7 +1204,15 @@ impl App {
     }
 
     pub(super) fn local_action(value: &str) -> Option<Action> {
+        if let Some(rest) = value.trim().strip_prefix("/fork ") {
+            let mut words = rest.split_whitespace();
+            let turn = words.next()?.parse::<usize>().ok()?;
+            let name = words.collect::<Vec<_>>().join(" ");
+            return Some(Action::ForkTurn(turn, if name.is_empty() { None } else { Some(name) }));
+        }
         match value.trim() {
+            "/clear" => Some(Action::ClearContext),
+            "/export json" => Some(Action::ExportJson),
             "/work" => Some(Action::View(0)),
             "/children" => Some(Action::Inspect("children".into(), None)),
             "/activity" => Some(Action::Inspect("activity_tree".into(), None)),

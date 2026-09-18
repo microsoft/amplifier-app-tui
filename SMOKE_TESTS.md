@@ -1,5 +1,16 @@
 # Verification guide
 
+Session operations: `tests/test_session_workflows.py` exercises confirmed context
+clear, retained backups/history/draft/held input, no-op refusal, turn-branch validation,
+source preservation and projection-only JSON exports. Direct tools must exercise real
+kernel denial, modified input, hook-owned and tool-owned Allow/Deny, no root-provider
+or naming calls, graceful drain and force uncertainty. Run the direct-delegate tests
+in both actual presets and the clear tests in both loop/context swaps. Native
+`tests/test_session_workflows_terminal.py` covers default-No confirmations, retained
+drafts, branches and actual direct-tool approvals at 175×50 and 40×20. Inspect private
+`session-*` captures. Wait on a new turn ending plus the current idle footer, not a
+retired completion label; narrow action-search selectors must fit the search field.
+
 Configuration mutation: `tests/test_cli_controls.py` verifies actual mounts, dynamic
 context, disabled-agent spawn refusal, protected providers, behavior hook retention,
 metadata-only edits, no-op/partial fail-closed state, v1 migration and unchanged

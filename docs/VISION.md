@@ -19,7 +19,7 @@ Ctrl-C first requests a graceful stop through the session tree, letting current 
 Corrections distinguish being accepted from reaching active work; neither implies a new turn or interrupts a running tool. Stop names that separate cancellation intent.
 Conversation provider choices have a visible scope and survive returning to the same work.
 Questions invite deliberate answers without granting permission; workspace review distinguishes observations from attribution and explicit version-checked edits from inspection.
-People can name, find and copy work across indexed saved conversations without involving a model; incomplete indexing remains visible. Configured ecosystem naming supplies useful automatic titles without replacing a person's explicit name. Configuration changes distinguish loaded state, staged metadata and deliberately saved policy; returning restores supported policy without silently resetting it or broadening its scope.
+People can name, find and copy work across indexed saved conversations without involving a model; incomplete indexing remains visible. They can branch captured public context at an identified turn or deliberately clear current context without erasing history or pretending external effects were undone. Configured ecosystem naming supplies useful automatic titles without replacing a person's explicit name. Configuration changes distinguish loaded state, staged metadata and deliberately saved policy; returning restores supported policy without silently resetting it or broadening its scope.
 The ordinary conversation accumulates native terminal history; selection and tmux scrolling need no special view.
 Exiting leaves readable work behind; a compact live composer coexists with transcript-aware terminal previews.
 Export and retained conversation state remain distinct from terminal rows and never execute history.
@@ -122,6 +122,7 @@ Rendering and transport do not monopolize input or cancellation; process and lan
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-17 | Distinguish session-owned configuration, deliberate context clearing, turn branching and structured observations. | Continued CLI-parity work requires supported controls to survive return and session operations to retain provenance without replay or private-state migration claims. |
 | 2026-09-17 | Make loaded configuration inspectable without model work or credential disclosure. | Continued CLI-parity authorization; the local control previously exposed only root tools, while the CLI inspects the wider loaded composition. |
 | 2026-09-17 | Preserve interactive child controls across explicit process isolation. | CLI parity audit found subprocess spawning refused; the headless runner cannot alone retain approvals, live activity or safe cancellation/continuation. |
 | 2026-09-17 | Preserve legacy module output without surrendering terminal ownership. | CLI parity audit found redirected module print/Rich/log output discarded by the native client; structured messages alone do not cover existing bundles. |

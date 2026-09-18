@@ -97,6 +97,28 @@ cached module metadata. Selecting a choice inserts text; Send executes it.
 `/provider models [NAME]` queries all mounted instances or one named instance;
 `/provider test [NAME]` sends explicit standalone probes and can incur charges.
 
+Actions also offers session operations:
+
+- `/clear` asks before clearing active context and the goal. The default is No.
+  The conversation identity, transcript, draft and settings remain; queued work is
+  held. A private pre-clear context backup is retained. This does not undo files or
+  service effects. `/clear --confirm` is the explicit typed equivalent.
+- `/fork` lists captured context turns using the CLI/Foundation turn boundaries.
+  `/fork N [name]` asks before opening a new public-context branch through turn N.
+  Original history remains. Pins, modes, goals, local controls, queued work and module
+  private state are not copied; the branch uses current launch configuration. A
+  context module that cannot retain the captured history refuses the branch.
+- `/export json` writes versioned displayed observations to a private local file.
+  `/export` remains Markdown. Neither is executable resume data; review before sharing.
+- `/tool list` and `/tool info NAME` inspect mounted tools and input schemas.
+  `/tool invoke NAME JSON_OBJECT` executes an explicit tool request without a root
+  model request, using normal hooks, approvals and cancellation. Tools themselves
+  can change files, call services/models and incur charges. It never automatically
+  retries, and naming/prompt-complete hooks are not run for this manual operation.
+
+For example, inspect a tool's schema before constructing its JSON object. Completion
+offers cached mounted tool names, not an automatic invocation or an inferred permission.
+
 Delegated work waits for capacity instead of failing when many agents are requested.
 The default is eight executing children per parent; set
 `AMPLIFIER_TUI_CHILD_CONCURRENCY` to 1–64 before launch to change that limit.

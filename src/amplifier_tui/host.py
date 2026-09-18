@@ -326,7 +326,9 @@ class SessionHost:
                         raise ValueError("Transferred context exceeds limit")
                     imported = json.loads(raw)
                     validated = context_transfer(
-                        imported.get("messages"), imported.get("source_session")
+                        imported.get("messages"),
+                        imported.get("source_session"),
+                        turn=imported.get("fork_turn"),
                     )
                     if imported.get("version") != 1 or validated["sha256"] != imported.get(
                         "sha256"
@@ -635,9 +637,11 @@ class SessionHost:
             else:
                 context = self.session.coordinator.get("context")
                 await context.add_message({"role": "user", "content": text})
-                reply = await operation()
+                reply = await execute_owned(
+                    self.session, text, operation=operation, on_forced=self.execution_uncertain
+                )
                 await context.add_message({"role": "assistant", "content": reply})
-                self.outcome = "success"
+                self.outcome = self.outcome or "success"
             status = {
                 "success": "completed",
                 "error": "failed",
@@ -658,7 +662,7 @@ class SessionHost:
                 self.emit("text.final", f"{self.turn_id}:reply", text=reply)
             if self._stop_requested and status != "failed":
                 status = "interrupted"
-            if status == "completed":
+            if status == "completed" and not getattr(operation, "manual_tool", False):
                 # Like app-cli, the host owns this lifecycle boundary. The kernel
                 # and orchestrator do not emit it; ecosystem naming and other
                 # post-prompt hooks depend on it. Interrupted turns are not complete.

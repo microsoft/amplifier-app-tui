@@ -66,15 +66,23 @@ def public_history(messages, *, repair=False):
     return result, missing
 
 
-def context_transfer(messages, source):
+def context_transfer(messages, source, *, turn=None):
     messages, _ = public_history(messages)
-    return {
+    if turn is not None and (type(turn) is not int or turn < 1):
+        raise ValueError("Fork turn must be a positive integer")
+    value = {
         "version": 1,
         "source_session": source,
         "messages": messages,
         "sha256": hashlib.sha256(json.dumps(messages, sort_keys=True).encode()).hexdigest(),
         "notice": "Explicit public-context fork into a NEW composition. Original conversation retained. No tools replayed. Provider pins, modes, queues and module-private state are not transferred; the selected overlay is executable configuration. Captured messages can reach the new provider only after your next explicit Send.",
     }
+    if turn is not None:
+        value["fork_turn"] = turn
+        value["notice"] = (
+            f"Public-context branch through turn {turn} of source {source}. New conversation under current launch configuration; original history retained. No tools replayed or effects undone. Pins, modes, goals, local controls, queues and private module state are not transferred. Captured context reaches providers only after explicit Send."
+        )
+    return value
 
 
 def child_references(source, root_id):
@@ -258,7 +266,7 @@ def reference_messages(value):
     ]
 
 
-def history(state_dir, identity):
+def history(state_dir, identity, *, structured=False):
     entry = resolve_resume(state_dir, identity)
     identity = entry["id"]
     directory = Path(state_dir) / "conversations" / identity
@@ -279,6 +287,28 @@ def history(state_dir, identity):
         transcript.apply(Event(**row))
         if row["kind"] == "text.final":
             finals.add(row["item_id"])
+    if structured:
+        from dataclasses import asdict
+
+        return entry, json.dumps(
+            {
+                "version": 1,
+                "format": "amplifier-tui-observations",
+                "source_session": identity,
+                "title": entry.get("title", "Conversation"),
+                "through_sequence": len(rows),
+                "scope": "Private displayed observations, not canonical context or executable session state. No tools replayed. Review before sharing.",
+                "items": [
+                    {
+                        **asdict(item),
+                        "stream_complete": item.id in finals if item.kind == "assistant" else None,
+                    }
+                    for item in transcript.items.values()
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
     for item in transcript.items.values():
         label = {"user": "You", "assistant": "Assistant"}.get(item.kind, item.kind)
         if item.kind == "assistant" and item.id not in finals:
@@ -291,11 +321,16 @@ def history(state_dir, identity):
     return entry, "".join(parts)
 
 
-def export(state_dir, identity):
-    _, text = history(state_dir, identity)
+def export(state_dir, identity, format="markdown"):
+    if format not in ("markdown", "json"):
+        raise ValueError("Choose markdown or json export")
+    _, text = history(state_dir, identity, structured=format == "json")
+    if len(text.encode()) > 32 * 1024 * 1024:
+        raise ValueError("Rendered export exceeds the 32 MiB bound")
     directory = Path(state_dir) / "exports"
     directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-    path = directory / f"conversation-{uuid.uuid4().hex}.md"
+    suffix = "json" if format == "json" else "md"
+    path = directory / f"conversation-{uuid.uuid4().hex}.{suffix}"
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "w") as stream:
         stream.write(text)

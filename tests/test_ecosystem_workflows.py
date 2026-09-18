@@ -78,6 +78,25 @@ async def test_actual_delegate_retains_its_self_depth_policy(ecosystem):
     assert row["status"] == "completed"
 
 
+async def test_direct_delegate_uses_real_module_hooks_and_child_ownership(ecosystem):
+    host, _, _ = ecosystem
+    args = {
+        "agent": "self",
+        "instruction": "Synthetic direct delegate fixture",
+        "context_depth": "none",
+    }
+    accepted, reason = host.submit("/tool invoke delegate " + json.dumps(args))
+    assert accepted, reason
+    await asyncio.wait_for(host.task, 30)
+    assert host.outcome == "success"
+    assert not host.session.coordinator.get("providers")["fixture"].calls
+    assert len(host.children.records) == 1
+    child = next(iter(host.children.records.values()))
+    assert child["parent"] == host.session_id
+    assert child["parent_item_id"].startswith(host.turn_id + ":tool:")
+    assert child["status"] == "completed"
+
+
 async def test_mode_command_arguments_keep_module_policy_and_prompt(ecosystem):
     host, _, _ = ecosystem
     provider = host.session.coordinator.get("providers")["fixture"]
