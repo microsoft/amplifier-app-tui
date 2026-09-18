@@ -22,7 +22,6 @@ def parser():
     result.add_argument("--bundle", help="Bundle path or URI (explicit; no implicit CLI settings)")
     result.add_argument("--settings-policy", choices=("isolated", "cli"), default="isolated")
     result.add_argument("--cli-home", type=Path)
-    result.add_argument("--legacy-store", action="store_true", help=argparse.SUPPRESS)
     result.add_argument("--overlay", action="append", default=[], help="Ordered bundle overlay")
     result.add_argument(
         "--fixture", action="store_true", help="Deterministic provider/tool; no live AI"
@@ -99,7 +98,10 @@ def run(args, runtime_output=None):
         os.environ["AMPLIFIER_HOME"] = str(args.cli_home)
         os.chdir(args.cwd)
     else:
-        os.environ["AMPLIFIER_HOME"] = str(args.state_dir.resolve() / "foundation")
+        args.cli_home = (
+            args.cli_home.resolve() if args.cli_home else args.state_dir.resolve() / "foundation"
+        )
+        os.environ["AMPLIFIER_HOME"] = str(args.cli_home)
         os.environ["AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH"] = str(
             args.state_dir.resolve() / "context-intelligence"
         )
@@ -152,7 +154,7 @@ def run(args, runtime_output=None):
                     args.state_dir,
                     args.resume,
                     cwd=args.cwd,
-                    cli_home=args.cli_home if args.settings_policy == "cli" else None,
+                    cli_home=args.cli_home if not args.fixture else None,
                 )["launch"].get("required_tools", [])
             imported = None
             if args.import_transcript:
@@ -169,11 +171,11 @@ def run(args, runtime_output=None):
                     "cwd": str(args.cwd.resolve()),
                     **(
                         {
-                            "settings_policy": "cli",
+                            "settings_policy": args.settings_policy,
                             "cli_home": str(args.cli_home),
-                            **({"shared_session": True} if not args.legacy_store else {}),
+                            "shared_session": True,
                         }
-                        if args.settings_policy == "cli"
+                        if not args.fixture
                         else {}
                     ),
                     **({"required_tools": required} if required else {}),

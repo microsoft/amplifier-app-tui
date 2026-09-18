@@ -19,7 +19,6 @@ VISION_SECTIONS = [
     "Principles",
     "What this deliberately resists",
     "How you can tell it is working",
-    "Changelog",
 ]
 CONTRACT_SECTIONS = [
     "Who builds against this",
@@ -28,7 +27,6 @@ CONTRACT_SECTIONS = [
     "Not in v1",
     "How the kit checks it",
     "Open questions",
-    "Changelog",
 ]
 SOURCE_SUFFIXES = {
     ".py",
@@ -69,9 +67,8 @@ def check_document(text: str, name: str, *, vision=False):
         date.fromisoformat(state[2])
     expected = VISION_SECTIONS if vision else CONTRACT_SECTIONS
     require(re.findall(r"^## (.+)$", text, re.M) == expected, f"{name}: section order differs")
-    require("| Date | Change | Evidence |" in text, f"{name}: changelog needs evidence")
     if vision:
-        body = text.split("## Changelog")[0]
+        body = text
         require(80 <= len(body.splitlines()) <= 120, f"{name}: vision line budget (80–120)")
         require(
             not re.search(r"\b\d{4}-\d{2}-\d{2}\b", body), f"{name}: dated status in vision body"

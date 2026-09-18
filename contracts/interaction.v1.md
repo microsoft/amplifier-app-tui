@@ -69,32 +69,3 @@ Record missing rich-input/continuity behavior as gaps, not implicit acceptance.
 ## Open questions
 
 Which reference/attachment types should the first rich composer support? Which CLI discovery and provider-selection policies should be adopted for ordinary startup?
-
-## Changelog
-
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-17 | Clarify P6's read-only loaded-configuration boundary. | Continued CLI-parity authorization; inspection must distinguish definitions from running work without exposing configuration values or silently applying mutations. |
-| 2026-09-17 | Give P2 staged Ctrl-C stop-and-stay and default-No exit confirmation. | Steward used Ctrl-C to cancel work and lost resumability, then requested graceful/force stages and explicit confirmation before exit; idle draft-clearing is not adopted. |
-| 2026-09-17 | Scope P1's resume picker, search and selection to the launch directory. | Steward requested the CLI's directory-local return behavior; global discovery could offer a different workspace. |
-| 2026-09-16 | Clarify P1's correction timing and ecosystem naming. | Steward expected Change task to interrupt grep and found first-message titles instead of CLI-style automatic names. |
-| 2026-09-16 | Clarify P1's explicit inline mouse/keyboard interaction and native-copy return. | Steward approved trying inline expansion while retaining native copying by default. |
-| 2026-09-16 | Extend P1's visible read-only Activity path. | Steward requested nested click expansion with equivalent keyboard access; ordinary terminal history must remain selectable. |
-| 2026-09-16 | Clarify P1's task-oriented audience. | Steward prioritizes information workers learning AI-assisted coding over shortcut-first terminal experts; ordinary controls must explain intent. |
-| 2026-09-16 | Specify P6's control and authentication scope. | CLI goal/configuration and provider login are separate operations, not ordinary prompts; cached tool policy cannot be changed by editing a settings label. |
-| 2026-09-16 | Clarify P6's command and recipe discovery boundaries. | Native slash choices omitted module-advertised skills; zero active recipe sessions was mistaken for no recipe files. |
-| 2026-09-15 | Clarify P6's deterministic command boundary. | CLI commands fell through the native dispatcher into ordinary model submission. |
-| 2026-09-14 | Specify P3's file/location reference identity across queue and resume. | Steward authorized the remaining backlog; plain insertion loses location semantics and image-only admission unnecessarily requires vision. |
-| 2026-09-14 | Extend P3 to chronological recall and durable attachment/reference sets. | Steward authorized the entire remaining backlog; current recall groups sessions by activity and image admission supports one idle-only file. |
-| 2026-09-14 | Extend P3 to capability-backed immutable image input. | Steward requested the full backlog; string-only submission cannot carry image bytes, while the public context/provider formats support image blocks. |
-| 2026-09-14 | Extend P1 to paged saved-work discovery and source content search. | Steward authorized all reviewed backlog items; title-only filtering of the first 100 records cannot locate older work. |
-| 2026-09-14 | Clarify P6's local newcomer guidance. | Steward requested approachability beyond the development workspace; terse shortcut hints do not explain ordinary tasks. |
-| 2026-09-13 | Define P3's explicit text snapshots and external editing. | Steward authorized composer work; the current string-only runtime seam does not establish image attachment support. |
-| 2026-09-13 | Clarify P1/P3's picker, mode indicator, queue/steer distinction and directory recall. | Steward's ordinary workflow exposed hidden controls and session-only recall. |
-| 2026-09-13 | Clarify P8's discoverable entry point. | The steward saw a question but could not find how to answer; known-label tests missed this. |
-| 2026-09-12 | Add P8 for structured questions separate from approvals. | Continue the steward's parity request through an independent tool and host capability. |
-| 2026-09-12 | Include correction and scoped provider selection in P1. | Continue the steward's ordinary-control parity request through actual module capabilities. |
-| 2026-09-12 | Extend P1 to waiting work and local conversation organization. | Steward requested continued implementation toward the researched Codex experience. |
-| 2026-09-12 | Specify bounded filename discovery and stale-result rejection in P4. | Extend accepted completion behavior without implied attachments or execution. |
-| 2026-09-12 | Specify boundary-aware history and Tab precedence in P3–4. | Steward requested familiar editor/history/completion behavior. |
-| 2026-09-12 | Draft discoverability, focus, rich input and functional workflow obligations. | [Reconciliation](../notes/INTERACTION-RECONCILIATION.md); steward rejected shortcut-first interaction and requested ecosystem viability. |

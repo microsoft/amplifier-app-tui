@@ -198,11 +198,42 @@ def run(cli=None):
     assert any(m.get("content") == "New TUI shared marker" for m in new_messages)
     assert any(m.get("content") == "CLI after new TUI marker" for m in new_messages)
     assert (session / "transcript.jsonl").read_bytes() == original_bytes
+    # Explicit policy isolation changes composition/home, never the live format.
+    prior_ids = {p.name for p in root.iterdir()}
+    custom_launch = [
+        *new_launch,
+        "--settings-policy",
+        "isolated",
+        "--cli-home",
+        str(home),
+        "--bundle",
+        (fixture / "bundle.yaml").as_uri(),
+    ]
+    p = Probe(custom_launch, cwd=cwd, env=env, cols=80, rows=30, guard_terminal_modes=True)
+    try:
+        p.wait("Ready", timeout=120)
+        p.send(b"Explicit composition shared marker\r")
+        p.wait_idle(timeout=60)
+    finally:
+        p.close()
+    custom = [p for p in root.iterdir() if p.name not in prior_ids and "_" not in p.name]
+    assert len(custom) == 1 and (custom[0] / "transcript.jsonl").is_file()
+    assert not (state / "tui/conversations").exists()
+    resumed = [*new_launch, "--cli-home", str(home), "--resume", custom[0].name]
+    before = (custom[0] / "transcript.jsonl").read_bytes()
+    p = Probe(resumed, cwd=cwd, env=env, cols=80, rows=30, guard_terminal_modes=True)
+    try:
+        p.wait("Ready", timeout=120)
+        p.wait("Explicit composition shared marker")
+        assert (custom[0] / "transcript.jsonl").read_bytes() == before
+    finally:
+        p.close()
     return {
         "cli_to_tui_to_cli_to_tui": True,
         "same_identity": True,
         "ordinary_startup_picker": True,
         "new_tui_to_cli": True,
+        "explicit_composition_uses_same_format": True,
         "no_implicit_resume_turn": True,
         "terminal_sizes": [[175, 50], [40, 20]],
         "scope": "Actual entrypoints and app behaviors; deterministic provider and tool; sequential clients only",

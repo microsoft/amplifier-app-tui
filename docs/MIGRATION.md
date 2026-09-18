@@ -27,15 +27,14 @@ This is the first bidirectional session slice, **not complete feature parity**:
   native resume; do not edit their checkpoint by hand. Historical CLI costs are
   marked unavailable rather than presented as a complete session total.
 - Unknown outcomes, incomplete tool pairing and uncertain checkpoints refuse native
-  execution. Shared-session recovery is not yet the isolated-store recovery flow;
-  export for inspection instead. No prior call is automatically replayed.
+  execution. Export for inspection; no prior call is automatically replayed.
 - Canonical loading currently accepts at most 10,000 messages / 8 MiB. Arbitrary
   module-private state and cross-client persistent-context combinations still need
   individual verification. A successful context readback is required before Send.
 
-Legacy isolated TUI conversations remain in their original `--state-dir` and retain
-their recorded policy. They are not silently migrated. Explicit isolated launch,
-historical import and public-context adoption remain available for other purposes.
+All live conversations use the CLI session format. Explicit isolated policy selects
+an isolated Amplifier home, not another storage format; resume with that `--cli-home`.
+Deterministic developer fixtures use private test journals and never personal sessions.
 
 ## Credential and interactive-login boundaries
 
@@ -120,7 +119,7 @@ guards, context clearing, turn branches, direct tools and reversible archival.
 
 `amplifier-tui resume`, `amplifier-tui continue` and `amplifier-tui session …` still
 open pinned-CLI workflows. Native `--resume` now discovers the shared CLI project
-store as well as legacy isolated TUI conversations; it does not copy private state.
+store; it does not copy private state.
 
 Export a readable UTF-8 transcript from the old client. For this app,
 `amplifier-tui --export` prints the location of a private Markdown export. Review that

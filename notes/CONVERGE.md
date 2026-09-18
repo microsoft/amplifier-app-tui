@@ -23,7 +23,9 @@ historical: the moved stall rule is in lanes.v1 P4. It is not a second rule to c
 1. Read the repo conventions, vision, affected contracts and current [plan](PLAN.md).
    Derive work from a named promise or the steward's recorded words (method operation P1–2).
 2. Record the observation and amend direction before changing its implementation.
-   Preserve history and apply the state-specific editing path (documents P2; settling P2–4).
+   Apply the state-specific editing path (documents P2; settling P2–4). The steward
+   requires current-state documents without change logs or test-session migration
+   promises; this explicit instruction overrides the supplied changelog convention.
    [DIRECTION-REVIEW](DIRECTION-REVIEW.md) records the authority for this amendment.
 3. Keep the vision as a present-tense destination, the contract as numbered observable
    obligations, and evidence/sequencing in notes (documents P1, P3–6, P14–15).
@@ -55,7 +57,7 @@ that ledger. Publication establishes a real source revision, not a formal judged
 The checks here validate document structure, source fingerprints and work references.
 They do not certify visual quality, latency, method-wide operational conformance or future
 Converge ingestion. The archive does not specify a final import/wire schema. We retain
-ordinary paths, stable promise numbers, state headings, changelogs and source provenance
+ordinary paths, stable promise numbers, state headings and source provenance
 so a future adapter has explicit inputs; we do not claim it already exists.
 
 The future service owns its records and store (family principle "API is the truth";

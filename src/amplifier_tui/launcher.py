@@ -283,7 +283,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
                     "native_binary": str(binary),
                     "native_available": binary.is_file() and os.access(binary, os.X_OK),
                     "state_directory": str(args.state_dir.resolve()),
-                    "shared_cli_state": "Ordinary CLI-policy sessions share canonical project history and settings. Close one client before opening the other. Legacy isolated stores remain intact; diagnostics do not read shared settings/history.",
+                    "shared_cli_state": "Live sessions use canonical CLI project history. Ordinary launch shares CLI settings; isolated policy uses an explicitly separate home. Close one client before opening the other. Diagnostics do not read shared settings/history.",
                     "source_policy": "explicit workspace overrides"
                     if workspace
                     else "remote bundle sources",
@@ -341,7 +341,13 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         if args.resume:
             parser.error("Choose --resume or --recover")
         try:
-            resolve_resume(args.state_dir, args.recover, cwd=launch_cwd)
+            entry = resolve_resume(
+                args.state_dir, args.recover, cwd=launch_cwd, cli_home=discovery_home
+            )
+            if entry.get("shared_session"):
+                raise ValueError(
+                    "Shared recovery is unavailable; export for inspection. Nothing changed."
+                )
             args.resume = recover(args.state_dir, args.recover)
         except ValueError as exc:
             parser.error(str(exc))
@@ -394,14 +400,12 @@ def arguments(argv=None, workspace=None, require_terminal=False):
     )
     if args.fixture and policy == "cli":
         parser.error("--fixture requires isolated settings; no personal hooks may run")
-    if args.cli_home and policy != "cli":
-        parser.error("--cli-home requires --settings-policy cli")
+    if args.cli_home and args.fixture:
+        parser.error("--fixture cannot use a personal CLI home")
     if policy == "cli":
         host += ["--settings-policy", "cli"]
-        if args.resume and not saved.get("shared_session"):
-            host.append("--legacy-store")
-        if args.cli_home:
-            host += ["--cli-home", str(args.cli_home.resolve())]
+    if args.cli_home:
+        host += ["--cli-home", str(args.cli_home.resolve())]
     if args.fixture:
         host += ["--fixture"]
     elif policy == "cli":

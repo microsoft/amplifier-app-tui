@@ -58,13 +58,30 @@ def test_archive_is_reversible_closed_directory_local_and_content_preserving(tmp
         restored.close()
 
 
-def test_housekeeping_launcher_requires_confirmation_and_does_not_launch(tmp_path, capsys):
+def test_housekeeping_launcher_requires_confirmation_and_does_not_launch(
+    tmp_path, capsys, monkeypatch
+):
+    from amplifier_tui.conversations import SharedConversationStore
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("AMPLIFIER_HOME", str(home))
     state = tmp_path / "state"
-    store = ConversationStore(state, {"cwd": str(tmp_path)})
+    store = SharedConversationStore(
+        state,
+        {
+            "cwd": str(tmp_path),
+            "cli_home": str(home),
+            "bundle": "synthetic-bundle",
+            "settings_policy": "cli",
+            "shared_session": True,
+            "fixture": False,
+        },
+    )
     identity = store.identity
     store.close()
     base = ["--state-dir", str(state), "--cwd", str(tmp_path)]
-    before = snapshot(state)
+    before = snapshot(home)
     for extra in (
         ["--archive", identity],
         ["--archive", "latest", "--confirm"],
@@ -74,7 +91,7 @@ def test_housekeeping_launcher_requires_confirmation_and_does_not_launch(tmp_pat
         with pytest.raises(SystemExit) as error:
             arguments([*base, *extra], require_terminal=True)
         assert error.value.code == 2
-        assert snapshot(state) == before
+        assert snapshot(home) == before
     for extra in (
         ["--archive", identity, "--confirm"],
         ["--list-archived"],

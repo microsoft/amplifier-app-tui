@@ -22,7 +22,7 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
 ## The promises
 
 1. **Keep both presets meaningful.** anchors and anchors-amp-dev resolve their recursive definitions and expose the capabilities the host actually supports.
-   Supported release wheels include the native client without requiring a local compiler. Ordinary launch uses existing CLI configuration and shared session data; isolated policy remains explicit. CLI workflow and required bundle/module host-service parity is the baseline, with additive TUI capabilities and named gaps until verified. Launch resolves presets without workspace checkouts and never silently substitutes a historical UI or migrates legacy isolated history. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
+   Supported release wheels include the native client without requiring a local compiler. Live conversations use the CLI session format; ordinary launch uses existing CLI configuration and explicit isolated policy selects its own Amplifier home. CLI workflow and required bundle/module host-service parity is the baseline, with additive TUI capabilities and named gaps until verified. Launch resolves presets without workspace checkouts and never silently substitutes a historical UI. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
    Broken: A preset name loads a hard-coded lookalike, or agent instructions imply a running external service.
    Affected: people selecting bundles and authors composing them.
 
@@ -64,21 +64,3 @@ Record exclusions, unsupported paths and untested modules rather than upgrading 
 
 Which independent context/orchestrator implementations best probe the first replacement host?
 Which remaining CLI-private controls need shared app-layer persistence to make switching lossless? Named incompatible state must not be presented as supported same-identity continuation.
-
-## Changelog
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-18 | Make CLI parity and shared-data adoption the P1 baseline. | Steward prioritizes reversible adoption: users can alternate clients without migrating their conversations or settings. |
-| 2026-09-17 | Specify P4's legacy terminal-output compatibility seam. | Source audit found redirected print/Rich/log output discarded; private bounded inspection preserves it without leaking raw logs into conversation history. |
-| 2026-09-17 | Clarify P6's admission/retention boundary and preserve interactive obligations across child processes. | CLI comparison found extra host depth/concurrency/retained-record and subprocess refusals; its headless subprocess helper alone does not carry approvals, questions or live observations. |
-| 2026-09-17 | Extend P5 to CLI host safety and complete bounded diagnostics. | Steward approved implementing CLI capabilities and required bundle/module host support after the source audit. |
-| 2026-09-15 | Extend P1/P2 to deliberate layered CLI policy compatibility. | Steward approved closing settings, identity-backed provider and remote-dispatch gaps found in current CLI source. |
-| 2026-09-14 | Distinguish explicit remote validation and deliberate composition conversion in P2. | Steward authorized remaining newcomer/provider work; offline checks cannot validate credentials and existing pins intentionally preserve vendor guards. |
-| 2026-09-14 | Clarify advisory model discovery in P2. | Steward authorized provider/model setup; module catalogs must not bypass selection guards or imply a successful model request. |
-| 2026-09-14 | Specify compiler-free supported release wheels in P1. | Steward authorized the installation backlog; source installation currently requires Rust/Cargo and a linker. Source builds remain explicit. |
-| 2026-09-14 | Clarify P1's actionable, privacy-conscious setup checks. | Steward requested newcomer approachability; local diagnosis should not require sharing machine paths or trial model calls. |
-| 2026-09-13 | Extend P1 to installable native launch and identifiable storage/runtime. | Steward requested uv tool install from private Git; current launcher depends on sibling checkouts and a separately built binary. |
-| 2026-09-13 | Clarify P2/P6's context diagnostics and child visibility. | Steward authorized replacement-readiness work; generic child rows hide progress and waiting scope. |
-| 2026-09-13 | Extend P2/P6 to mode continuity, logging scope and exercised children. | Real preset delegation and recipe execution failed at missing app-owned session.spawn. |
-| 2026-09-12 | Specify scope and policy-preserving provider changes in P2. | The selected orchestrator supplies a conversation-only pin with a same-vendor guard; UI selection must not bypass it. |
-| 2026-09-12 | Draft the behavioral boundary for replacing hosts and modules while retaining the ecosystem. | [Steward authorization](../notes/DIRECTION-REVIEW.md); first-slice mounting did not establish full conformance. |

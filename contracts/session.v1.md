@@ -73,17 +73,3 @@ Draft contracts do not seed formal Converge ledger rows.
 
 Which request semantics belong in an adapter versus a replacement host without duplicating lifecycle ownership?
 What terminal outcome can a host prove when a third-party operation ignores cancellation?
-
-## Changelog
-
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-17 | Give P6 graceful and immediate cancellation stages. | Steward requested existing ecosystem cancellation propagation, current-call completion and explicit second-press escalation instead of immediately cancelling all work. |
-| 2026-09-15 | Clarify P6's deliberate draft reuse after uncertain steering. | Steward requested the remaining backlog; clipboard-only recovery lacks an explicit non-submitting path back into the composer. |
-| 2026-09-14 | Specify P8's bounded local transport and truthful forced exit. | Steward authorized reliability work; synchronous client pipe writes can block before the existing shutdown deadline, which kills only the direct host. |
-| 2026-09-14 | Clarify P8's finalization ownership under repeated controls. | Continued steward authorization; deterministic Stop/Stop and Stop/exit tests interrupt checkpoint persistence in the current host. |
-| 2026-09-13 | Clarify P5's observed tool-outcome summary. | Steward's agent test session ended with broad success claims despite failed commands and skipped verification gates. |
-| 2026-09-12 | Specify correlated correction evidence in P6. | Public steering queue accepts strings and clears at turn start; insertion needs an observed runtime acknowledgement. |
-| 2026-09-12 | Specify queue release and stopping semantics in P6. | Steward requested additional everyday control parity; a pending instruction must not defeat Stop. |
-| 2026-09-12 | Initial draft; no ratification claimed. | Supplied handoff and current source inspection. |
-| 2026-09-12 | Add correlated boundary admission and rendering-independent lifecycle obligations without choosing a transport. | [Approved direction](../notes/DIRECTION-REVIEW.md); the current one-shot JSONL command is not a bidirectional host. |

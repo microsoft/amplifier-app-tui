@@ -235,15 +235,11 @@ No local matches never falls back to conversations elsewhere.
 Reopening does not repeat tools or automatically release queued work. Normal installed
 CLI-policy sessions live in the CLI's project/session store, with TUI-specific
 sidecars. Close the TUI and use `amplifier resume ID` to continue in CLI, or close
-CLI and use native `--resume` to return. Legacy isolated TUI state lives under
-`$XDG_DATA_HOME/amplifier-tui`, usually `~/.local/share/amplifier-tui`; `--state-dir`
-selects that legacy store and derived caches, not a second canonical CLI history.
+CLI and use native `--resume` to return. `--state-dir` selects derived caches and
+test-harness storage, not a second canonical live-conversation history.
 Cleanly stopped work with validated saved context resumes normally. Unverified or
-incomplete isolated-store state requires explicit recovery into a new conversation,
-keeping the original unchanged. Shared-session uncertainty currently requires
-inspection/export; see [switching limits](MIGRATION.md). Isolated recovery retains validated public messages when available;
-otherwise it supplies historical reference text, not exact restoration of arbitrary
-tool/context state. Neither path replays work automatically.
+incomplete state requires inspection/export; see [switching limits](MIGRATION.md).
+Unknown tool effects remain unknown; history never replays work automatically.
 
 To upgrade: `uv tool install --no-sources --reinstall git+https://github.com/bkrabach/amplifier-app-tui`.
 This rebuilds the tool environment, so the next normal launch may reinstall module

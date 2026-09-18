@@ -59,25 +59,3 @@ Draft contracts do not seed formal Converge ledger rows.
 
 Which durable admission record separates accepted, applied and uncertain input after a boundary failure?
 How does a replacement context manager preserve canonical history independently of request compaction?
-
-## Changelog
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-18 | Require bidirectional same-identity CLI/TUI continuity in P3. | Steward requires existing CLI project sessions in ordinary Resume and immediate return to CLI using shared data, not import-only migration. |
-| 2026-09-18 | Clarify P3's explicit session operations and reversible closed-session archival. | Existing CLI parity calls for clear/branch/export and housekeeping without replay, accidental deletion or active-writer interference. |
-| 2026-09-17 | Distinguish P1's safe root/child interruption from uncertain persistence and permit explicit routing-aware child continuation. | The CLI parity audit identifies refusals based solely on child outcome or changed routing; execution ownership, canonical validation and non-routing policy must decide resumability. |
-| 2026-09-15 | Clarify P3's cross-application continuity. | Steward approved CLI migration work; a separate TUI catalog and text import are not equivalent resume. |
-| 2026-09-15 | Distinguish explicitly reparented nested public adoption from same-identity continuation in P5. | Steward authorized deeper recovery; a captured nested self-agent can have root-equivalent policy without requiring ancestor execution. |
-| 2026-09-15 | Clarify P5's fresh-store persistent public-context adoption. | Inspected persistent module intentionally ignores set_messages after loading its own transcript; changing an existing store would not implement recovery. |
-| 2026-09-15 | Clarify P5's explicit executable public-context child recovery. | Steward requested actual interrupted-work recovery; historical inspection remains distinct from a newly authorized execution. |
-| 2026-09-14 | Extend P2's source-scoped retention to other local dialog editors. | Steward authorized crash-edge editor work; queue edits, file selectors and searches currently disappear when their dialog closes. |
-| 2026-09-14 | Clarify structured recovery's uncertainty in P5. | Steward requested interrupted-context and delegated recovery; replaying incomplete calls or inferring successful effects would violate retained intent. |
-| 2026-09-14 | Clarify P1's nested-parent and routing preservation. | Steward authorized deeper delegated continuity; durable child records must not become implicit ancestor execution. |
-| 2026-09-13 | Specify P1's guarded completed-child continuation. | Steward requested durable delegated workflows; existing receipts retain context but lose executable composition across restart. |
-| 2026-09-13 | Clarify P2's retained answer/correction drafts and non-delivery on recovery. | Steward authorized daily-replacement work; these editors currently exist only in client memory. |
-| 2026-09-13 | Clarify P5's non-destructive recovery path. | Stop left the steward's journal intact but inaccessible through ordinary resume. |
-| 2026-09-12 | Include explicit provider selection and uncertain control state in P1. | A resumed conversation must not silently return to priority selection after an explicit pin. |
-| 2026-09-12 | Extend P2 to explicit in-app return without draft loss. | Steward's continuation of the accepted reading/return slice. |
-| 2026-09-12 | Clarify canonical context and fail-closed checkpoints in P1. | Steward requested functional conversation resume, not transcript-only redisplay. |
-| 2026-09-12 | Initial draft; no ratification claimed. | Supplied handoff and current source inspection. |
-| 2026-09-12 | Clarify readers and open questions for replacement runtimes; promises unchanged. | [Direction amendment](../notes/DIRECTION-REVIEW.md); continuation must not depend on frontend lifetime. |

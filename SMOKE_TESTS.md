@@ -17,6 +17,8 @@ the CLI ownership guard. Local bundle overrides require file URIs for fragments.
 Only the provider/tool are deterministic fixtures; no paid calls are authorized.
 Inspect private `shared-session-*` captures and require new-turn tool outcomes,
 no transcript growth before Send, unchanged root-session count and restored TTY.
+The probe also starts/resumes an explicit isolated composition under its owned
+`--cli-home`, asserts canonical storage and rejects a parallel live journal store.
 Raw probe logs/settings/transcripts are private and must never be published. This
 does not certify concurrent writers, private-control equivalence or complete costs.
 

@@ -278,7 +278,7 @@ def shared_session_entry(home, cwd, identity):
             prior = json.loads(path.read_text())
             if prior.get("version") != 1 or prior.get("id") != identity:
                 raise ValueError("Invalid shared session sidecar identity")
-            for key in ("overlays", "sources", "required_tools"):
+            for key in ("overlays", "sources", "required_tools", "settings_policy"):
                 if key in prior.get("launch", {}):
                     launch[key] = prior["launch"][key]
     return {
