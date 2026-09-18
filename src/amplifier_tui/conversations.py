@@ -379,6 +379,26 @@ class SharedConversationStore(ConversationStore):
     supported; digest checks detect stale writers, not a distributed transaction.
     """
 
+    def projection(self):
+        from .inspection import CallUsage
+
+        items = super().projection()
+        if any(e.payload.get("accounting_snapshot") for e in self.restored_events):
+            # Historical footers are receipts from that point in time. Show the
+            # reconciled baseline separately; never rewrite history or journal a
+            # duplicate summary each time someone opens the same conversation.
+            text = "On resume · " + CallUsage(self.restored_events).costs(session_only=True)
+            items.append(
+                {
+                    "id": "shared:resume-accounting",
+                    "kind": "notice",
+                    "text": text,
+                    "status": "",
+                    "detail": json.dumps({"source": "usage", "text": text}),
+                }
+            )
+        return items
+
     def __init__(self, state_dir, launch, resume=None):
         from amplifier_app_cli.session_store import SessionStore
 

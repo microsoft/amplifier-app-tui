@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 [[package]]
 name = "amplifier-app-cli"
 version = "0.1.1"
-source = { git = "https://github.com/microsoft/amplifier-app-cli?rev=e2f665137189b48dca1f8778c24f23aa25fddc60#e2f665137189b48dca1f8778c24f23aa25fddc60" }
+source = { git = "https://github.com/microsoft/amplifier-app-cli?rev=5d1068dd83d9c6837558c6aa859329fba23bcd50#5d1068dd83d9c6837558c6aa859329fba23bcd50" }
 dependencies = [
     { name = "amplifier-core" },
     { name = "amplifier-foundation" },
@@ -43,7 +43,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "amplifier-app-cli", git = "https://github.com/microsoft/amplifier-app-cli?rev=e2f665137189b48dca1f8778c24f23aa25fddc60" },
+    { name = "amplifier-app-cli", git = "https://github.com/microsoft/amplifier-app-cli?rev=5d1068dd83d9c6837558c6aa859329fba23bcd50" },
     { name = "amplifier-core", specifier = "==1.6.1" },
     { name = "amplifier-foundation", git = "https://github.com/microsoft/amplifier-foundation?rev=8a8e4f11918afd38ea8fe8f69cbec002226324f7" },
     { name = "pillow", specifier = "==12.1.1" },

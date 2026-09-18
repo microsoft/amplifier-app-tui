@@ -7,6 +7,9 @@ Read-only comparison with Codex checkout
 `frontends/ratatui/src/markdown.rs`. Both use pulldown-cmark and Ratatui.
 This is source-derived analysis, not a claim about the newest remote revision.
 No user transcript, private URL or machine identity is a test fixture here.
+Codex retains heading hash markers in its display. This TUI deliberately uses
+typography instead, following its presentation contract; shared parser choice
+does not require identical reading policy.
 
 Codex source anchors:
 
@@ -28,7 +31,7 @@ Codex source anchors:
 | Nested and loose lists | Paragraph boundaries retain deliberate spacing; tight list rows remain compact | Mixed lists, continuation paragraphs, code and tables retain container indentation |
 | Following sections | A single blank row separates the next block | Headings do not attach directly to preceding list text |
 | Blockquotes | Every wrapped content row retains its quote prefix, including nested blocks | Quote scope ends before following ordinary prose |
-| Headings | Visible level markers and distinct bold/underline/italic styles | Hierarchy survives NO_COLOR; no colour-only distinction |
+| Headings | ATX and setext use distinct bold/underline/italic styles and block spacing without source delimiters | Styles survive wrapping and NO_COLOR; escaped hashes and code stay literal; source copy retains delimiters |
 | Links | Exact label/destination duplicates display once; other destinations remain visible | No OSC hyperlink transport; long nonredundant URLs remain intentionally visible in tmux/unknown terminals |
 | Streaming | The journal's incremental styled output matches completed structural rendering | Every-character splits through lists, links, tables and fences at 40/80/175 columns |
 
@@ -58,5 +61,7 @@ Historical usage comes from attributed logging receipts plus native observations
 joined only by kernel event identity. It contributes to Session, never the next Turn;
 missing or uncorrelated sources remain explicit gaps. Earlier per-call evidence is
 inspectable in Activity without flooding the root conversation.
+A derived On resume summary shows the reconciled session total separately from
+historical turn footers. It does not rewrite receipts or create new usage.
 Retain the explicit close-one-client-before-opening-the-other rule. Full private
 controls and crash recovery remain separate acceptance gates.

@@ -2421,7 +2421,7 @@ mod tests {
     }
     #[test]
     fn streamed_structural_markdown_matches_completed_projection() {
-        let source = "## Review\n\n9. First item with enough repeated words to wrap at a narrow width without losing its column.\n   - Nested 界 item that also wraps and preserves its parent.\n10. Second item\n\n    A continuation paragraph.\n\n> Quoted words with a [reference](https://example.test/guide) that wraps.\n\n```rs\nlet x = 1;\n```\n\n| A | B |\n|---|---|\n| x | y |\n\nDone.\n";
+        let source = "# Title\n\n## Review\n\n### Subsection\n\n#### Topic\n\n##### Detail\n\n###### Note\n\nSetext title\n===\n\nMultiline setext\nsection\n---\n\n9. First item with enough repeated words to wrap at a narrow width without losing its column.\n   - Nested 界 item that also wraps and preserves its parent.\n10. Second item\n\n    A continuation paragraph.\n\n> Quoted words with a [reference](https://example.test/guide) that wraps.\n\n```rs\nlet x = 1;\n```\n\n| A | B |\n|---|---|\n| x | y |\n\nDone.\n";
         for width in [40, 80, 175] {
             let mut log = Journal::default();
             let mut painted = Vec::new();

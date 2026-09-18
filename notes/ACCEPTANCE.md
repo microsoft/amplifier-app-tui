@@ -28,23 +28,21 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The default Python suite passes **662 tests, 321 opt-in skips**, recorded
-privately in `.evidence/shared-reading-default.xml`. Rust renderer/native tests pass
-**70 tests**, with release build and strict Clippy clean. Ruff lint/format and
-direction checks pass. The mixed-reading terminal and accounting corpus passes
-**19 tests** (11.07s), including exact source copy and retained draft at 40/80/175
-columns. The CLI owner tests pass **2353 tests**, with one skip and one expected
-failure; its resume-list fix has synthetic store and actual Click coverage.
-The focused native reading, tmux, shared-store and flow gate passes **71 tests,
-7 preset-gated skips** (55.02s), privately recorded in
-`.evidence/shared-reading-native.xml`.
-After the CLI pin update, **77 tests** pass with native/preset gates enabled
-(42.35s), including resolver comparison, shared return, actual entrypoint workflows,
-usage scope/recovery and Activity preview/copy; receipt `.evidence/shared-reading-pin.xml`.
-Thirty warm simulated decision/resize samples measure decision-open p95 **12.4 ms**,
-shrink-to-80-column p95 **18.4 ms** and grow-to-175-column p95 **51.8 ms**. Draft and
-pending decision survive; no provider or CLI latency parity is inferred. Private
-receipt `.evidence/shared-reading-experience.json` includes source hashes and samples.
+The default Python suite passes **663 tests, 327 opt-in skips** (140.79s), recorded
+privately in `.evidence/headings-default.xml`. Rust renderer/native tests pass
+**72 tests**, with release build and strict Clippy clean. Ruff lint/format and
+direction checks pass. The structured-reading, thinking, reading and tmux terminal
+gate passes **28 tests** (30.54s), recorded in `.evidence/headings-native.xml`.
+It includes exact source copy and retained drafts at 40/80/175 columns, with heading
+attributes verified directly from terminal cells in both colour and NO_COLOR modes.
+The capture rasterizer does not reproduce all text attributes; screenshots alone
+are not the typography oracle. Shared store/usage/bridge checks pass **58 tests**.
+The actual-entrypoint round-trip probe also checks the visible reconciled On resume
+total at laptop and narrow widths, without executing user history.
+The CLI owner tests passed **2353 tests**, with one skip and one expected failure;
+its merged resume-list fix has synthetic store and actual Click coverage.
+Responsiveness evidence lives in [PERFORMANCE](PERFORMANCE.md); these reading
+checks do not establish provider or CLI latency parity.
 [SMOKE_TESTS](../SMOKE_TESTS.md) owns additional opt-in preset, terminal, service,
 module-swap and installed-artifact gates. Overlapping suites are not additive counts.
 No user transcript or account is a synthetic test fixture.
@@ -53,9 +51,12 @@ No user transcript or account is a synthetic test fixture.
 
 Current source comparison is in [MARKDOWN-GAPS](MARKDOWN-GAPS.md). Structural list
 wrapping, loose/tight spacing, quote continuation and heading hierarchy have mixed
-block coverage. Journal streaming is compared with the complete styled projection
-at every character boundary at 40/80/175 columns. Native terminal captures were
-inspected at laptop and narrow widths. HTML-entity-decoded controls remain inert.
+block coverage. All six ATX heading levels and setext headings use typography and
+spacing without source delimiters; escaped hashes and code retain their literals.
+Soft breaks inherit their text style, including multiline setext headings. Journal
+streaming is compared with the complete styled projection at every character boundary
+at 40/80/175 columns. Native terminal captures were inspected at laptop and narrow
+widths. HTML-entity-decoded controls remain inert.
 Links suppress only exact label/destination duplication; no OSC hyperlinks or blind
 URL hiding are claimed. Original Markdown and code copy remain unchanged.
 
@@ -66,16 +67,18 @@ identified native observations. Explicit metadata/fork ancestry determines child
 ownership. Kernel receipt identity joins observers, never token-value equality or
 time proximity. Imported receipts seed Session, not the next Turn, and remain
 inspectable in Activity. Reopening does not duplicate totals or canonical bytes.
+A derived On resume total reflects the reconciled session ledger; historical turn
+footers remain unchanged receipts of their earlier accounting view. Repeated
+projection adds neither journal events nor new-turn usage.
 Missing, conflicting, oversized and uncorrelated sources produce partial accounting.
 The actual CLI/TUI round-trip probe mounts hooks-logging, reconciles exact synthetic
 reported costs and uses a mixed Markdown answer without paid model calls.
 
 CLI discovery requires a saved transcript, retaining log-only diagnostics on disk.
 Resume lists label their nonblank transcript-line counts as messages, not user turns.
-The app pins tested CLI commit `e2f665137189b48dca1f8778c24f23aa25fddc60`.
-[CLI PR346](https://github.com/microsoft/amplifier-app-cli/pull/346) passes all eight
-Linux/macOS/Windows unit/integration CI jobs and CLA. Normal reviewer approval is
-still required; the pin includes the fix without claiming it is merged into CLI main.
+The app pins CLI main merge `5d1068dd83d9c6837558c6aa859329fba23bcd50`.
+[CLI PR346](https://github.com/microsoft/amplifier-app-cli/pull/346) is merged after
+all eight Linux/macOS/Windows unit/integration CI jobs and CLA passed for its tested head.
 
 ## Remaining boundaries
 

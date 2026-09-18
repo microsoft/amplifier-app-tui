@@ -43,6 +43,68 @@ def code_colours(probe, needle):
 
 
 @pytest.mark.parametrize("width", [40, 80, 175])
+@pytest.mark.parametrize("no_colour", [False, True])
+def test_headings_are_typography_not_source_syntax(tmp_path, width, no_colour):
+    source = (
+        "# Title\n\n## Section\n\n### Subsection\n\n#### Topic\n\n"
+        "##### Detail\n\n###### Note\n\nSetext title\n===\n\nSetext section\n---\n\n"
+        "\\# Literal hash\n\n`## inline code`\n\nReading complete."
+    )
+    path = tmp_path / "headings.json"
+    path.write_text(
+        json.dumps(
+            {
+                "title": "Heading fixture",
+                "draft": "Unsent text",
+                "system": [],
+                "items": [{"id": "heading", "kind": "assistant", "text": source}],
+            }
+        )
+    )
+    probe = Probe(
+        [
+            str(ROOT / "frontends/ratatui/target/release/amplifier-ratatui"),
+            "--host-json",
+            json.dumps(
+                [sys.executable, "-m", "amplifier_tui.frontend_bridge", "--scene", str(path)]
+            ),
+        ],
+        cols=width,
+        rows=50,
+        env={"NO_COLOR": "1"} if no_colour else None,
+    )
+    try:
+        probe.wait("Reading complete.")
+        for title, modifiers in [
+            ("Title", (True, False, True)),
+            ("Section", (True, False, False)),
+            ("Subsection", (True, True, False)),
+            ("Topic", (False, False, True)),
+            ("Detail", (False, True, False)),
+            ("Note", (False, True, True)),
+            ("Setext title", (True, False, True)),
+            ("Setext section", (True, False, False)),
+        ]:
+            row = next(y for y, text in enumerate(probe.screen.display) if text.strip() == title)
+            assert probe.screen.display[row].startswith(title)  # No left gutter or hashes.
+            assert not probe.screen.display[row + 1].strip()
+            for x in range(len(title)):
+                cell = probe.screen.buffer[row][x]
+                assert (cell.bold, cell.italics, cell.underscore) == modifiers
+        assert "# Literal hash" in probe.text and "## inline code" in probe.text
+        capture(probe, f"headings-{width}-{'plain' if no_colour else 'colour'}")
+        action(probe, "Assistant replies", "Assistant replies · latest")
+        probe.send(b"\r")
+        probe.wait("Message · retained source preview")
+        probe.send(b"Copy message\r")
+        probe.wait("Source copied")
+        assert copied(probe) == source
+        draft_is(probe, "Unsent text")
+    finally:
+        probe.close()
+
+
+@pytest.mark.parametrize("width", [40, 80, 175])
 def test_mixed_markdown_retains_exact_copy_and_draft_at_terminal_widths(tmp_path, width):
     path = tmp_path / "reading-scene.json"
     path.write_text(
@@ -72,8 +134,10 @@ def test_mixed_markdown_retains_exact_copy_and_draft_at_terminal_widths(tmp_path
             rows = probe.screen.display
             continuation = next(row for row in rows if "A continuation paragraph" in row)
             assert continuation.startswith("   A continuation paragraph")
-            heading = next(i for i, row in enumerate(rows) if "### Sources" in row)
+            heading = next(i for i, row in enumerate(rows) if row.strip() == "Sources")
             assert not rows[heading - 1].strip()
+            assert all(probe.screen.buffer[heading][x].bold for x in range(len("Sources")))
+        assert "### Sources" not in probe.text
         capture(probe, f"mixed-markdown-{width}")
         action(probe, "Assistant replies", "Assistant replies · latest")
         probe.send(b"\r")
