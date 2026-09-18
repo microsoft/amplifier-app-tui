@@ -100,7 +100,8 @@ for line in sys.stdin:
         p.wait("Preview · Thinking")
         p.wait("• Check the source")
         p.wait("• Report uncertainty")
-        assert "**Compare**" not in p.text and "## Public heading" not in p.text
+        assert "**Compare**" not in p.text
+        assert "## Public heading" in p.text  # Visible hierarchy survives NO_COLOR.
         assert any(
             all(p.screen.buffer[y][x + n].bold for n in range(len("Public heading")))
             for y, row in enumerate(p.screen.display)

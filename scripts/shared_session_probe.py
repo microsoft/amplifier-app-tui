@@ -11,10 +11,34 @@ import os
 import subprocess
 import sys
 import tempfile
+from decimal import Decimal
 from pathlib import Path
 
-from interaction_probe import capture
+from interaction_probe import action, capture
 from terminal_probe import ROOT, Probe
+
+READING_REPLY = """## Shared project review
+
+1. **Preserve conversation identity.** Continue the same conversation in either client. The transcript retains the person's words, tool results and replies; opening history does not execute them again.
+   - Keep the original source for copying and inspection, including references and Unicode: 界 café.
+   - Keep the draft separate from submitted conversation history.
+2. **Review the evidence.** Inspect earlier calls in Activity, then make an explicit next request.
+
+   A continuation paragraph remains aligned with its numbered item, even when it wraps across several terminal rows.
+
+> Readable output is part of correctness. A wrapped quotation retains its visible scope instead of appearing to become ordinary conversation text.
+
+### Sources
+
+[README](docs/README.md#L12), <https://example.test/guide>, and [`src/lib.rs`](src/lib.rs).
+
+```python
+def identity(value):
+    return value
+```
+
+Reading check complete.
+"""
 
 
 def run(cli=None):
@@ -28,6 +52,27 @@ def run(cli=None):
     cwd.mkdir()
     fixture = ROOT / "src/amplifier_tui/fixtures"
     workspace = ROOT.parent
+    bundle = state / "shared-fixture.yaml"
+    bundle.write_text(
+        json.dumps(
+            {
+                "bundle": {"name": "shared-reading-fixture", "version": "1.0.0"},
+                "includes": [{"bundle": (fixture / "bundle.yaml").as_uri()}],
+                "hooks": [
+                    {
+                        "module": "hooks-logging",
+                        "source": str(workspace / "amplifier-module-hooks-logging"),
+                        "config": {
+                            "session_log_template": str(
+                                home / "projects/{project}/sessions/{session_id}/events.jsonl"
+                            ),
+                            "strip_raw": True,
+                        },
+                    }
+                ],
+            }
+        )
+    )
     if cli is None:
         environment = state / "cli-env"
         subprocess.run(["uv", "venv", str(environment)], check=True, capture_output=True)
@@ -54,7 +99,7 @@ def run(cli=None):
     }
     (state / "sources.json").write_text(json.dumps(sources))
     settings = {
-        "bundle": {"active": (fixture / "bundle.yaml").as_uri()},
+        "bundle": {"active": bundle.as_uri()},
         "sources": {
             "bundles": {url: Path(path).as_uri() for url, path in sources.items()},
             "modules": {
@@ -68,9 +113,13 @@ def run(cli=None):
                 {
                     "module": "provider-fixture",
                     "source": str(fixture / "provider-fixture"),
-                    "config": {"priority": 1},
+                    "config": {
+                        "priority": 1,
+                        "reply": READING_REPLY,
+                        "usage": {"input_tokens": 100, "output_tokens": 10, "cost_usd": "0.025"},
+                    },
                 }
-            ]
+            ],
         },
         "updates": {"auto_prompt": False},
     }
@@ -101,7 +150,7 @@ def run(cli=None):
         assert result.returncode == 0, f"{name} failed; inspect private probe log"
 
     command(
-        ["run", "--bundle", (fixture / "bundle.yaml").as_uri(), "CLI first shared marker"],
+        ["run", "--bundle", bundle.as_uri(), "CLI first shared marker"],
         "cli-first",
     )
     root = session_directory(home, cwd)
@@ -148,11 +197,51 @@ def run(cli=None):
                 p.send(b"\r")
             p.wait("Ready", timeout=120)
             assert len(transcript()) == len(before), "Resume executed or changed message count"
-            p.wait("CLI first shared marker" if index == 0 else "CLI return marker")
-            p.wait("fixture_probe")
+            if index == 0:
+                p.wait("CLI first shared marker")
+                p.wait("fixture_probe")
+            else:
+                p.wait("Reading check complete.")
+                assert any(m.get("content") == "CLI return marker" for m in transcript())
             assert "<system-reminders>" not in p.text
+            journal = [
+                json.loads(line)
+                for line in (session / ".tui/events.jsonl").read_text().splitlines()
+            ]
+            baseline = next(
+                e["payload"] for e in reversed(journal) if e["payload"].get("accounting_snapshot")
+            )
+            canonical_calls = [
+                json.loads(line)
+                for line in (session / "events.jsonl").read_text().splitlines()
+                if line.strip()
+            ]
+            canonical_calls = [r for r in canonical_calls if r.get("event") == "llm:response"]
+            expected = sum(
+                (Decimal(str(r["data"]["usage"]["cost_usd"])) for r in canonical_calls), Decimal(0)
+            )
+            assert expected > 0
+            assert Decimal(baseline["accounting_snapshot"]["totals"]["cost_usd"]) == expected
+            assert not baseline["partial"], (
+                "Recorded call identity did not survive CLI/TUI observation"
+            )
             capture(p, f"shared-session-resume-{size[0]}")
             if index == 0:
+                action(p, "expand tools", "Activity ·")
+                p.send(b"Earlier session usage\r")
+                p.wait("▸ observed · Usage")
+                capture(p, "shared-session-earlier-usage-175")
+                p.send(b"Usage\r")
+                p.wait("Earlier session usage / Recorded model call")
+                p.wait("Preview · observed content")
+                p.send(b"Preview\r")
+                p.wait("Preview · Usage")
+                p.wait("Input: 100")
+                p.wait("Cost: $0.025000")
+                capture(p, "shared-session-earlier-call-175")
+                p.send(b"\x1b")
+                p.wait("Actions / choices", absent=True)
+                assert transcript() == before, "Inspecting historical usage executed work"
                 p.send(b"TUI continuation marker\r")
                 p.wait_idle(timeout=60)
                 assert any(m.get("content") == "TUI continuation marker" for m in transcript())
@@ -231,6 +320,8 @@ def run(cli=None):
     return {
         "cli_to_tui_to_cli_to_tui": True,
         "same_identity": True,
+        "historical_costs_reconciled": True,
+        "structural_markdown_reply": True,
         "ordinary_startup_picker": True,
         "new_tui_to_cli": True,
         "explicit_composition_uses_same_format": True,

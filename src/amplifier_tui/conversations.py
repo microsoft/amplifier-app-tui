@@ -414,6 +414,7 @@ class SharedConversationStore(ConversationStore):
         try:
             if not existing:
                 self._seed_view()
+            self._restore_accounting()
             if not resume:
                 # Fresh forks/imports must reach the host's explicit transfer path.
                 self.saved = None
@@ -501,6 +502,11 @@ class SharedConversationStore(ConversationStore):
             # Preserve prior observations. Only the derived view is rebuilt; drafts
             # and child receipts are retained. No history becomes pending work.
             archive = self.path / "views" / uuid.uuid4().hex
+            self._prior_usage = [
+                Event(**e)
+                for e in events
+                if isinstance(e.get("payload", {}).get("usage_call"), dict)
+            ]
             archive.mkdir(parents=True, mode=0o700)
             for name in ("events.jsonl", "checkpoint.json"):
                 (self.path / name).rename(archive / name)
@@ -573,6 +579,135 @@ class SharedConversationStore(ConversationStore):
         self.restored_events = self.observations(self.canonical_messages, self.identity)
         for event in self.restored_events:
             self.record(event)
+        self._save_marker(self.canonical_messages, len(self.restored_events), None, True)
+
+    def _restore_accounting(self):
+        """Reconcile receipts into a sidecar-only historical session baseline.
+
+        Canonical logs and conversation bytes are read-only here. Evidence rows
+        live in Activity, not as hundreds of replayed conversation notices.
+        """
+        import hashlib
+        from datetime import datetime
+
+        from .cli_compat import historical_usage
+        from .inspection import add_usage, call_usage_text, usage_totals, usage_values
+
+        if not self.canonical_messages and not self.restored_events:
+            return
+        launch = self.canonical_launch
+        logged, partial = historical_usage(launch["cli_home"], launch["cwd"], self.identity)
+        if not logged and not self.metadata.get("shared_history_unaccounted"):
+            # A TUI-owned history remains authoritative even without a logging
+            # module. External CLI history without receipts is different.
+            partial = False
+        records = {row["usage_receipt_id"]: row for row in logged}
+        logged_owners = {row["usage_session_id"] for row in logged}
+        sources = [*getattr(self, "_prior_usage", ()), *self.restored_events]
+        for event in sources:
+            payload = event.payload
+            if not isinstance(payload.get("usage_call"), dict):
+                continue
+            key = payload.get("usage_receipt_id")
+            owner = payload.get("usage_session_id") or payload.get("child_id") or self.identity
+            if key is None and owner in logged_owners:
+                # The two observers cannot be joined without identity. Use the
+                # canonical receipts and disclose the gap instead of guessing
+                # equivalence from equal amounts or neighboring timestamps.
+                partial = True
+                continue
+            key = (
+                key or payload.get("accounting_key") or f"native:{event.session_id}:{event.item_id}"
+            )
+            if key in records:
+                if usage_values(records[key]["usage_call"]) != usage_values(payload["usage_call"]):
+                    partial = True
+                continue
+            records[key] = {
+                "accounting_key": key,
+                "usage_receipt_id": payload.get("usage_receipt_id"),
+                "usage_session_id": owner,
+                "usage_call": payload["usage_call"],
+                "provider": payload.get("provider", {}),
+                "timestamp": payload.get("timestamp"),
+                "duration_ms": payload.get("duration_ms"),
+                "purpose": payload.get("purpose"),
+                "text": payload.get("text", "Usage details unavailable"),
+            }
+        if self.metadata.get("shared_history_unaccounted") and not logged:
+            partial = True
+        snapshot = usage_totals()
+        for row in records.values():
+            add_usage(snapshot, usage_values(row["usage_call"]))
+        snapshot["totals"] = {
+            k: str(v) if k == "cost_usd" else v for k, v in snapshot["totals"].items()
+        }
+        fingerprint = hashlib.sha256(
+            json.dumps([records, partial], sort_keys=True).encode()
+        ).hexdigest()
+        previous = next(
+            (e for e in reversed(self.restored_events) if e.payload.get("accounting_snapshot")),
+            None,
+        )
+        self.metadata["shared_history_unaccounted"] = partial
+        if previous and previous.payload.get("accounting_fingerprint") == fingerprint:
+            return
+
+        def retain(item, **payload):
+            event = Event(
+                self.identity,
+                len(self.restored_events) + 1,
+                None,
+                "activity.observed",
+                item,
+                payload,
+            )
+            self.record(event)
+            self.restored_events.append(event)
+
+        retain(
+            "shared:usage",
+            name="Earlier session usage",
+            status="partial" if partial else "observed",
+            accounting_snapshot=snapshot,
+            accounting_fingerprint=fingerprint,
+            partial=partial,
+            text=f"{snapshot['requests']} recorded calls. Historical session accounting, not next-turn usage. "
+            + (
+                "Some earlier receipts are unavailable or cannot be correlated."
+                if partial
+                else "Canonical and native receipts reconciled by observed identity."
+            ),
+        )
+        for key, row in records.items():
+            row = dict(row)
+            if "text" not in row:
+                try:
+                    stamp = datetime.fromisoformat(
+                        row["timestamp"].replace("Z", "+00:00")
+                    ).astimezone()
+                except (ValueError, TypeError, AttributeError):
+                    stamp = None
+                row["text"] = (
+                    call_usage_text(
+                        usage_values(row["usage_call"]),
+                        row["provider"],
+                        agent=row["purpose"]
+                        or ("Child session" if row["usage_session_id"] != self.identity else ""),
+                        timestamp=stamp,
+                        duration_ms=row["duration_ms"],
+                    )
+                    if stamp
+                    else "Recorded usage; timestamp unavailable. Inspect the exact fields."
+                )
+            retain(
+                "shared:" + key,
+                name="Recorded model call",
+                source="usage",
+                parent_item_id="shared:usage",
+                status="observed",
+                **row,
+            )
         self._save_marker(self.canonical_messages, len(self.restored_events), None, True)
 
     def _save_marker(self, messages, sequence, fingerprint, ready):

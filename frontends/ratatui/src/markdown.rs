@@ -68,22 +68,96 @@ pub fn render_secondary(source: &str, width: usize) -> Vec<Line<'static>> {
     lines
 }
 
+// Prefixes belong to structural containers, not physical source lines. Every
+// wrapped row keeps its quote scope and aligns with the item's text column.
+#[derive(Default)]
+struct Layout {
+    lines: Vec<Line<'static>>,
+    current: Vec<Span<'static>>,
+    prefixes: Vec<(String, String, bool)>,
+    width: usize,
+}
+
+impl Layout {
+    fn prefix(&self, first: bool) -> Vec<Span<'static>> {
+        let mut left = self.width.saturating_sub(1);
+        self.prefixes
+            .iter()
+            .map(|(initial, subsequent, used)| {
+                let value = if first && !used { initial } else { subsequent };
+                let text: String = value
+                    .graphemes(true)
+                    .take_while(|g| {
+                        if g.width() > left {
+                            return false;
+                        }
+                        left -= g.width();
+                        true
+                    })
+                    .collect();
+                Span::styled(text, Style::default().fg(palette().muted))
+            })
+            .collect()
+    }
+
+    fn available(&self) -> usize {
+        self.width
+            .saturating_sub(self.prefix(true).iter().map(Span::width).sum())
+            .max(1)
+    }
+
+    fn flush(&mut self) {
+        if self.current.is_empty() {
+            return;
+        }
+        let body = Line::from(std::mem::take(&mut self.current));
+        for (i, line) in reflow(vec![body], self.available()).into_iter().enumerate() {
+            let mut spans = self.prefix(i == 0);
+            spans.extend(line.spans);
+            self.lines.push(Line::from(spans));
+        }
+        for (_, _, used) in &mut self.prefixes {
+            *used = true;
+        }
+    }
+
+    fn blank(&mut self) {
+        self.flush();
+        if self.lines.last().is_some_and(|line| line.width() != 0) {
+            self.lines.push(Line::default());
+        }
+    }
+
+    fn push_line(&mut self, line: Line<'static>) {
+        self.current = line
+            .spans
+            .into_iter()
+            .map(|mut span| {
+                span.style = line.style.patch(span.style);
+                span
+            })
+            .collect();
+        if self.current.is_empty() {
+            self.current.push(Span::raw(""));
+        }
+        self.flush();
+    }
+}
+
 fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
     let source = safe(source);
-    let mut lines = Vec::new();
-    let mut current: Vec<Span<'static>> = Vec::new();
+    let mut layout = Layout {
+        width: width.max(1),
+        ..Layout::default()
+    };
     let mut styles = vec![Style::default().fg(palette().ink)];
     let mut lists: Vec<Option<u64>> = Vec::new();
-    let mut links = Vec::new();
-    let mut quote = 0;
+    let mut loose_lists = Vec::new();
+    let mut item_depths = Vec::new();
+    let mut links: Vec<(String, String)> = Vec::new();
     let mut table: Option<tables::Table> = None;
     let mut code: Option<(String, String)> = None;
     let mut colour_budget = syntax::MAX_BYTES;
-    let flush = |lines: &mut Vec<Line<'static>>, current: &mut Vec<Span<'static>>| {
-        if !current.is_empty() {
-            lines.push(Line::from(std::mem::take(current)));
-        }
-    };
     for event in Parser::new_ext(
         &source,
         Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TABLES | Options::ENABLE_TASKLISTS,
@@ -92,7 +166,16 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
         match event {
             Md::Start(tag) => {
                 let next = match &tag {
-                    Tag::Heading { .. } => style.fg(palette().ink).add_modifier(Modifier::BOLD),
+                    Tag::Heading { level, .. } => {
+                        style.fg(palette().ink).add_modifier(match level {
+                            pulldown_cmark::HeadingLevel::H1 => {
+                                Modifier::BOLD | Modifier::UNDERLINED
+                            }
+                            pulldown_cmark::HeadingLevel::H2 => Modifier::BOLD,
+                            pulldown_cmark::HeadingLevel::H3 => Modifier::BOLD | Modifier::ITALIC,
+                            _ => Modifier::ITALIC,
+                        })
+                    }
                     Tag::Strong | Tag::TableHead => style.add_modifier(Modifier::BOLD),
                     Tag::Emphasis => style.add_modifier(Modifier::ITALIC),
                     Tag::Strikethrough => style.add_modifier(Modifier::CROSSED_OUT),
@@ -104,34 +187,44 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                 };
                 match tag {
                     Tag::Table(alignments) => {
-                        flush(&mut lines, &mut current);
+                        layout.flush();
                         table = Some(tables::Table {
                             alignments,
                             rows: vec![],
                         });
                     }
-                    Tag::Heading { .. } | Tag::Paragraph => {
-                        // A loose list paragraph starts after its already drawn
-                        // marker; don't strand the bullet on a line of its own.
-                        if lists.is_empty() {
-                            flush(&mut lines, &mut current);
+                    Tag::Heading { level, .. } => {
+                        layout.blank();
+                        layout.current.push(Span::styled(
+                            format!("{} ", "#".repeat(level as usize)),
+                            Style::default().fg(palette().muted),
+                        ));
+                    }
+                    Tag::Paragraph => {
+                        if item_depths.last() == Some(&styles.len())
+                            && let Some(loose) = loose_lists.last_mut()
+                        {
+                            *loose = true;
                         }
-                        if quote > 0 {
-                            current.push(Span::styled(
-                                "│ ".repeat(quote),
-                                Style::default().fg(palette().muted),
-                            ));
+                        if layout.prefixes.last().is_none_or(|(_, _, used)| *used) {
+                            layout.blank();
                         }
                     }
                     Tag::BlockQuote(_) => {
-                        quote += 1;
+                        layout.flush();
+                        layout.prefixes.push(("│ ".into(), "│ ".into(), false));
                     }
                     Tag::List(start) => {
+                        if lists.is_empty() {
+                            layout.blank();
+                        } else {
+                            layout.flush();
+                        }
                         lists.push(start);
+                        loose_lists.push(false);
                     }
                     Tag::Item => {
-                        flush(&mut lines, &mut current);
-                        let indent = "  ".repeat(lists.len().saturating_sub(1));
+                        layout.flush();
                         let marker = match lists.last_mut() {
                             Some(Some(n)) => {
                                 let s = format!("{n}. ");
@@ -140,31 +233,30 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                             }
                             _ => "• ".to_string(),
                         };
-                        current.push(Span::styled(
-                            format!("{indent}{marker}"),
-                            Style::default().fg(palette().green),
-                        ));
+                        let subsequent = " ".repeat(marker.width());
+                        layout.prefixes.push((marker, subsequent, false));
+                        item_depths.push(styles.len() + 1);
                     }
                     Tag::CodeBlock(kind) => {
-                        flush(&mut lines, &mut current);
+                        layout.flush();
                         let language = match kind {
                             CodeBlockKind::Fenced(s) => s.to_string(),
                             _ => String::new(),
                         };
-                        lines.push(Line::styled(
+                        layout.push_line(Line::styled(
                             format!("── {language}"),
                             Style::default().fg(palette().muted),
                         ));
                         code = Some((language, String::new()));
                     }
                     Tag::TableRow | Tag::TableHead => {
-                        flush(&mut lines, &mut current);
+                        layout.flush();
                         if let Some(table) = &mut table {
                             table.rows.push(vec![]);
                         }
                     }
                     Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. } => {
-                        links.push(dest_url.to_string());
+                        links.push((safe(&dest_url), String::new()));
                     }
                     _ => (),
                 }
@@ -175,45 +267,62 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                 match tag {
                     TagEnd::CodeBlock => {
                         if let Some((language, source)) = code.take() {
-                            lines.extend(if colour {
+                            let lines = if colour {
                                 syntax::lines(&source, &language, &mut colour_budget)
                             } else {
                                 syntax::plain(&source)
-                            });
+                            };
+                            for line in lines {
+                                layout.push_line(line);
+                            }
                         }
-                        if lists.is_empty() {
-                            lines.push(Line::default());
-                        }
+                        layout.blank();
                     }
                     TagEnd::Table => {
                         if let Some(table) = table.take() {
-                            lines.extend(table.render(width));
+                            for line in table.render(layout.available()) {
+                                layout.push_line(line);
+                            }
                         }
-                        lines.push(Line::default());
+                        layout.blank();
                     }
                     TagEnd::Paragraph | TagEnd::Heading(_) | TagEnd::HtmlBlock => {
-                        flush(&mut lines, &mut current);
-                        if lists.is_empty() {
-                            lines.push(Line::default());
+                        layout.blank();
+                    }
+                    TagEnd::Item => {
+                        layout.flush();
+                        if loose_lists.last() == Some(&true) {
+                            layout.blank();
                         }
+                        layout.prefixes.pop();
+                        item_depths.pop();
                     }
-                    TagEnd::Item | TagEnd::TableRow | TagEnd::TableHead => {
-                        flush(&mut lines, &mut current)
-                    }
+                    TagEnd::TableRow | TagEnd::TableHead => layout.flush(),
                     TagEnd::TableCell => {
                         if let Some(row) = table.as_mut().and_then(|t| t.rows.last_mut()) {
-                            row.push(Line::from(std::mem::take(&mut current)));
+                            row.push(Line::from(std::mem::take(&mut layout.current)));
                         }
                     }
                     TagEnd::List(_) => {
                         lists.pop();
+                        loose_lists.pop();
+                        if lists.is_empty() {
+                            layout.blank();
+                        }
                     }
                     TagEnd::BlockQuote(_) => {
-                        quote = quote.saturating_sub(1);
+                        layout.flush();
+                        layout.prefixes.pop();
+                        layout.blank();
                     }
                     TagEnd::Link | TagEnd::Image => {
-                        if let Some(url) = links.pop() {
-                            current.push(Span::styled(
+                        if let Some((url, label)) = links.pop()
+                            && url != label
+                        {
+                            // No OSC transport: tmux/unknown terminals still need
+                            // the destination. Autolinks and exact path labels do not
+                            // need a second identical target. Never rewrite source.
+                            layout.current.push(Span::styled(
                                 format!(" ({url})"),
                                 Style::default().fg(palette().muted),
                             ));
@@ -223,48 +332,143 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                 }
             }
             Md::Text(value) | Md::Html(value) | Md::InlineHtml(value) => {
+                // Entity decoding happens in the parser, after source sanitizing.
+                // Decoded terminal controls must stay inert too.
+                let value = safe(&value);
                 if let Some((_, source)) = &mut code {
                     source.push_str(&value);
                     continue;
                 }
+                for (_, label) in &mut links {
+                    label.push_str(&value);
+                }
                 for (i, part) in value.split('\n').enumerate() {
                     if i > 0 {
-                        lines.push(Line::from(std::mem::take(&mut current)));
+                        layout.flush();
                     }
                     if !part.is_empty() {
-                        current.push(Span::styled(part.to_string(), style));
+                        layout.current.push(Span::styled(part.to_string(), style));
                     }
                 }
             }
-            Md::Code(value) => current.push(Span::styled(
-                value.to_string(),
-                style.fg(palette().amber).bg(palette().panel),
-            )),
-            Md::SoftBreak => current.push(Span::raw(" ")),
-            Md::HardBreak => {
-                lines.push(Line::from(std::mem::take(&mut current)));
-            }
-            Md::Rule => {
-                flush(&mut lines, &mut current);
-                lines.push(Line::styled(
-                    "─".repeat(width),
-                    Style::default().fg(palette().line),
+            Md::Code(value) => {
+                let value = safe(&value);
+                for (_, label) in &mut links {
+                    label.push_str(&value);
+                }
+                layout.current.push(Span::styled(
+                    value.to_string(),
+                    style.fg(palette().amber).bg(palette().panel),
                 ));
             }
-            Md::TaskListMarker(done) => current.push(Span::styled(
+            Md::SoftBreak => {
+                for (_, label) in &mut links {
+                    label.push(' ');
+                }
+                layout.current.push(Span::raw(" "));
+            }
+            Md::HardBreak => layout.flush(),
+            Md::Rule => {
+                layout.blank();
+                layout.push_line(Line::styled(
+                    "─".repeat(layout.available()),
+                    Style::default().fg(palette().line),
+                ));
+                layout.blank();
+            }
+            Md::TaskListMarker(done) => layout.current.push(Span::styled(
                 if done { "☑ " } else { "☐ " },
                 style.fg(palette().green),
             )),
             _ => (),
         }
     }
-    flush(&mut lines, &mut current);
-    reflow(lines, width)
+    layout.flush();
+    layout.lines
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn text(source: &str, width: usize) -> Vec<String> {
+        render(source, width)
+            .iter()
+            .map(ToString::to_string)
+            .collect()
+    }
+
+    #[test]
+    fn wrapped_lists_keep_item_columns_and_loose_paragraphs() {
+        for width in [40, 80, 175] {
+            let words = "wrapped content ".repeat(20);
+            let source = format!(
+                "9. **First** {words}\n   - Nested {words}\n10. Second\n\n    Another paragraph\n\n## Next section\n\nAfter list."
+            );
+            let lines = text(&source, width);
+            let mut in_nested = false;
+            for line in &lines {
+                assert!(line.width() <= width, "{line:?}");
+                if line.contains("• Nested") {
+                    in_nested = true;
+                }
+                if line.starts_with("10.") {
+                    in_nested = false;
+                }
+                if line.contains("wrapped") && !line.contains("First") && !line.contains("Nested") {
+                    assert!(
+                        line.starts_with(if in_nested { "     " } else { "   " }),
+                        "{line:?}"
+                    );
+                }
+            }
+            let paragraph = lines
+                .iter()
+                .position(|l| l.contains("Another paragraph"))
+                .unwrap();
+            assert_eq!(lines[paragraph], "    Another paragraph");
+            assert!(lines[paragraph - 1].is_empty());
+            let heading = lines
+                .iter()
+                .position(|l| l.contains("Next section"))
+                .unwrap();
+            assert!(lines[heading - 1].is_empty());
+            assert!(lines[heading + 1].is_empty());
+            assert_eq!(
+                text("- One\n- Two\n- Three", width),
+                ["• One", "• Two", "• Three", ""]
+            );
+        }
+    }
+
+    #[test]
+    fn quotes_code_and_tables_remain_inside_their_containers() {
+        let source = "1. List\n\n   > Quoted words that must wrap and stay visibly inside this quote with enough words.\n   >\n   > - Quoted list item with enough words to wrap onto a second or third row.\n\n   ```rs\n   let preserved = \"界\";\n     indented();\n   ```\n\n   | Name | Value |\n   |---|---|\n   | A | B |\n\n   Following paragraph.\n\nOutside.";
+        let lines = text(source, 40);
+        assert!(lines.iter().any(|l| l.starts_with("   │ • Quoted list")));
+        assert!(lines.iter().any(|l| l.starts_with("   │   ")), "{lines:#?}");
+        assert!(lines.iter().any(|l| l == "   let preserved = \"界\";"));
+        assert!(lines.iter().any(|l| l == "     indented();"));
+        assert!(lines.iter().any(|l| l.starts_with("   ┌")));
+        assert!(lines.iter().any(|l| l == "   Following paragraph."));
+        assert!(lines.iter().any(|l| l == "Outside."));
+        assert!(lines.iter().all(|l| l.width() <= 40));
+    }
+
+    #[test]
+    fn links_only_omit_redundant_targets_and_headings_keep_hierarchy() {
+        let source = "# Title\n\n## Section\n\n### Detail\n\n<https://example.test/a> [https://example.test/b](https://example.test/b) [README](docs/README.md#L12) [`src/lib.rs`](src/lib.rs)";
+        let value = text(source, 175).join("\n");
+        assert_eq!(value.matches("https://example.test/a").count(), 1);
+        assert_eq!(value.matches("https://example.test/b").count(), 1);
+        assert_eq!(value.matches("src/lib.rs").count(), 1);
+        assert!(value.contains("README (docs/README.md#L12)"));
+        for prefix in ["# Title", "## Section", "### Detail"] {
+            assert!(value.contains(prefix));
+        }
+        assert_eq!(render_live(source, 40), render(source, 40));
+    }
+
     #[test]
     fn secondary_markdown_never_uses_conversation_white_or_syntax_colours() {
         let source = "# Thought\n\n**consider** `code` [reference](https://example.test)\n\n```rs\nlet x = 1;\n```";
@@ -376,5 +580,8 @@ mod tests {
         assert!(lines.iter().all(|l| l.width() <= 4));
         assert!(!lines.iter().any(|l| l.to_string().contains('\x1b')));
         assert!(lines.iter().any(|l| l.to_string().contains("e\u{301}")));
+        for source in ["&#27;[31m", "[label](x&#27;[31m)"] {
+            assert!(!text(source, 40).join("\n").contains('\x1b'));
+        }
     }
 }

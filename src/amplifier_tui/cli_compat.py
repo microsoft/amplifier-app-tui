@@ -398,6 +398,129 @@ def read_session_file(home, cwd, identity, filename, limit):
         os.close(directory)
 
 
+def historical_usage(home, cwd, identity, *, byte_limit=64 * 1024 * 1024, file_limit=128):
+    """Read canonical logging receipts, never transcript prose or estimated prices.
+
+    Descendants require recorded parent metadata or fork events, not ID prefixes.
+    Limits and missing/corrupt sources are accounting gaps, not resume failures.
+    """
+    import json
+    import re
+    from itertools import islice
+
+    from .inspection import usage_receipt_id, usage_values
+
+    root = session_directory(home, cwd)
+    parents, partial = {}, False
+    try:
+        paths = list(islice(root.iterdir(), 513))
+        partial = len(paths) > 512
+        for path in paths[:512]:
+            if path.name == identity or path.is_symlink() or not path.is_dir():
+                continue
+            try:
+                meta = json.loads(read_session_file(home, cwd, path.name, "metadata.json", 65536))
+                if isinstance(meta, dict) and isinstance(meta.get("parent_id"), str):
+                    parents[path.name] = meta["parent_id"]
+            except (OSError, ValueError, RecursionError):
+                continue
+    except OSError:
+        return [], True
+    descendants = {identity}
+    for _ in range(len(parents)):
+        added = {child for child, parent in parents.items() if parent in descendants}
+        if added <= descendants:
+            break
+        descendants.update(added)
+    owners = [identity, *sorted(descendants - {identity})]
+    partial |= len(owners) > file_limit
+    records = {}
+    for position, owner in enumerate(owners):
+        if position >= file_limit:
+            partial = True
+            break
+        for child, parent in parents.items():
+            if parent == owner and child not in descendants:
+                if len(owners) >= file_limit:
+                    partial = True
+                    continue
+                descendants.add(child)
+                owners.append(child)
+        try:
+            raw = read_session_file(home, cwd, owner, "events.jsonl", byte_limit)
+            byte_limit -= len(raw)
+        except (OSError, ValueError):
+            partial = True
+            continue
+        for index, line in enumerate(raw.splitlines()):
+            if not line.strip():
+                continue
+            try:
+                if len(line) > 4 * 1024 * 1024:
+                    raise ValueError("Oversized event")
+                rec = json.loads(line)
+                if not isinstance(rec, dict):
+                    raise ValueError("Invalid event")
+                if rec.get("event") == "session:fork":
+                    data = rec.get("data", {})
+                    child = data.get("child_session_id") if isinstance(data, dict) else None
+                    if (
+                        not isinstance(data, dict)
+                        or rec.get("session_id") != owner
+                        or data.get("parent_session_id") != owner
+                        or not isinstance(child, str)
+                        or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", child)
+                        or parents.get(child, owner) != owner
+                    ):
+                        raise ValueError("Unattributed fork")
+                    if child not in descendants:
+                        if len(owners) >= file_limit:
+                            partial = True
+                            continue
+                        descendants.add(child)
+                        owners.append(child)
+                    continue
+                if rec.get("event") != "llm:response":
+                    continue
+                data = rec.get("data", {})
+                if not isinstance(data, dict) or rec.get("session_id") != owner:
+                    raise ValueError("Unattributed response")
+                observed = {
+                    **data,
+                    **{k: rec[k] for k in ("session_id", "request_id", "span_id") if k in rec},
+                    "timestamp": rec.get("ts"),
+                }
+                key = usage_receipt_id(observed)
+                if key is None:
+                    # A physical record is still evidence, but cannot be joined
+                    # with another observer. Never dedup on equal token counts.
+                    key = f"log:{owner}:{index}"
+                    partial = True
+                values = usage_values(data.get("usage"))
+                row = {
+                    "usage_receipt_id": key,
+                    "usage_session_id": owner,
+                    "usage_call": {k: str(v) if k == "cost_usd" else v for k, v in values.items()},
+                    "provider": {
+                        k: data[k] for k in ("provider", "model") if isinstance(data.get(k), str)
+                    },
+                    "timestamp": rec.get("ts"),
+                    "duration_ms": rec.get("duration_ms"),
+                    "purpose": data.get("purpose")
+                    if isinstance(data.get("purpose"), str)
+                    else None,
+                }
+                if key in records and records[key] != row:
+                    partial = True  # Conflicting observations are never summed.
+                else:
+                    records[key] = row
+                if len(records) >= 10000:
+                    return list(records.values()), True
+            except (ValueError, TypeError, RecursionError):
+                partial = True
+    return list(records.values()), partial
+
+
 def session_catalog(home, cwd):
     import json
     import time

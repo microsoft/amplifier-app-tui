@@ -20,26 +20,27 @@ Codex source anchors:
 - `markdown_render_tests.rs` and snapshots: multiline findings, code inside
   lists, mixed URLs, local references and narrow tables.
 
-## Confirmed gaps
+## Current implementation and limits
 
-| Area | Current TUI behavior | Required direction |
+| Area | Current TUI behavior | Verification / remaining boundary |
 |---|---|---|
-| Wrapped lists | Item marker is drawn once; generic reflow wraps continuation rows at column zero | Carry initial/subsequent indentation with each block; continuation text aligns with its item, not the terminal edge |
-| Nested and loose lists | List depth only indents markers; paragraph endings inside lists lose block spacing | Preserve item/paragraph boundaries and a single deliberate separator; no blank line for every tight-list row |
-| Following sections | List end only pops the counter; the next heading/prose can attach directly to the list | Block-aware spacing before the next section |
-| Blockquotes | Quote prefix is inserted at paragraph start, not every wrapped line | Carry quote prefix through wrapped lines and nested blocks |
-| Headings | All levels share the same bold style | Distinct accessible hierarchy without relying solely on colour |
-| Links | Every destination is appended, even when redundant; long file-view URLs dominate layout | Preserve target semantics; prefer concise file references, and label-only web links only with usable hyperlink support |
-| Streaming | Stable-prefix emission and final reflow can see different structural boundaries | Test chunk splits through list items, links, tables and fenced blocks; committed output must neither duplicate nor lose structure |
+| Wrapped lists | Structural initial/continuation prefixes align wrapped rows with each item's text column | 40/80/175-column tests include nested items and changing number widths |
+| Nested and loose lists | Paragraph boundaries retain deliberate spacing; tight list rows remain compact | Mixed lists, continuation paragraphs, code and tables retain container indentation |
+| Following sections | A single blank row separates the next block | Headings do not attach directly to preceding list text |
+| Blockquotes | Every wrapped content row retains its quote prefix, including nested blocks | Quote scope ends before following ordinary prose |
+| Headings | Visible level markers and distinct bold/underline/italic styles | Hierarchy survives NO_COLOR; no colour-only distinction |
+| Links | Exact label/destination duplicates display once; other destinations remain visible | No OSC hyperlink transport; long nonredundant URLs remain intentionally visible in tmux/unknown terminals |
+| Streaming | The journal's incremental styled output matches completed structural rendering | Every-character splits through lists, links, tables and fences at 40/80/175 columns |
 
-Already implemented: emphasis/strong/strikethrough, inline and fenced code, task
-markers, syntax colour, width-aware tables and narrow key/value fallbacks. They still
-need adversarial mixed-block tests; parser support alone is not layout parity.
+Emphasis/strong/strikethrough, inline and fenced code, task markers, syntax colour,
+width-aware tables and narrow key/value fallbacks remain supported. Native tests
+verify exact source copying and unsent-draft retention independently of layout.
 
 Do not simply hide all URLs: Codex deliberately keeps them visible in unknown terminals
 and tmux/screen. Our renderer currently has no OSC hyperlink transport. Resolve that
 capability and retain inspect/copy access before discarding visible targets. Keep copied
-Markdown/code unchanged and keep untrusted escape sequences inert.
+Markdown/code unchanged and keep untrusted escape sequences inert, including controls
+decoded from HTML entities by the Markdown parser.
 
 ## Session observations and decisions
 
@@ -48,12 +49,14 @@ history projections are expected: CLI resume shows conversation text while TUI a
 shows compact captured tool calls. Historical thinking and usage absent from the
 canonical transcript must not be synthesized from the response or a guessed cost.
 
-The pinned CLI's `commands/session.py:_get_session_display_info` counts transcript lines
-and the resume menu labels that value as turns. Tool messages and injected context
-are included, so the label does not mean user turns. A correction belongs in the
-CLI; the TUI must not change canonical messages to make that number smaller.
+CLI return lists count nonblank transcript messages and label them messages, including
+tool messages and injected context. Log-only directories are not resume candidates;
+their diagnostic files remain untouched. Canonical messages are never rewritten to
+make a display count smaller.
 
-Priorities: fix structural Markdown first, design conservative link presentation,
-then import authoritative usage receipts without double counting. Retain the explicit
-close-one-client-before-opening-the-other rule while cooperative writer safety is
-implemented. Full private controls and crash recovery remain separate acceptance gates.
+Historical usage comes from attributed logging receipts plus native observations,
+joined only by kernel event identity. It contributes to Session, never the next Turn;
+missing or uncorrelated sources remain explicit gaps. Earlier per-call evidence is
+inspectable in Activity without flooding the root conversation.
+Retain the explicit close-one-client-before-opening-the-other rule. Full private
+controls and crash recovery remain separate acceptance gates.
