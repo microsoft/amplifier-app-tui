@@ -281,9 +281,17 @@ def scripting_smoke(command, stage, env, python, uv, failure_log=None):
             assert "Fixture round trip complete" in result.stdout
         else:
             payload = json.loads(result.stdout)
+            assert payload["status"] == "success"
             assert "Fixture round trip complete" in payload["response"]
             if output == "json-trace":
-                assert "fixture_probe" in json.dumps(payload)
+                assert any(
+                    call.get("tool") == "fixture_probe"
+                    and isinstance(call.get("result"), dict)
+                    and call["result"].get("success") is True
+                    and call["result"].get("output", {}).get("sha256")
+                    == hashlib.sha256(b"fixture payload").hexdigest()
+                    for call in payload["execution_trace"]
+                )
         transcripts = list((home / "projects").rglob("transcript.jsonl"))
         assert any(prompt in path.read_text() for path in transcripts)
         outcomes.append(

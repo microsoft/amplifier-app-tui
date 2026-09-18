@@ -26,8 +26,8 @@ compatibility claims. Personal services remain read-only unless explicitly teste
 ## Remaining CLI-parity sequence
 
 The identified host and ordinary CLI workflow implementations are delivered through
-native controls or the explicit pinned CLI entrypoint. The combined gate passes935
-tests; finish reviewed incremental publication and Git-source installation verification.
+native controls or the explicit pinned CLI entrypoint. The combined gate passes 935
+tests; isolated wheel and Git-source installation checks pass.
 Retain setup/source/update and advanced CLI-store
 administration in their existing terminal workflows. Do not reinterpret public import
 as canonical CLI continuation. Computer-use upstream delivery still requires maintainer
