@@ -71,6 +71,9 @@ def catalog(state_dir, *, cwd=None, archived=False, cli_home=None):
                 and value.get("version") == 1
                 and value.get("id") == path.parent.name
                 and bool(value.get("archived", False)) == archived
+                # Private journals without a CLI home are test-harness storage.
+                # Product discovery never falls back to a retired live store.
+                and (cli_home is None or value.get("launch", {}).get("fixture") is True)
             ):
                 if directory is not None:
                     launch = value.get("launch")
@@ -103,9 +106,9 @@ def entry_path(state_dir, entry):
 
 
 def open_conversation(state_dir, launch, resume=None):
-    if launch.get("shared_session"):
-        return SharedConversationStore(state_dir, launch, resume)
-    return ConversationStore(state_dir, launch, resume)
+    if launch.get("fixture"):
+        return ConversationStore(state_dir, launch, resume)
+    return SharedConversationStore(state_dir, launch, resume)
 
 
 def archive_conversation(state_dir, identity, *, cwd, archived, cli_home=None):
@@ -121,13 +124,9 @@ def archive_conversation(state_dir, identity, *, cwd, archived, cli_home=None):
     if cli_home is not None:
         from .cli_compat import shared_session_entry
 
-        try:
-            shared = shared_session_entry(cli_home, cwd, identity)
-        except FileNotFoundError:
-            pass
-        if shared:
-            path = entry_path(state_dir, shared)
-            path.mkdir(mode=0o700, exist_ok=True)
+        shared = shared_session_entry(cli_home, cwd, identity)
+        path = entry_path(state_dir, shared)
+        path.mkdir(mode=0o700, exist_ok=True)
     metadata = path / "metadata.json"
     if path.is_symlink() or metadata.is_symlink() or not path.is_dir():
         raise ValueError("Conversation unavailable; no change made")
@@ -385,6 +384,7 @@ class SharedConversationStore(ConversationStore):
 
         from .cli_compat import session_directory, shared_session_entry
 
+        launch = {**launch, "shared_session": True}
         identity = resume or str(uuid.uuid4())
         if not re.fullmatch(r"[A-Za-z0-9-]{1,160}", identity):
             raise ValueError("Invalid shared session identity")

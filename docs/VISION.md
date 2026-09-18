@@ -1,7 +1,7 @@
 # Amplifier TUI — Vision (DRAFT)
 
 The destination is written as though already true; promises live in contracts, evidence and sequencing in notes.
-Direction changes here first, with dated evidence; work follows from the remaining gap.
+Direction changes here first; work follows from the remaining gap. Documents describe the current design, without migration promises or change logs.
 The adopted method and its provenance are described in [Converge practice](../notes/CONVERGE.md).
 ## What Amplifier TUI is
 
@@ -117,57 +117,3 @@ Rendering and transport do not monopolize input or cancellation; process and lan
 - A person experiences 0 measured responsiveness regressions against the matched CLI baseline.
 - A steward receives 1 explicit review question with the evidence needed to answer it.
 - A developer scrolls and copies 1 long conversation in tmux without switching app modes, then exits with its transcript retained.
-
-## Changelog
-
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-18 | Make reversible CLI adoption and shared canonical sessions/configuration the destination. | Steward requires ordinary same-project CLI session resume and switching back without migration; full CLI parity is the baseline, not a handoff-only claim. |
-| 2026-09-18 | Preserve retained work through reversible archive and keep scripting/completion distinct from native conversation launch. | CLI-parity work covers closed-session housekeeping and installed command verification without authorizing private-state migration or background model work. |
-| 2026-09-17 | Distinguish session-owned configuration, deliberate context clearing, turn branching and structured observations. | Continued CLI-parity work requires supported controls to survive return and session operations to retain provenance without replay or private-state migration claims. |
-| 2026-09-17 | Make loaded configuration inspectable without model work or credential disclosure. | Continued CLI-parity authorization; the local control previously exposed only root tools, while the CLI inspects the wider loaded composition. |
-| 2026-09-17 | Preserve interactive child controls across explicit process isolation. | CLI parity audit found subprocess spawning refused; the headless runner cannot alone retain approvals, live activity or safe cancellation/continuation. |
-| 2026-09-17 | Preserve legacy module output without surrendering terminal ownership. | CLI parity audit found redirected module print/Rich/log output discarded by the native client; structured messages alone do not cover existing bundles. |
-| 2026-09-17 | Give actions, outcomes and subordinate evidence distinct emphasis. | Steward approved the Codex source comparison: whole-row colour obscures actions and incorrectly gives successful delegates' child errors a success accent. |
-| 2026-09-17 | Distinguish cancellation visually and retain elapsed feedback through quiet draining. | Steward found muted stopping states and an apparently paused counter; negative-state colour and visible seconds clarify ongoing shutdown. |
-| 2026-09-17 | Distinguish graceful tree cancellation, emergency escalation and confirmed exit. | Steward wants current calls to finish and nested delegates to resolve upward on first Ctrl-C, immediate stopping on the second, and default-No confirmation before Ctrl-C exits. |
-| 2026-09-17 | Separate cancellation from quitting and resumability from turn success. | Steward's Ctrl-C exited working conversation and ordinary resume refused despite captured context; late callbacks also outlived its checkpoint. |
-| 2026-09-17 | Join usage to preceding activity while separating responses. | Steward requested removal of the blank above usage except when it follows an assistant response. |
-| 2026-09-17 | Scope resume discovery and selection to the launch directory. | Steward expected CLI-style directory-local resume after a parent-directory restart; a global picker offered unrelated work. |
-| 2026-09-17 | Make plans and waits readable, wrap input by words and condense per-call usage. | Steward requested todo status, broader activity styling, Codex-informed wrapping and one-line within-turn reports after reviewing resumed work. |
-| 2026-09-17 | Clarify cumulative usage/task sources and adopt brand activity styling. | Steward authorized usage/title fixes, then requested muxplex brand colours and a brighter animated sweep through active indicators; accessible static treatments and native copying remain requirements. |
-| 2026-09-17 | Give delegated work short task-first titles. | Steward approved replacing truncated instruction openings after the clearer parallel-agent session still hid the actual jobs behind boilerplate. |
-| 2026-09-16 | Make active-turn time and accounting continuously visible. | Steward requested accumulated turn time, tokens and dollars plus session dollars beside the working indicator; quiet tool waits currently hide that context. |
-| 2026-09-16 | Keep sustained child telemetry with its delegate, with compact counts and complete per-call inspection. | Steward's long delegated review exposed flat usage/warning floods and unknown statuses after output truncation; steward approved the diagnosis and implementation. |
-| 2026-09-16 | Clarify correction timing, automatic naming and consistent visual authorship. | Steward's follow-up found correction mistaken for interruption, missing generated names, bright expanded thinking, unboxed correction text and separated final usage totals. All user-authored conversation text shares charcoal; thinking stays distinctly secondary even when expanded, and final usage reads as one block. |
-| 2026-09-16 | Require continuous streaming, visible background phases, distinct delegates and per-call accounting; make inline interaction explicit. | Steward's ordinary four-agent session exposed an eight-row clipping limit, hidden child progress, cache-token omissions and a startup readiness gap; steward approved the proposed correction and native-copy default. |
-| 2026-09-16 | Specify conversation-first surfaces, compact activity and recursive observation. | Steward approved single-line tools/public thinking, charcoal input/user text, black transcript, explicit nested inspection and quiet normal completion while retaining native selection. |
-| 2026-09-16 | Make task-oriented approachability and responsive visual hierarchy explicit. | Steward supplied an approximately 175-column by 50-row laptop reference, required copy-friendly spacing/styling and identified information workers learning AI-assisted coding as the audience. |
-| 2026-09-16 | Clarify runtime control, authentication and delivery authority. | Steward authorized remaining CLI workflows; inspected tools cache permission configuration and module login owns credential storage. |
-| 2026-09-16 | Clarify module-command and recipe discoverability. | Module notices advertised skill commands missing from the native menu; recipe session listings were confused with files. |
-| 2026-09-15 | Make configured CLI compatibility and useful execution content explicit. | Steward approved the source-backed CLI gap analysis: preset success omitted app settings, remote destinations and public progress content. |
-| 2026-09-15 | Clarify executable public-context recovery and tool-correlated source evidence. | Steward authorized all seven residual groups while AFK; historical excerpts alone cannot continue a child, and Git status alone cannot identify which tool observed a file version. |
-| 2026-09-14 | Clarify retained file/line reference location and source version. | Steward requested the entire remaining backlog; plain insertion loses attachment identity across queue and return. |
-| 2026-09-14 | Extend the destination to indexed discovery, richer retained inputs and deliberate review edits. | Steward requested all eight remaining backlog groups; bounded tail scans, one-image admission and read-only diffs leave named workflow gaps. |
-| 2026-09-14 | Clarify repeated-control ownership during finalization. | Continued steward authorization; repeated Stop or exit during a stopped turn's checkpoint cancels that checkpoint in a deterministic real-runtime reproduction. |
-| 2026-09-14 | Extend discovery across saved conversations and make compiler-free release installation explicit. | Steward requested the entire reviewed replacement-readiness backlog; the current picker stops at 100 records and Git installation requires local Rust tooling. |
-| 2026-09-14 | Clarify source-preserving code colour. | Continued steward authorization; READ-02's monochrome code remains a visible reading gap. Unknown languages and bounded highlighting must retain readable source. |
-| 2026-09-14 | Specify zero outer horizontal gutters. | Steward identified the remaining three-column side padding and explicitly requested its removal. |
-| 2026-09-14 | Specify a fresh full-height starting workspace and borderless input; quiet live branding. | Steward explicitly requested full-screen appearance, terminal/tmux-friendly copying and removal of Ratatui/LIVE RUNTIME labels. Native shell/transcript retention remains required. |
-| 2026-09-14 | Make content-sized chrome and non-submitting startup explicit. | Steward approved the [direct Codex study](../notes/CODEX-TERMINAL-SOURCE-STUDY.md); our fixed ten-row footer crowded ordinary replies. Native retention remains authoritative over upstream history-purging resize. |
-| 2026-09-14 | Make newcomer guidance and privacy-conscious setup inspection explicit. | Steward requested approachability for others; launch help assumes developer knowledge and diagnostics provide paths without actionable checks. |
-| 2026-09-13 | Specify installable native delivery and identifiable runtime. | Steward requested uv tool installation from a private Git repository; development-only launch obscures which capabilities are running. |
-| 2026-09-13 | Clarify child visibility, retained local editors and context diagnostics. | Steward authorized the next daily-replacement wave; child receipts and local logging lacked an ordinary inspection path. |
-| 2026-09-13 | Require ordinary native history and exit retention for the Amplifier CLI replacement, informed by Codex. | Steward rejected snapshot-only scrollback; isolated 150-line test produced zero tmux history rows and exit erased the visible transcript. |
-| 2026-09-13 | Clarify resume choice, directory-scoped recall, scrollable/native selection and persistent mode visibility. | Steward could copy only one viewport, could not see the active mode, and needed explicit queue/steer discovery. |
-| 2026-09-13 | Clarify ordinary copy, actionable questions, child execution, mode continuity and interrupted-work recovery. | Steward's real session exposed missing spawn, inaccessible selection/answers and a stopped conversation that could not reopen. |
-| 2026-09-12 | Clarify structured reading and source-preserving code/diff inspection. | Continued steward request; current tables lose column relationships and copying code requires copying an entire reply. |
-| 2026-09-12 | Clarify structured answers and read-only workspace review. | Steward requested continued implementation; questions need a tool/host seam distinct from approvals, and observed diffs are not agent-attribution evidence. |
-| 2026-09-12 | Clarify active correction evidence and retained, scoped provider choices. | Steward requested continued parity work; inspected orchestrator exposes steering and conversation-provider capabilities without kernel changes. |
-| 2026-09-12 | Make pending follow-ups and local conversation organization explicit. | Steward requested continued progress toward the studied Codex workflow powered by Amplifier. |
-| 2026-09-12 | Make local conversation/file discovery explicit. | Steward accepted the reading/return slice and requested continued implementation; launcher-only return and missing path completion interrupt the ordinary workflow. |
-| 2026-09-12 | Make reading, recall and return explicit in the experience. | Steward requested Markdown, proper scrollback, boundary-aware history, completion and conversation resume. |
-| 2026-09-12 | Initial draft derived from the supplied handoff and source inspection. | User authorized first-slice implementation; new wording awaits review. |
-| 2026-09-12 | Amend direction: visual fidelity, CLI-level responsiveness, replaceable host and evidence-led frontend selection; retain ecosystem boundaries. | [Direction review](../notes/DIRECTION-REVIEW.md): the first UI missed the concept, its review purpose was unclear, and the steward approved a replacement comparison. Detail remains draft. |
-| 2026-09-12 | Clarify available terminal width as part of the experience. | Steward reported the comparison did not fill the terminal; both clients imposed an unexplained 112-column cap. |
-| 2026-09-12 | Restore discoverable interaction alongside runtime correctness. | [Source reconciliation](../notes/INTERACTION-RECONCILIATION.md): prototype shortcuts displaced the studied interaction model; steward requested usable ecosystem execution. |

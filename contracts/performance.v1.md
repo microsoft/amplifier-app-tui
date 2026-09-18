@@ -67,9 +67,3 @@ No benchmark exists merely because a document-shape test passes.
 
 What measured CLI/runtime build and terminal configuration reproduce the steward's daily baseline?
 What practical resource budgets and measurement uncertainty does the first controlled baseline establish?
-
-## Changelog
-
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-12 | Draft matched CLI non-regression, interactive latency and evidence gates without fixing a process topology. | [Steward authorization](../notes/DIRECTION-REVIEW.md): at least CLI-level responsiveness; the 50 ms target is new draft wording. |

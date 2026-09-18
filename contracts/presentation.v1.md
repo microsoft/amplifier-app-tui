@@ -64,37 +64,3 @@ Use framework-independent terminal captures and interaction scripts; compare ret
 ## Open questions
 
 Which terminal-specific visual adaptations need steward acceptance, and which input/selection behavior first requires an explicit terminal-support restriction?
-
-## Changelog
-
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-17 | Clarify P6's semantic action/outcome spans and cancellation clock; P7's bounded command previews, active tasks and usage spacing. | Steward approved Codex-informed action emphasis and independent child badges after reporting muted Stop, an apparently paused clock and excessive usage gaps. |
-| 2026-09-17 | Clarify P1/P6/P7 for word wrap, observed plans, compact usage and scoped activity. | Steward requested these ordinary-session improvements; presentation never changes execution policy or accounting. |
-| 2026-09-17 | Clarify P4's usage/task boundaries and amend P6's brand/activity treatment. | Steward requested unambiguous cumulative usage, titles excluding inherited history, latest muxplex brand colours and animated live-label shimmer; execution and copying remain unchanged. |
-| 2026-09-17 | Clarify P4's task-first delegated titles. | Steward approved replacing unhelpful instruction-prefix previews while preserving exact instructions, identities, warnings and accounting. |
-| 2026-09-16 | Clarify P4's active-turn time and accounting. | Steward requested cumulative time/tokens/dollars and session cost on the working indicator, including long quiet delegated work. |
-| 2026-09-16 | Clarify P4's hierarchical accounting and independent tool outcome. | Approved follow-up to sustained parallel work flooding the conversation with child usage/warnings and truncated result envelopes losing known completion status. |
-| 2026-09-16 | Clarify P6's consistent authorship, thinking contrast and final usage grouping. | Steward observed unboxed corrections, expanded thinking rendered as bright responses, and an unnecessary gap before turn totals. |
-| 2026-09-16 | Amend P1/P3/P4/P7 for continuous work, per-call usage and explicit inline interaction. | Approved correction of clipped parallel delegates, hidden child activity, missing cache fields and uninformative startup. Native copying stays default. |
-| 2026-09-16 | Specify P4/P6/P7 compact recursive activity and conversation surfaces. | Steward approved charcoal input/user messages, muted one-line tools/thinking, working tail and read-only nested inspection without taking native scrollback ownership. |
-| 2026-09-16 | Clarify P6's responsive and non-colour hierarchy. | Steward requested a comprehensive approachable UX around an approximately 175 by 50 terminal, with native copying, vertical spacing and smaller/larger views. |
-| 2026-09-16 | Make P5's no-cursor-response obligation explicit during inspection. | F3 worked with the test observer's automatic cursor reply but failed in the terminal-testing module's PTY. |
-| 2026-09-15 | Clarify P4's ordinary execution content. | Direct observer probes dropped budget/retry/thinking and message attribution; generic tool rows hid arguments and results. |
-| 2026-09-15 | Clarify P7's source-correlated change/command evidence. | Steward requested agent/test attribution; a successful command and an unversioned diff cannot establish which source state was checked. |
-| 2026-09-14 | Permit separately confirmed version-checked edits beside read-only review in P7. | Steward explicitly requested all backlog items, including conflict editing and source-attributed change/test review. Inspection itself remains non-mutating. |
-| 2026-09-14 | Extend P3's code readability to source-preserving syntax colour. | READ-02 leaves every code token monochrome; steward requested continued progress. Colour is a projection, not execution or a source rewrite. |
-| 2026-09-14 | Clarify P6's edge-to-edge width. | Steward requested removing the remaining three-column outer inset; content indentation and local dialog structure remain meaningful. |
-| 2026-09-14 | Amend P5/P6 for full-height startup, open input and quiet live labels. | Explicit steward request supersedes cursor-anchored startup and the bottom-20-row short-preview guarantee; history retention and complete-pane previews remain mandatory. |
-| 2026-09-14 | Clarify content-sized chrome, editable startup and conservative probe fallback in P1/P5/P6. | [Latest Codex source study](../notes/CODEX-TERMINAL-SOURCE-STUDY.md) and steward approval; fixed ten-row idle layout is ours, not an inline-terminal requirement. |
-| 2026-09-13 | Permit disclosed bounds on initial historical replay in P3, separate from new output. | Replaying 100,000 historical items kept typing responsive but exceeded the four-second exit gate; dumping invisible backlog on quit made retention block control. |
-| 2026-09-13 | Correct P3/P5/P6 to default native history, retained exit output and compact previews. | Snapshot-only test missed ordinary use; isolated tmux history stayed empty and a bottom-20-lines preview missed a short reply. |
-| 2026-09-13 | Extend P3 to scrollable selection and native scrollback access. | Steward could copy one page but could not scroll during selection or use tmux history. |
-| 2026-09-13 | Extend P3 to visible selection and separate source export. | Mouse capture prevented the steward from selecting transcript text. |
-| 2026-09-12 | Clarify table reflow and source-specific code inspection in P3. | Current separated-cell fallback and whole-message-only copy leave ordinary reading gaps. |
-| 2026-09-12 | Specify read-only workspace comparison scope in P7. | Existing tool evidence is not a consolidated view of local changes or proof of authorship. |
-| 2026-09-12 | Specify Markdown and line-based anchored scroll in P3. | Steward observed whole-item scrolling and requested readable Markdown. |
-| 2026-09-12 | Initial draft; no ratification claimed. | Supplied handoff and current source inspection. |
-| 2026-09-12 | Add visual fidelity, quiet expandable evidence and purposeful review; remove the Textual-specific verification prescription. | [Direction review](../notes/DIRECTION-REVIEW.md): functional tests did not establish the requested experience. |
-| 2026-09-12 | Clarify P6: use available width, not a fixed centered canvas. | Steward's wide-terminal review exposed a 112-column cap in both clients; the earlier capture rubric missed it. |
-| 2026-09-12 | Delegate discoverability and focused interaction to interaction.v1. | [Source reconciliation](../notes/INTERACTION-RECONCILIATION.md); visual fidelity alone did not preserve the researched experience. |

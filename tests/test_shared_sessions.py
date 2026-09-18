@@ -74,6 +74,37 @@ def test_cli_sessions_in_ordinary_directory_picker_search_and_recall(shared, tmp
     assert not (cli.base_dir / identity / ".tui").exists()  # Discovery never adopts/writes.
 
 
+def test_product_never_discovers_or_archives_retired_live_journals(shared, tmp_path):
+    from amplifier_tui.conversations import ConversationStore, archive_conversation
+
+    launch, _, canonical_id, _ = shared
+    journal = ConversationStore(tmp_path, {**launch, "shared_session": False})
+    old_id = journal.identity
+    journal.close()
+    home, cwd = launch["cli_home"], launch["cwd"]
+    assert [e["id"] for e in catalog(tmp_path, cwd=cwd, cli_home=home)] == [canonical_id]
+    with pytest.raises(ValueError, match="not found"):
+        resolve_resume(tmp_path, old_id, cwd=cwd, cli_home=home)
+    with pytest.raises(FileNotFoundError):
+        archive_conversation(tmp_path, old_id, cwd=cwd, cli_home=home, archived=True)
+    assert not json.loads((journal.path / "metadata.json").read_text()).get("archived")
+
+
+def test_every_live_factory_uses_canonical_storage_even_with_isolated_policy(shared, tmp_path):
+    from amplifier_tui.conversations import open_conversation
+
+    launch, cli, _, _ = shared
+    launch = {**launch, "settings_policy": "isolated"}
+    launch.pop("shared_session")
+    store = open_conversation(tmp_path, launch)
+    try:
+        assert isinstance(store, SharedConversationStore)
+        assert store.identity in cli.list_sessions()
+        assert not (tmp_path / "conversations").exists()
+    finally:
+        store.close()
+
+
 async def test_cli_tui_cli_tui_same_identity_context_and_no_replay(shared, prepared, tmp_path):
     launch, cli, identity, messages = shared
     first = SharedConversationStore(tmp_path, launch, identity)

@@ -12,6 +12,7 @@ Do not include private handoff archives, credentials, user transcripts, or machi
 Before publishing, review unpublished ancestors as well as the working diff. Deleting a private handoff in a later commit does not remove it from published history. Preserve local work and publish a reviewed clean snapshot on upstream ancestry when necessary; never rewrite or discard the user's private history.
 Use `uv sync --inexact --no-sources` so dynamic module dependencies survive and published direct pins win over the CLI dependency's development source table. Use `--no-sources` for tool installation too. Keep source HEAD and runtime release evidence distinct.
 Amend direction before deriving changed work; cite promise IDs in notes/PLAN.md. Use scripts/check_direction.py; it validates structure, not behavior or ratification.
+Keep design and user guidance current: replace obsolete descriptions instead of adding change logs, migration layers or compatibility promises for disposable test sessions. Retain source-control history and truthful current verification evidence.
 Textual is a retained harness, not the target. Compare Ratatui/OpenTUI using notes/FRONTEND-EVALUATION.md and notes/PERFORMANCE.md before selecting frontend or topology.
 Developer-run captures and checks precede a specific steward review question. No fixture-as-product review and no unmeasured speed claim.
 Native candidates live under frontends/; build both before TUI_TEST_CANDIDATES=1. See SMOKE_TESTS.md for locks, PTY capture, benchmark and live gates.

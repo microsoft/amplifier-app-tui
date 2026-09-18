@@ -155,7 +155,7 @@ class WorkspaceBridge(RuntimeBridge):
     @property
     def cli_home(self):
         launch = self.host.store.metadata["launch"] if self.host.store else {}
-        return launch.get("cli_home") if launch.get("settings_policy") == "cli" else None
+        return launch.get("cli_home") if launch.get("shared_session") else None
 
     def publish(self, value):
         if self.history_loading and value.get("type") == "state" and value.get("ready"):

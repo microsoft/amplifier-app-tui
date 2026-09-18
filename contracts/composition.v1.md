@@ -60,10 +60,3 @@ Draft contracts do not seed formal Converge ledger rows.
 
 Does a long-lived child process, in-process bridge or another host best satisfy the measured obligations?
 Which lifecycle hook gives the host ownership before partial initialization can fail?
-
-## Changelog
-
-| Date | Change | Evidence |
-|---|---|---|
-| 2026-09-12 | Initial draft; no ratification claimed. | Supplied handoff and current source inspection. |
-| 2026-09-12 | Remove the assumed runtime body/process topology; delegate ecosystem and performance promises; count all source languages. | [Approved direction](../notes/DIRECTION-REVIEW.md); replacement is permitted, not evidence of compatibility. |
