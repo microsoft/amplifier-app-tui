@@ -105,10 +105,20 @@ async def test_command_completion_is_cached_scoped_and_never_executes(host, monk
     assert values("/provider use fix") == ["fixture "]
     assert "models " in values("/provider ")
     assert "login " in values("/provider ")
-    assert set(values("/config ")) == {"show ", *(c + " " for c in controls.config_categories)}
+    assert set(values("/config ")) == {
+        "show ",
+        "diff ",
+        "set ",
+        "save ",
+        *(c + " " for c in controls.config_categories),
+    }
     assert "fixture " in values("/config show providers ")
-    assert "disable " not in values("/config providers ")
-    assert not values("/config providers disable ")
+    assert "disable " in values("/config providers ")
+    assert values("/config providers disable ") == ["fixture "]
+    assert "disable " not in values("/config hooks ")
+    assert not values("/config hooks disable ")
+    assert "local " in values("/config save --scope ")
+    assert values("/config save --scope project ") == ["--confirm "]
     assert "mode " not in values("/config tools disable ")
     assert values("/config tools dis") == ["disable "]
     assert values("/config tools disable fixture") == ["fixture_probe "]
@@ -378,6 +388,207 @@ async def test_tool_configuration_changes_actual_mounts_and_restores(prepared, t
         assert reopened.ready
     finally:
         await reopened.close()
+
+
+async def test_component_policy_changes_actual_context_agents_and_restores(prepared, tmp_path):
+    prompt = tmp_path / "fixture-context.md"
+    prompt.write_text("SYNTHETIC-CONTEXT-CONTROL-MARKER")
+    prepared[0].bundle.context["fixture-guidance"] = prompt
+    agents = {"fixture-agent": {"description": "Synthetic definition", "instruction": "Inspect"}}
+    prepared[0].mount_plan["agents"] = agents
+    bridge, _ = await bridge_for(prepared, tmp_path / "state", tmp_path)
+    host = bridge.host
+    identity, launch = host.session_id, host.store.metadata["launch"]
+    try:
+        context = host.session.coordinator.get("context")
+        assert "SYNTHETIC-CONTEXT-CONTROL-MARKER" in str(await context.get_messages_for_request())
+        await local(host, "/config context disable fixture-guidance")
+        assert "SYNTHETIC-CONTEXT-CONTROL-MARKER" not in str(
+            await context.get_messages_for_request()
+        )
+        await local(host, "/config agents disable fixture-agent")
+        assert "fixture-agent" not in host.session.coordinator.config["agents"]
+        with pytest.raises(ValueError, match="disabled"):
+            await host.children.spawn("fixture-agent", "Inspect", host.session, agents)
+        await local(host, "/config set session.orchestrator.config.max_iterations 7")
+        assert (
+            host.session.coordinator.config["session"]["orchestrator"]["config"]["max_iterations"]
+            == 7
+        )
+        await local(host, "/config diff")
+        await local(host, "/agents")
+        await local(host, "/tools")
+        assert host.ready
+        assert not host.session.coordinator.get("providers")["fixture"].calls
+    finally:
+        await bridge.close()
+    restored = SessionHost(ConversationStore(tmp_path / "state", launch, identity))
+    try:
+        await restored.open(*prepared, tmp_path)
+        assert "fixture-agent" not in restored.session.coordinator.config["agents"]
+        assert "SYNTHETIC-CONTEXT-CONTROL-MARKER" not in str(
+            await restored.session.coordinator.get("context").get_messages_for_request()
+        )
+        assert (
+            restored.session.coordinator.config["session"]["orchestrator"]["config"][
+                "max_iterations"
+            ]
+            == 7
+        )
+        await local(restored, "/config context enable fixture-guidance")
+        await local(restored, "/config agents enable fixture-agent")
+        assert "fixture-agent" in restored.session.coordinator.config["agents"]
+        assert "SYNTHETIC-CONTEXT-CONTROL-MARKER" in str(
+            await restored.session.coordinator.get("context").get_messages_for_request()
+        )
+    finally:
+        await restored.close()
+
+
+async def test_provider_configuration_protects_last_and_pinned_mounts(host):
+    providers = host.session.coordinator.get("providers")
+    fixture = providers["fixture"]
+    assert not host.submit("/config providers disable fixture")[0]
+    providers["fixture-spare"] = fixture
+    await local(host, "/provider use fixture")
+    assert not host.submit("/config providers disable fixture")[0]
+    await local(host, "/config providers disable fixture-spare")
+    assert list(providers) == ["fixture"]
+    await local(host, "/config providers enable fixture-spare")
+    assert providers["fixture-spare"] is fixture
+    assert not fixture.calls
+
+
+async def test_behavior_control_uses_real_foundation_group_and_keeps_hooks(prepared, tmp_path):
+    from amplifier_foundation.configurator import Origin
+
+    prepared[0].bundle.origins["tool:tool-fixture"] = [
+        Origin(bundle="fixture-controls", via_behavior=None)
+    ]
+    bridge, _ = await bridge_for(prepared, tmp_path / "state", tmp_path)
+    host = bridge.host
+    try:
+        before = host.session.coordinator.hooks.list_handlers()
+        await local(host, "/config behaviors disable fixture-controls")
+        assert "fixture_probe" not in host.session.coordinator.get("tools")
+        assert host.ready
+        assert before == host.session.coordinator.hooks.list_handlers()
+        await local(host, "/config behaviors enable fixture-controls")
+        assert "fixture_probe" in host.session.coordinator.get("tools")
+        assert host.ready
+    finally:
+        await bridge.close()
+
+
+@pytest.mark.parametrize("initially_disabled", [False, True])
+async def test_changed_shared_policy_never_changes_existing_conversation(
+    prepared, tmp_path, initially_disabled
+):
+    if initially_disabled:
+        prepared[0].bundle._tui_configurator = {"disabled": {"tools": ["fixture_probe"]}}
+    bridge, _ = await bridge_for(prepared, tmp_path / "state", tmp_path)
+    host = bridge.host
+    identity, launch = host.session_id, host.store.metadata["launch"]
+    await bridge.close()
+    prepared[0].bundle._tui_configurator = (
+        {} if initially_disabled else {"disabled": {"tools": ["fixture_probe"]}}
+    )
+    restored = SessionHost(ConversationStore(tmp_path / "state", launch, identity))
+    try:
+        await restored.open(*prepared, tmp_path)
+        assert (
+            "fixture_probe" not in restored.session.coordinator.get("tools")
+        ) == initially_disabled
+        assert not restored.session.coordinator.get("providers")["fixture"].calls
+    finally:
+        await restored.close()
+
+
+@pytest.mark.parametrize("scope", ["global", "project", "local"])
+async def test_configuration_save_requires_scope_confirmation_and_preserves_other_policy(
+    prepared, tmp_path, scope
+):
+    import yaml
+
+    from amplifier_tui.cli_compat import settings_for
+
+    home = tmp_path / "cli-home"
+    paths = settings_for(tmp_path, home).paths
+    prepared[0].bundle._tui_settings_paths = paths
+    target = getattr(
+        paths,
+        {"global": "global_settings", "project": "project_settings", "local": "local_settings"}[
+            scope
+        ],
+    )
+    target.parent.mkdir(parents=True, exist_ok=True)
+    original = "synthetic_setting: preserved\n"
+    target.write_text(original)
+    bridge, _ = await bridge_for(prepared, tmp_path / "state", tmp_path)
+    host = bridge.host
+    try:
+        await local(host, "/config tools disable fixture_probe")
+        assert not host.submit(f"/config save --scope {scope}")[0]
+        assert not host.submit("/config save --confirm")[0]
+        assert target.read_text() == original
+        await local(host, f"/config save --scope {scope} --confirm")
+        saved = yaml.safe_load(target.read_text())
+        assert saved["synthetic_setting"] == "preserved"
+        assert saved["configurator"]["disabled"]["tools"] == ["fixture_probe"]
+        assert host.ready
+        for other in (paths.global_settings, paths.project_settings, paths.local_settings):
+            if other != target:
+                assert not other.exists()
+        # A malformed existing file must never be replaced by the permissive CLI read.
+        target.write_text("broken: [yaml")
+        await local(host, f"/config save --scope {scope} --confirm")
+        assert target.read_text() == "broken: [yaml"
+        assert host.ready  # The mounted state is unaffected by a failed shared write.
+    finally:
+        await bridge.close()
+
+
+async def test_saved_policy_applies_on_launch_and_legacy_controls_migrate(prepared, tmp_path):
+    prepared[0].bundle._tui_configurator = {"disabled": {"tools": ["fixture_probe"]}}
+    bridge, _ = await bridge_for(prepared, tmp_path / "state", tmp_path)
+    host = bridge.host
+    try:
+        assert "fixture_probe" not in host.session.coordinator.get("tools")
+        await local(host, "/config tools enable fixture_probe")
+        identity, launch, path = (
+            host.session_id,
+            host.store.metadata["launch"],
+            host.local_commands.path,
+        )
+    finally:
+        await bridge.close()
+    value = json.loads(path.read_text())
+    value.pop("configuration")
+    value["version"] = 1
+    path.write_text(json.dumps(value))
+    restored = SessionHost(ConversationStore(tmp_path / "state", launch, identity))
+    try:
+        await restored.open(*prepared, tmp_path)
+        assert "fixture_probe" in restored.session.coordinator.get("tools")
+        assert restored.local_commands.state["version"] == 2
+    finally:
+        await restored.close()
+
+
+async def test_noop_configuration_transition_is_not_reported_as_success(
+    prepared, tmp_path, monkeypatch
+):
+    bridge, _ = await bridge_for(prepared, tmp_path / "state", tmp_path)
+    host = bridge.host
+    try:
+        monkeypatch.setattr(host.local_commands.configurator, "tool_disable", AsyncMock())
+        await local(host, "/config tools disable fixture_probe")
+        assert not host.ready
+        assert json.loads(host.local_commands.path.read_text())["status"] == "pending"
+        assert "fixture_probe" in host.session.coordinator.get("tools")
+        assert not host.submit("Do not execute")[0]
+    finally:
+        await bridge.close()
 
 
 async def test_uncertain_or_missing_controls_refuse_reopen(prepared, tmp_path):

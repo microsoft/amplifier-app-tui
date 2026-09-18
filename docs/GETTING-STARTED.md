@@ -74,8 +74,22 @@ Use `/config agents` for definitions (not running agents), or `/config show tool
 for an exact item's status and origins. Lists show at most 32 items per category;
 exact-name inspection can reach omitted items. These metadata-only views omit values,
 source URLs and instruction bodies; no model request or settings change occurs.
-Only `/config tools enable|disable NAME` changes the root session's tool set here.
-Persistent administration still uses explicit `amplifier-tui cli ...` commands.
+`/agents` and `/tools` inspect definitions and mounted tools; `/children` inspects
+observed delegated work. `/config CATEGORY enable|disable NAME` changes tools,
+providers, context entries, agents or behaviors for this conversation. Leave an
+active mode first. Hooks are inspection-only; behavior toggles leave hooks unchanged
+and refuse groups owning protected providers/mode control. Keep at least one provider;
+return a pinned provider to Auto before disabling it.
+
+`/config diff` shows disabled names and edited paths, omitting values. `/config set
+PATH VALUE` edits bounded scalar module metadata beneath an existing `.config.`
+dictionary; it does not reinitialize modules or promise that a running module reads
+the value. Use provider-owned setup for credentials, not configuration commands.
+Local controls survive resume. Shared settings remain unchanged unless you explicitly
+send `/config save --scope project|local|global --confirm` (choose one scope).
+This atomically saves configurator policy for new compatible conversations using
+the CLI settings paths; YAML formatting/comments may change. Existing conversations
+retain their own saved controls. Broader setup uses `amplifier-tui cli ...`.
 
 In the composer, Tab completes command arguments such as `/provider use`,
 `/provider models`, `/mode`, `/config tools`, `/goal`, and skill arguments from

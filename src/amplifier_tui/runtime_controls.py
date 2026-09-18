@@ -8,12 +8,232 @@ import asyncio
 import copy
 import inspect
 import json
+import math
 import os
 import shlex
 import uuid
 from pathlib import Path
 
 from .conversations import atomic_json
+
+
+class Configuration:
+    """Pinned Foundation configuration policy; persistence stays in the app."""
+
+    categories = {
+        "tools": "tool",
+        "providers": "provider",
+        "context": "context",
+        "agents": "agent",
+        "behaviors": "behavior",
+    }
+
+    def __init__(self, owner, prepared):
+        self.owner, self.adapter = owner, owner.configurator
+        self.paths = getattr(prepared.bundle, "_tui_settings_paths", None)
+        self.initial = self.validate(getattr(prepared.bundle, "_tui_configurator", {}))
+        self.overrides = {}
+
+    @classmethod
+    def validate(cls, value):
+        if not isinstance(value, dict) or set(value) - {"disabled", "config_overrides"}:
+            raise ValueError("Unsupported saved configurator policy; values withheld")
+        disabled, overrides = value.get("disabled", {}), value.get("config_overrides", {})
+        if (
+            not isinstance(disabled, dict)
+            or set(disabled) - {*cls.categories, "hooks"}
+            or not isinstance(overrides, dict)
+        ):
+            raise ValueError("Invalid saved configurator policy; values withheld")
+        if disabled.get("hooks"):
+            raise ValueError("Hook toggles are unsupported by the CLI/Foundation adapter")
+        for names in disabled.values():
+            if (
+                not isinstance(names, list)
+                or len(names) > 128
+                or any(not isinstance(n, str) or not n or len(n) > 512 for n in names)
+                or len(set(names)) != len(names)
+            ):
+                raise ValueError("Invalid disabled-component list; values withheld")
+        if len(overrides) > 128:
+            raise ValueError("Too many staged configuration values")
+        for path, item in overrides.items():
+            cls.setting(path, item)
+        return {
+            "disabled": {c: sorted(disabled.get(c, [])) for c in cls.categories},
+            "config_overrides": copy.deepcopy(overrides),
+        }
+
+    @staticmethod
+    def setting(path, value):
+        if (
+            not isinstance(path, str)
+            or len(path) > 512
+            or not path
+            or any(not p for p in path.split("."))
+        ):
+            raise ValueError("Configuration path must contain nonempty dot-separated keys")
+        if not path.isprintable() or ".config." not in path:
+            raise ValueError(
+                "Set module configuration metadata beneath a .config. path, not component identities"
+            )
+        if any(
+            p.lower()
+            in ("api_key", "key", "token", "secret", "password", "credentials", "authorization")
+            for p in path.split(".")
+        ):
+            raise ValueError(
+                "Use provider-owned credential setup; secret values are not configuration commands"
+            )
+        if (
+            type(value) not in (str, bool, int, float)
+            or isinstance(value, str)
+            and len(value) > 4096
+            or type(value) is float
+            and not math.isfinite(value)
+            or type(value) is int
+            and not -(2**63) <= value < 2**63
+        ):
+            raise ValueError("Configuration values must be bounded scalar values")
+
+    def snapshot(self):
+        # Pinned facade exposes its stashes as read-only compatibility properties.
+        # Only names and explicit scalar overrides are serialized, not instances.
+        return {
+            "disabled": {
+                c: sorted(
+                    self.adapter._disabled_behaviors if c == "behaviors" else self.adapter._stash[c]
+                )
+                for c in self.categories
+            },
+            "config_overrides": copy.deepcopy(self.overrides),
+        }
+
+    def parse_setting(self, tokens):
+        if len(tokens) != 3:
+            raise ValueError("Usage: /config set PATH VALUE (quote a value containing spaces)")
+        path, value = tokens[1:]
+        if value.lower() in ("true", "false"):
+            value = value.lower() == "true"
+        else:
+            try:
+                value = int(value)
+            except ValueError:
+                try:
+                    value = float(value)
+                except ValueError:
+                    pass
+        self.setting(path, value)
+        if path not in self.overrides and len(self.overrides) >= 128:
+            raise ValueError("Configuration override limit reached")
+        self.setting_target(path)
+        return path, value
+
+    def setting_target(self, path):
+        node = self.owner.coordinator.config
+        for key in path.split(".")[:-1]:
+            if not isinstance(node, dict) or key not in node:
+                raise ValueError(
+                    "Choose an existing configuration dictionary; use CLI setup for new components"
+                )
+            node = node[key]
+        if not isinstance(node, dict):
+            raise ValueError("Configuration path cannot replace a mounted component list")
+
+    async def apply(self, value):
+        value = self.validate(value)
+        for category in ("behaviors", "context", "tools", "providers", "agents"):
+            for name in value["disabled"][category]:
+                result = getattr(self.adapter, self.categories[category] + "_disable")(name)
+                if inspect.isawaitable(result):
+                    result = await result
+                if isinstance(result, dict) and result.get("warnings"):
+                    raise ValueError("Saved behavior policy applied incompletely; startup refused")
+        for path, item in value["config_overrides"].items():
+            self.setting_target(path)
+            self.adapter.config_set(path, item)
+        self.overrides = value["config_overrides"]
+        if "mode" in self.adapter._stash["tools"] or not self.owner.coordinator.get("providers"):
+            raise ValueError("Configuration removed a required control/provider; startup refused")
+        pin = self.owner.host.controls.pin
+        if pin and pin.current() and pin.current() not in self.owner.coordinator.get("providers"):
+            raise ValueError("Configuration removed the selected provider; startup refused")
+        actual = self.validate(self.snapshot())
+        for category, names in value["disabled"].items():
+            if not set(names).issubset(actual["disabled"][category]):
+                raise ValueError("Saved configuration did not take effect; startup refused")
+
+    def check_toggle(self, category, action, name):
+        if category not in self.categories or action not in ("enable", "disable"):
+            raise ValueError(
+                "Choose tools, providers, context, agents or behaviors; hooks are inspection-only"
+            )
+        if action == "disable" and len(self.snapshot()["disabled"][category]) >= 128:
+            raise ValueError("Disabled-component limit reached")
+        if self.owner.host.modes.current():
+            raise ValueError("Leave the active mode before changing root configuration")
+        records = getattr(self.adapter, category + "_list")()
+        item = next((r for r in records if r.name == name), None)
+        if item is None:
+            raise ValueError("Choose a loaded configuration item")
+        if item.enabled == (action == "enable"):
+            raise ValueError("Item is already " + ("enabled" if item.enabled else "disabled"))
+        if category == "tools" and name == "mode":
+            raise ValueError("Mode control cannot be disabled here")
+        if category == "providers" and action == "disable":
+            if len(self.owner.coordinator.get("providers") or {}) <= 1:
+                raise ValueError("Keep at least one mounted provider")
+            if self.owner.host.controls.pin and self.owner.host.controls.pin.current() == name:
+                raise ValueError(
+                    "Return the conversation provider to auto before disabling its pin"
+                )
+        if category == "behaviors" and action == "disable":
+            # A broad group operation must not strand the control plane or a
+            # pinned/last provider. Conservative inspection is preferable to
+            # calling a partly mutating helper then discovering it was unsafe.
+            for group in ("tools", "providers"):
+                for record in getattr(self.adapter, group + "_list")():
+                    if any(o.bundle == name for o in record.origins):
+                        if group == "tools" and record.name == "mode" or group == "providers":
+                            raise ValueError(
+                                "This behavior owns a protected control/provider; change individual components or use a new composition"
+                            )
+
+    async def toggle(self, category, action, name):
+        self.check_toggle(category, action, name)
+        self.owner.save("pending")
+        result = getattr(self.adapter, self.categories[category] + "_" + action)(name)
+        if inspect.isawaitable(result):
+            result = await result
+        if isinstance(result, dict) and result.get("warnings"):
+            raise ValueError("Behavior transition incomplete; no successful completion recorded")
+        records = getattr(self.adapter, category + "_list")()
+        item = next((r for r in records if r.name == name), None)
+        if item is None or item.enabled != (action == "enable"):
+            raise ValueError("Configuration transition did not take effect")
+        self.owner.state["configuration"] = self.validate(self.snapshot())
+        self.owner.state["disabled"] = self.owner.state["configuration"]["disabled"]["tools"]
+        self.owner.save()
+        return "Hooks are unchanged by behavior toggles. " if category == "behaviors" else ""
+
+    def persist(self, scope):
+        if self.paths is None:
+            raise ValueError(
+                "Shared save requires a CLI-configured launch; isolated sessions never write shared settings"
+            )
+        from amplifier_app_cli.lib.settings import AppSettings
+
+        from .cli_compat import settings_for
+
+        settings = AppSettings(self.paths)
+        # The pinned writer uses its per-scope lock, secret normalization and
+        # atomic YAML replacement. Validate before its permissive read, while
+        # holding the same lock, so malformed policy cannot be overwritten.
+        with settings._scope_lock(scope):
+            settings_for(self.owner.cwd, self.paths.global_settings.parent)
+            current = settings._read_scope(scope)
+            current["configurator"] = self.snapshot()
+            settings._write_scope(scope, current)
 
 
 class LocalCommands:
@@ -24,6 +244,7 @@ class LocalCommands:
     """
 
     scope = "This root session only; children, bash and other tools are unchanged. Not an OS sandbox. Shared settings are unchanged."
+    config_scope = "Saved for this conversation; shared settings unchanged."
     config_categories = ("providers", "tools", "hooks", "context", "agents", "behaviors")
 
     def __init__(self, host, prepared, cwd):
@@ -32,6 +253,7 @@ class LocalCommands:
         self.host, self.cwd = host, Path(cwd)
         self.coordinator = host.session.coordinator
         self.configurator = SessionConfigurator(host.session, prepared)
+        self.configuration = Configuration(self, prepared)
         self.session_modules = {
             key: entry.get("module")
             for key, entry in prepared.mount_plan.get("session", {}).items()
@@ -39,12 +261,13 @@ class LocalCommands:
         }
         self.path = host.store.path / "local-controls.json" if host.store else None
         self.state = {
-            "version": 1,
+            "version": 2,
             "fingerprint": host.fingerprint,
             "status": "ready",
             "disabled": [],
             "directories": {},
             "goal": None,
+            "configuration": copy.deepcopy(self.configuration.initial),
         }
         self.wire = None
         self.goal_detector = None
@@ -58,9 +281,18 @@ class LocalCommands:
                 raise ValueError("Local controls exceed restore limit")
             value = json.loads(raw)
             if (
+                isinstance(value, dict)
+                and value.get("version") == 1
+                and "configuration" not in value
+            ):
+                value["version"] = 2
+                value["configuration"] = Configuration.validate(
+                    {"disabled": {"tools": value.get("disabled", [])}}
+                )
+            if (
                 not isinstance(value, dict)
                 or set(value) != set(self.state)
-                or value["version"] != 1
+                or value["version"] != 2
                 or value["fingerprint"] != self.host.fingerprint
                 or value["status"] != "ready"
                 or not isinstance(value["disabled"], list)
@@ -78,6 +310,9 @@ class LocalCommands:
             ):
                 raise ValueError("Local control state incompatible or uncertain; resume refused")
             self.state = value
+            self.state["configuration"] = Configuration.validate(value["configuration"])
+            if value["disabled"] != value["configuration"]["disabled"]["tools"]:
+                raise ValueError("Saved tool configuration is inconsistent; resume refused")
             if value["goal"] is not None and not self.goal_supported():
                 raise ValueError("Saved goal requires its original orchestrator")
             goal = value["goal"]
@@ -95,11 +330,18 @@ class LocalCommands:
             ):
                 raise ValueError("Saved goal state is invalid; resume refused")
             self.apply_directories(value["directories"])
-            for name in value["disabled"]:
-                await self.configurator.tool_disable(name)
             self.coordinator.session_state["goal"] = copy.deepcopy(value["goal"])
         elif self.host.store and self.host.store.metadata.get("local_controls"):
             raise ValueError("Saved local controls missing; resume refused")
+        elif self.host.store and self.host.store.saved:
+            # Old conversations with no control record used the prepared defaults.
+            # A shared save is for new sessions, never a silent policy migration.
+            self.state["configuration"] = Configuration.validate({})
+        await self.configuration.apply(self.state["configuration"])
+        self.state["configuration"] = self.configuration.snapshot()
+        self.state["disabled"] = self.state["configuration"]["disabled"]["tools"]
+        if self.state["configuration"] != Configuration.validate({}):
+            self.save()  # Retain initial shared policy independently of future saves.
 
         # App controls are not tools or implicit grants. Explain recovery only
         # for the module whose policy this adapter can actually manage.
@@ -192,20 +434,42 @@ class LocalCommands:
         # mutations, arbitrary value queries, save flags or renderer flags.
         if complete_words[:1] == ["/config"]:
             args = complete_words[1:]
-            allowed = {"show", *self.config_categories} if not args else None
+            allowed = {"show", "diff", "set", "save", *self.config_categories} if not args else None
             if args == ["show"]:
                 allowed = set(self.config_categories)
-            mutable = args[:1] == ["tools"] and len(args) <= 2
+            mutable = bool(args and args[0] in Configuration.categories and len(args) <= 2)
             candidates = [
                 c
                 for c in candidates
                 if (allowed is None or c.value in allowed)
-                and not c.value.startswith("--")
+                and (not c.value.startswith("--") or args[:1] == ["save"])
                 and (mutable or c.value not in ("enable", "disable"))
-                and not (len(args) == 2 and args[1] in ("enable", "disable") and c.value == "mode")
+                and not (
+                    len(args) == 2
+                    and args[0] == "tools"
+                    and args[1] in ("enable", "disable")
+                    and c.value == "mode"
+                )
             ]
-            if len(args) >= 2 and args[0] != "tools" and args[1] in ("enable", "disable"):
+            if (
+                len(args) >= 2
+                and args[0] not in Configuration.categories
+                and args[1] in ("enable", "disable")
+            ):
                 candidates = []
+            if args == ["save", "--scope"] and "local".startswith(prefix):
+                candidates.append(Candidate("local", "Project-local settings"))
+            if (
+                args[:1] == ["save"]
+                and len(args) == 3
+                and args[1] == "--scope"
+                and args[2] in ("project", "global", "local")
+            ):
+                candidates = (
+                    [Candidate("--confirm", "Explicitly save policy; YAML formatting may change")]
+                    if "--confirm".startswith(prefix)
+                    else []
+                )
         if self.completion and "\n" not in before and (not after or after[0].isspace()):
             if complete_words == ["/provider"]:
                 candidates.extend(Candidate(n) for n in ("status", "login") if n.startswith(prefix))
@@ -348,8 +612,8 @@ class LocalCommands:
             return (args[0],), args[1] if len(args) == 2 else None
         raise ValueError(
             "Usage: /config [show] [providers|tools|hooks|context|agents|behaviors] [NAME]. "
-            "Only /config tools disable|enable NAME changes this session; "
-            "persistent configuration requires explicit amplifier-tui cli administration."
+            "/config CATEGORY disable|enable NAME changes this session (hooks are read-only). "
+            "/config diff | set PATH VALUE | save --scope project|local|global --confirm."
         )
 
     def config_report(self, tokens):
@@ -425,7 +689,17 @@ class LocalCommands:
     def recognizes(self, text):
         command = text.strip().split(maxsplit=1)[0].lower() if text.strip() else ""
         return (
-            command in ("/goal", "/config", "/allowed-dirs", "/denied-dirs", "/provider", "/mode")
+            command
+            in (
+                "/goal",
+                "/config",
+                "/agents",
+                "/tools",
+                "/allowed-dirs",
+                "/denied-dirs",
+                "/provider",
+                "/mode",
+            )
             or command.startswith("/")
             and command[1:] in {m["name"] for m in self.host.modes.catalog()["choices"]}
         )
@@ -433,6 +707,9 @@ class LocalCommands:
     def submit(self, text, image=False):
         parts = text.strip().split(maxsplit=1)
         command, args = parts[0].lower(), parts[1] if len(parts) > 1 else ""
+        if command in ("/agents", "/tools"):
+            args = command[1:] + (" " + args if args else "")
+            command = "/config"
         names = {m["name"] for m in self.host.modes.catalog()["choices"]}
         if command[1:] in names:
             args = command[1:] + (" " + args if args else "")
@@ -458,23 +735,31 @@ class LocalCommands:
                 _, condition = _parse_goal_max_turns(args)
                 if not condition:
                     raise ValueError("Goal requires condition text after its turn limit")
-            config_mutation = (
-                len(tokens) == 3 and tokens[0] == "tools" and tokens[1] in ("disable", "enable")
-            )
-            if command == "/config" and not config_mutation:
-                self.config_query(tokens)
-            if command == "/config" and config_mutation:
-                name = tokens[2]
-                if name == "mode" or name not in (
-                    set(self.coordinator.get("tools") or {}) | set(self.state["disabled"])
-                ):
-                    raise ValueError("Choose a mounted tool; mode control cannot be disabled here")
-                if self.host.modes.current():
-                    raise ValueError("Leave the active mode before changing the root tool set")
-                if tokens[1] == "enable" and name not in self.state["disabled"]:
-                    raise ValueError("Tool is already enabled; nothing changed")
-                if tokens[1] == "disable" and name in self.state["disabled"]:
-                    raise ValueError("Tool is already disabled; nothing changed")
+            if command == "/config":
+                if len(tokens) == 3 and tokens[1] in ("disable", "enable"):
+                    self.configuration.check_toggle(*tokens)
+                elif tokens[:1] == ["set"]:
+                    self.configuration.parse_setting(tokens)
+                    if self.host.modes.current():
+                        raise ValueError(
+                            "Leave the active mode before editing configuration metadata"
+                        )
+                elif tokens[:1] == ["save"]:
+                    if (
+                        len(tokens) != 4
+                        or tokens[1] != "--scope"
+                        or tokens[2] not in ("project", "global", "local")
+                        or tokens[3] != "--confirm"
+                    ):
+                        raise ValueError(
+                            "Shared save rewrites selected settings (including YAML formatting). Explicitly use /config save --scope project|local|global --confirm; current modules are not reloaded"
+                        )
+                    if self.configuration.paths is None:
+                        raise ValueError("Shared save requires a CLI-configured launch")
+                    if self.host.modes.current():
+                        raise ValueError("Leave the active mode before saving base configuration")
+                elif tokens != ["diff"]:
+                    self.config_query(tokens)
             if command in ("/allowed-dirs", "/denied-dirs"):
                 self.directory_change(command, tokens)
             if command == "/provider" and tokens and tokens[0] in ("use", "auto"):
@@ -628,38 +913,8 @@ class LocalCommands:
                     source="goal",
                 )
             elif command == "/config":
-                if not (
-                    len(tokens) == 3 and tokens[0] == "tools" and tokens[1] in ("disable", "enable")
-                ):
-                    host.show_message(self.config_report(tokens), source="config")
-                else:
-                    if (
-                        len(tokens) != 3
-                        or tokens[0] != "tools"
-                        or tokens[1] not in ("disable", "enable")
-                    ):
-                        raise ValueError(
-                            "Supported live configuration: /config tools disable|enable NAME. Other changes require a new composition; no settings were written"
-                        )
-                    operation, name = tokens[1:]
-                    if name == "mode" or name not in (
-                        set(self.coordinator.get("tools") or {}) | set(self.state["disabled"])
-                    ):
-                        raise ValueError(
-                            "Choose a mounted tool (mode control cannot be disabled here)"
-                        )
-                    if self.host.modes.current():
-                        raise ValueError("Leave the active mode before changing the root tool set")
-                    if operation == "enable" and name not in self.state["disabled"]:
-                        raise ValueError("Tool is already enabled; nothing changed")
-                    if operation == "disable" and name in self.state["disabled"]:
-                        raise ValueError("Tool is already disabled; nothing changed")
-                    self.save("pending")
-                    await getattr(self.configurator, "tool_" + operation)(name)
-                    disabled = set(self.state["disabled"])
-                    disabled.add(name) if operation == "disable" else disabled.discard(name)
-                    self.state["disabled"] = sorted(disabled)
-                    self.save()
+                if len(tokens) == 3 and tokens[1] in ("disable", "enable"):
+                    note = await self.configuration.toggle(*tokens)
                     host.report["tools"] = sorted(self.coordinator.get("tools") or {})
                     if self.wire:
                         self.wire(
@@ -669,7 +924,55 @@ class LocalCommands:
                                 "tools": host.report["tools"],
                             }
                         )
-                    host.show_message(f"Tool {name}: {operation} applied. " + self.scope)
+                        self.wire(
+                            {
+                                "type": "providers",
+                                "session_id": host.session_id,
+                                **host.controls.catalog(),
+                            }
+                        )
+                    host.show_message(
+                        f"{tokens[0]} · {tokens[2]} · {tokens[1]} applied. "
+                        + note
+                        + self.config_scope,
+                        source="config",
+                    )
+                elif tokens == ["diff"]:
+                    snapshot = self.configuration.snapshot()
+                    rows = [
+                        f"{category}: {', '.join(names)} disabled"
+                        for category, names in snapshot["disabled"].items()
+                        if names
+                    ]
+                    rows += [
+                        f"{path}: metadata edited (value omitted)"
+                        for path in snapshot["config_overrides"]
+                    ]
+                    host.show_message(
+                        "Configuration changes from prepared mounts\n"
+                        + ("\n".join(rows) if rows else "No changes")
+                        + "\nShared settings unchanged; edited metadata does not reinitialize modules.",
+                        source="config",
+                    )
+                elif tokens[:1] == ["set"]:
+                    path, value = self.configuration.parse_setting(tokens)
+                    self.save("pending")
+                    self.configurator.config_set(path, value)
+                    self.configuration.overrides[path] = value
+                    self.state["configuration"] = self.configuration.snapshot()
+                    self.save()
+                    host.show_message(
+                        "Configuration metadata edited (value omitted). Modules were not reinitialized; live adoption is module-owned. /config diff inspects changes; shared settings unchanged.",
+                        source="config",
+                    )
+                elif tokens[:1] == ["save"]:
+                    self.configuration.persist(tokens[2])
+                    host.show_message(
+                        f"Configuration saved · {tokens[2]} scope. Applies to future compatible launches; current modules were not reinitialized. YAML formatting may change.",
+                        source="config",
+                    )
+                else:
+                    host.show_message(self.config_report(tokens), source="config")
             elif command in ("/allowed-dirs", "/denied-dirs"):
                 key, mounts, paths = self.directory_change(command, tokens)
                 if paths is None:

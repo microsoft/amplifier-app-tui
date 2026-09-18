@@ -540,6 +540,13 @@ class Children:
         if parent_id not in self.parents or self.host._stop_requested or not self.host.ready:
             raise ValueError("Child request has no active parent in this conversation")
         base, depth = self.parents[parent_id]
+        controls = getattr(self.host, "local_commands", None)
+        if (
+            controls
+            and parent_id == self.host.session_id
+            and agent_name in controls.configuration.snapshot()["disabled"]["agents"]
+        ):
+            raise ValueError("Agent definition disabled in the parent session")
         if type(self_delegation_depth) is not int or self_delegation_depth < 0:
             raise ValueError("Self-delegation depth must be a nonnegative integer")
         if not isinstance(instruction, str) or not 0 < len(instruction) <= 262144:

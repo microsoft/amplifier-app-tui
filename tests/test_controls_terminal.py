@@ -84,6 +84,62 @@ def test_loaded_configuration_is_discoverable_and_never_submits_a_turn(tmp_path,
         probe.close()
 
 
+@pytest.mark.parametrize("cols,rows", [(175, 50), (40, 20)])
+def test_configuration_toggle_diff_and_definition_aliases(tmp_path, cols, rows):
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=cols,
+        rows=rows,
+    )
+    try:
+        probe.wait("Ready")
+        for query, expected in (
+            ("/config tools disable fixture_probe", "disable applied"),
+            ("/config diff", "fixture_probe disabled"),
+            ("/tools", "fixture_probe · disabled"),
+            ("/config tools enable fixture_probe", "enable applied"),
+            ("/agents", "Available agent definitions"),
+        ):
+            prior = sum(e["payload"].get("source") == "config" for e in events(tmp_path))
+            probe.send(b"\x1b[200~" + query.encode() + b"\x1b[201~")
+            draft_is(probe, query)
+            probe.send(b"\r")
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                shown = [e for e in events(tmp_path) if e["payload"].get("source") == "config"]
+                if len(shown) > prior:
+                    assert expected in shown[-1]["payload"]["text"]
+                    break
+                probe.read(0.02)
+            else:
+                pytest.fail("Configuration control did not finish")
+            # The observed result precedes final checkpoint/completion. Do not
+            # type the next control while the UI still advertises Enter queue.
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                probe.read(0.02)
+                if probe.text.splitlines()[-1].strip() == "Ready":
+                    break
+            else:
+                pytest.fail("Configuration control did not return to idle")
+            if query == "/config diff":
+                probe.wait("fixture_probe disabled")
+                capture(probe, f"config-changes-{cols}")
+        probe.send(b"Draft retained after controls")
+        draft_is(probe, "Draft retained after controls")
+        capture(probe, f"config-aliases-{cols}")
+        assert not any(e["kind"] == "turn.accepted" for e in events(tmp_path))
+    finally:
+        probe.close()
+
+
 def test_stop_with_replacement_keeps_draft_and_never_submits(tmp_path):
     probe = start(tmp_path, approval=True)
     try:

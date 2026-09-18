@@ -1,5 +1,15 @@
 # Verification guide
 
+Configuration mutation: `tests/test_cli_controls.py` verifies actual mounts, dynamic
+context, disabled-agent spawn refusal, protected providers, behavior hook retention,
+metadata-only edits, no-op/partial fail-closed state, v1 migration and unchanged
+conversation policy after a shared save. Scope tests use temporary CLI homes, preserve
+unrelated settings and malformed YAML, and require explicit scope plus confirmation.
+`test_cli_compat.py` verifies configured policy survives actual CLI preparation without
+entering reports. Native controls tests exercise toggle/diff/aliases at 175×50 and
+40×20; inspect private `config-changes-*` / `config-aliases-*` captures. No model turns
+or actual shared-settings writes are authorized by these fixture tests.
+
 Loaded configuration: run `tests/test_cli_controls.py` and native
 `tests/test_controls_terminal.py`. The catalog must use the same loaded Foundation
 inspector as the CLI, with cached completion only; it must not read source contents,

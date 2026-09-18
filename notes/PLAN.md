@@ -19,9 +19,24 @@ compatibility claims. Personal services remain read-only unless explicitly teste
 | PARITY-02 | ecosystem.v1:2, ecosystem.v1:5, performance.v1:5 | Provider diagnostics and argument completion | Every mounted provider addressable; explicit bounded discovery/test; cached argument choices never execute on Tab | Delivered core adapter: all-or-one diagnostics, cached CLI grammar, scoped config choices, actual 175/40-column completion; broader live config remains PARITY-05 |
 | PARITY-03 | ecosystem.v1:3, ecosystem.v1:4, ecosystem.v1:5, presentation.v1:5 | Interactive approval and module output compatibility | Non-TTY host can ask without bypassing denial policy; bounded private diagnostics strip terminal controls and recognizable secrets, disclose limits and never enter chat/history | Approval capability and legacy fd-level private inspection verified. Computer-use upstream PR 19 passes current-main offline946 and CI/CLA; required maintainer review remains. Exact scope in ACCEPTANCE |
 | PARITY-04 | ecosystem.v1:6, session.v1:6, session.v1:8, continuity.v1:1 | Delegation admission, subprocess children and routing-aware continuation | Real delegate/recipe callers, cancellation tree, approval, costs and durable identity; UI retention never becomes an accidental execution quota | Admission/retention, routing and canonical continuation verified. Fresh subprocess adapter passes actual delegate/recipe/mode, questions, nested ownership, cancellation/crash and 175/40-column terminal gates; final default579 and ecosystem95 pass. POSIX process isolation, not an OS sandbox; scope in ACCEPTANCE |
-| PARITY-05 | interaction.v1:6, ecosystem.v1:2 | Existing CLI configuration and administration families | Explicit scoped operations reuse CLI policy; bundle/provider/routing/module/source/agent/directory/notification/update workflows; shared settings unchanged without deliberate request | Partial delivered: explicit CLI handoff plus loaded metadata catalogs and cached arguments; final focused/native51 and default581 pass. No source resolution, credential values or shared settings writes. Broader native mutations remain |
+| PARITY-05 | interaction.v1:6, ecosystem.v1:2 | Existing CLI configuration and administration families | Explicit scoped operations reuse CLI policy; bundle/provider/routing/module/source/agent/directory/notification/update workflows; shared settings unchanged without deliberate request | Delivered loaded catalogs, real component toggles, metadata diff/set, confirmed scoped save and retained configuration; default591 and final focused/native54 pass. Full setup/administration retains explicit CLI handoff. Bounds, module-owned adoption and exact evidence in ACCEPTANCE |
 | PARITY-06 | continuity.v1:1, continuity.v1:3, continuity.v1:5, interaction.v1:6 | Session workflows, fork/clear/export and direct tool operations | Validated public/private state boundaries, source preservation, local ordinary resume, deliberate administrative cross-project access; no history execution | Pending |
 | PARITY-07 | ecosystem.v1:2, ecosystem.v1:6, composition.v1:3 | CLI scripting and install entrypoint compatibility | Noninteractive prompt/stdin/output-format and shell completion use actual CLI semantics; isolated installed-entrypoint verification | Partial: run/cli handoff and actual isolated help paths pass; single-shot output, shell completion and installed wheel gates remain |
+
+## Remaining CLI-parity sequence
+
+Continue PARITY-05 with actual component controls, saved configurator policy,
+scope-confirmed persistence and metadata-only differences; verify real mounts and
+resume, not merely successful method calls. Retain native/CLI administration handoff
+for setup/source/update workflows that require their own interactive terminal.
+Then PARITY-06: deliberate context clearing, turn-boundary forks, structured export
+and module-guarded direct tools, preserving original histories and directory-local
+ordinary resume. Finally PARITY-07: actual single-shot stdin/text/JSON/trace paths,
+shell completion and isolated installed-wheel execution. Keep unsupported private
+state migration explicit; do not reinterpret import as canonical CLI continuation.
+Run focused, actual module and terminal checks before full integration; publish
+reviewed incremental snapshots. Required upstream
+review is not bypassed; independent work continues while that review is pending.
 
 ## Local follow-up — action emphasis
 

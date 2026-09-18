@@ -8,9 +8,29 @@ module IDs, origin bundle names and introduction kind. It never serializes arbit
 configuration, source URLs or instruction bodies. Agent rows describe definitions,
 not spawned sessions; context entries are not token occupancy. Lists are bounded to
 32 rows per category, with exact-name lookup for omitted items. Tab uses the CLI's
-cached snapshot; it neither re-queries the inspector nor advertises unsupported
-mutations/save/display flags. Explicit administration still belongs to the CLI
-handoff. Read-only inspection must not write shared policy or enter model context.
+cached snapshot; it does not query modules on keystrokes. Read-only inspection must
+not write shared policy or enter model context.
+
+Configuration changes use that pinned adapter for tool/provider/context/agent/behavior
+toggles, with explicit mode, last-provider and pinned-provider guards. Check actual
+post-operation state before recording success; partial/no-op transitions retain a
+pending control record and refuse execution/resume. Behavior hooks remain unchanged.
+An app guard rejects spawning a disabled root agent even from a previously copied
+definition map. Existing children are unaffected; new children inherit current context
+and definitions, not root-only tool/provider toggles. Scalar `set` edits metadata only;
+it does not remount modules. Values are omitted from diff/inspection, and obvious
+credential paths refuse in favor of provider-owned setup.
+
+Version-2 local controls retain the complete supported configuration policy; v1 tool
+records migrate without reinterpreting current shared settings as old session policy.
+CLI-composed configurator defaults apply to new conversations and are immediately
+retained locally when nonempty. Resuming always uses the conversation's own state;
+saving shared policy must not invalidate the conversation that saved it. Module-plan
+fingerprints still guard changed composition. Shared saves require an exact explicit
+scope and confirmation, hold the CLI's per-scope lock, validate YAML before its
+permissive reader, and use its atomic writer/credential normalization. Isolated
+launches never fall back to a user's home. The original preparation/settings attributes
+are app-private and omitted from reports/kernel mount plans.
 
 The dedicated bridge process reserves its protocol descriptor before runtime imports
 and captures descriptors 1/2 into a separately drained pipe. Legacy Python/Rich/logging,

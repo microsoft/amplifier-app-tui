@@ -1,5 +1,34 @@
 # First vertical slice — acceptance evidence
 
+## CLI parity — scoped configuration controls (2026-09-17)
+
+PARITY-05 adds actual Foundation tool/provider/context/agent/behavior controls,
+metadata-only scalar edits/differences, explicit scoped saves through the CLI's
+locked atomic writer, and configured defaults on new CLI-policy launches. Local
+version-2 state preserves controls through resume; v1 tool state migrates. Existing
+conversations retain their own policy after a shared save. Last/pinned providers,
+mode control and active modes are guarded; hooks remain inspection-only. Partial
+or ineffective transitions cannot be reported as successful or safely resumable.
+`/agents` now means definitions, `/tools` mounted tools, `/children` observed work.
+
+Real Foundation/core fixture tests cover dynamic context, mounted instances, disabled
+agent spawn refusal, behavior groups, legacy/current resume, configuration policy
+through actual CLI preparation, and each save scope in temporary homes. They preserve
+unrelated settings and malformed YAML without touching actual shared settings or keys.
+These are deterministic integrations, not certification of every module's live config
+adoption; `set` explicitly does not reinitialize modules. Existing children are unchanged.
+
+Default gate: **591 passed, 304 skipped** (123.17s); private receipt
+`.evidence/configuration-default.xml`. Combined preset/native run: **105 passed,
+1 failed** (219.29s); failure was a rapid control test sending the next command before
+the displayed idle state. Its waiter now includes completion, not just an observed
+result. Final focused/native gate: **54 passed, 4 preset-only skips** (31.23s),
+including the corrected terminal case; `.evidence/configuration-final.xml`.
+Rust **66 passed**, release build/clippy and Ruff lint/format passed. Direction remains
+600 contract lines / 50 production sources. Developer inspected 175×50 and 40×20
+configuration captures. Shared save is opt-in; no paid providers or user policy changed.
+Broader setup remains the explicit CLI handoff; session/scripting work remains pending.
+
 ## CLI parity — loaded configuration and upstream delivery (2026-09-17)
 
 PARITY-05 adds `/config`, category lists and `/config show CATEGORY NAME` through
