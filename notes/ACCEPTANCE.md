@@ -28,7 +28,7 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The default Python suite passes **662 tests, 321 opt-in skips** (148.89s), recorded
+The default Python suite passes **662 tests, 321 opt-in skips**, recorded
 privately in `.evidence/shared-reading-default.xml`. Rust renderer/native tests pass
 **70 tests**, with release build and strict Clippy clean. Ruff lint/format and
 direction checks pass. The mixed-reading terminal and accounting corpus passes
