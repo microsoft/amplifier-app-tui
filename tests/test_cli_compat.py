@@ -185,6 +185,7 @@ async def test_matches_actual_cli_policy_and_preserves_destinations(
                 }
             },
             "overrides": {"context-simple": {"config": {"token_meter": "actual"}}},
+            "configurator": {"disabled": {"tools": ["fixture_probe"]}},
         },
     )
     original = loader.load_and_prepare_bundle
@@ -206,6 +207,9 @@ async def test_matches_actual_cli_policy_and_preserves_destinations(
     assert report["settings_policy"] == "cli"
     assert report["storage_policy"] == {}
     assert "_module_resolver" not in report
+    assert actual.bundle._tui_settings_paths.global_settings == home / "settings.yaml"
+    assert actual.bundle._tui_configurator == {"disabled": {"tools": ["fixture_probe"]}}
+    assert "configurator" not in report
     # A configured hook/recipe must not silently acquire local-only destination policy.
     overlay = tmp_path / "policy.yaml"
     original_policy = {
@@ -239,6 +243,9 @@ async def test_matches_actual_cli_policy_and_preserves_destinations(
     host = SessionHost()
     await host.open(actual, report, cwd)
     try:
+        assert "fixture_probe" not in host.session.coordinator.get("tools")
+        assert host.submit("/config tools enable fixture_probe")[0]
+        await host.task
         assert host.submit("Compute a digest")[0]
         await host.task
         assert host.outcome == "success"

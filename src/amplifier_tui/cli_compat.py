@@ -181,6 +181,10 @@ async def compose_cli(source, overlays, sources, *, cwd, home):
     bundle.instruction = _append_agents_instruction_tail(bundle.instruction)
     bundle.load_agent_metadata()
     bundle = apply_settings(bundle, settings)
+    # App-private policy travels with the deep-copied bundle, never the public
+    # report or kernel mount plan. Local controls own application/restoration.
+    bundle._tui_configurator = copy.deepcopy(settings.get_merged_settings().get("configurator", {}))
+    bundle._tui_settings_paths = settings.paths
     module_sources = {
         **settings.get_module_sources(),
         **settings.get_source_overrides(),

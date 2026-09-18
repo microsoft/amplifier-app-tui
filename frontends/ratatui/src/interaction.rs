@@ -368,6 +368,7 @@ impl App {
                     choice("Loaded configuration — inspect without changing settings (insert unsent)", Action::CommandDraft("/config".into())),
                     choice("Available agent definitions — inspect (insert unsent)", Action::CommandDraft("/config agents".into())),
                     choice("Configure tools — root-session controls (insert unsent)", Action::CommandDraft("/config tools".into())),
+                    choice("Configuration changes — inspect disabled items and edited paths (insert unsent)", Action::CommandDraft("/config diff".into())),
                     choice("Allowed directories — filesystem scope (insert unsent)", Action::CommandDraft("/allowed-dirs list".into())),
                     choice("Denied directories — filesystem scope (insert unsent)", Action::CommandDraft("/denied-dirs list".into())),
                     choice("Provider login — module-owned authentication (insert unsent)", Action::CommandDraft("/provider login ".into())),
@@ -1099,6 +1100,7 @@ impl App {
                 "review",
                 "system",
                 "config",
+                "children",
                 "status",
                 "tools",
                 "skill",
@@ -1163,7 +1165,7 @@ impl App {
     pub(super) fn local_action(value: &str) -> Option<Action> {
         match value.trim() {
             "/work" => Some(Action::View(0)),
-            "/agents" => Some(Action::Inspect("children".into(), None)),
+            "/children" => Some(Action::Inspect("children".into(), None)),
             "/activity" => Some(Action::Inspect("activity_tree".into(), None)),
             "/interact" => Some(Action::Interact),
             "/context" => Some(Action::Inspect("context".into(), None)),
@@ -1171,7 +1173,7 @@ impl App {
             "/attach" => Some(Action::FileInput),
             "/editor" => Some(Action::ExternalEditor),
             "/review" => Some(Action::View(1)),
-            "/system" | "/status" | "/tools" => Some(Action::View(2)),
+            "/system" | "/status" => Some(Action::View(2)),
             "/skills" => Some(Action::Section("Skills (".into())),
             "/providers" => Some(Action::Providers),
             "/questions" => Some(Action::Questions),
