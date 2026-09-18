@@ -173,7 +173,11 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                             }
                             pulldown_cmark::HeadingLevel::H2 => Modifier::BOLD,
                             pulldown_cmark::HeadingLevel::H3 => Modifier::BOLD | Modifier::ITALIC,
-                            _ => Modifier::ITALIC,
+                            pulldown_cmark::HeadingLevel::H4 => Modifier::UNDERLINED,
+                            pulldown_cmark::HeadingLevel::H5 => Modifier::ITALIC,
+                            pulldown_cmark::HeadingLevel::H6 => {
+                                Modifier::ITALIC | Modifier::UNDERLINED
+                            }
                         })
                     }
                     Tag::Strong | Tag::TableHead => style.add_modifier(Modifier::BOLD),
@@ -193,13 +197,9 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                             rows: vec![],
                         });
                     }
-                    Tag::Heading { level, .. } => {
-                        layout.blank();
-                        layout.current.push(Span::styled(
-                            format!("{} ", "#".repeat(level as usize)),
-                            Style::default().fg(palette().muted),
-                        ));
-                    }
+                    // ATX and setext share typography; source delimiters belong
+                    // only in source inspection/copy, not the reading view.
+                    Tag::Heading { .. } => layout.blank(),
                     Tag::Paragraph => {
                         if item_depths.last() == Some(&styles.len())
                             && let Some(loose) = loose_lists.last_mut()
@@ -365,7 +365,7 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                 for (_, label) in &mut links {
                     label.push(' ');
                 }
-                layout.current.push(Span::raw(" "));
+                layout.current.push(Span::styled(" ", style));
             }
             Md::HardBreak => layout.flush(),
             Md::Rule => {
@@ -463,10 +463,62 @@ mod tests {
         assert_eq!(value.matches("https://example.test/b").count(), 1);
         assert_eq!(value.matches("src/lib.rs").count(), 1);
         assert!(value.contains("README (docs/README.md#L12)"));
-        for prefix in ["# Title", "## Section", "### Detail"] {
-            assert!(value.contains(prefix));
+        for heading in ["Title", "Section", "Detail"] {
+            assert!(value.lines().any(|line| line == heading));
         }
         assert_eq!(render_live(source, 40), render(source, 40));
+    }
+
+    #[test]
+    fn heading_typography_survives_wrapping_without_source_delimiters() {
+        let styles = [
+            Modifier::BOLD | Modifier::UNDERLINED,
+            Modifier::BOLD,
+            Modifier::BOLD | Modifier::ITALIC,
+            Modifier::UNDERLINED,
+            Modifier::ITALIC,
+            Modifier::ITALIC | Modifier::UNDERLINED,
+        ];
+        for width in [40, 80, 175] {
+            for (level, modifier) in styles.into_iter().enumerate() {
+                let title =
+                    "A heading with enough words to wrap and retain its typography ".repeat(4);
+                let atx = format!("{} {} ###", "#".repeat(level + 1), title.trim());
+                let lines = render(&atx, width);
+                assert!(lines.iter().all(|line| line.width() <= width));
+                for span in lines.iter().flat_map(|line| &line.spans) {
+                    assert!(!span.content.contains('#'));
+                    assert_eq!(span.style.add_modifier, modifier);
+                }
+                assert_eq!(render_live(&atx, width), lines);
+                if level < 2 {
+                    let setext = format!(
+                        "{}\n{}",
+                        title.trim(),
+                        if level == 0 { "===" } else { "---" }
+                    );
+                    assert_eq!(render(&setext, width), lines);
+                }
+            }
+        }
+        let literal = text("\\# Literal\n\n`## inline`\n\n```text\n### code\n```", 80);
+        for expected in ["# Literal", "## inline", "### code"] {
+            assert!(literal.iter().any(|line| line == expected), "{literal:?}");
+        }
+    }
+
+    #[test]
+    fn soft_breaks_inherit_inline_and_setext_heading_styles() {
+        for source in ["**first\nsecond**", "first\nsecond\n---"] {
+            let lines = render(source, 80);
+            assert_eq!(lines[0].to_string(), "first second");
+            assert!(
+                lines[0]
+                    .spans
+                    .iter()
+                    .all(|span| span.style.add_modifier.contains(Modifier::BOLD))
+            );
+        }
     }
 
     #[test]

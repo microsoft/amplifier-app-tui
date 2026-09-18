@@ -225,6 +225,7 @@ def run(cli=None):
             assert not baseline["partial"], (
                 "Recorded call identity did not survive CLI/TUI observation"
             )
+            p.wait(f"On resume · Session: ${expected:.2f}")
             capture(p, f"shared-session-resume-{size[0]}")
             if index == 0:
                 action(p, "expand tools", "Activity ·")

@@ -41,6 +41,39 @@ def ledger(store):
     return CallUsage(store.restored_events)
 
 
+def test_resume_projects_current_baseline_without_rewriting_old_totals(shared, tmp_path):
+    launch, cli, identity, messages = shared
+    store = SharedConversationStore(tmp_path, launch, identity)
+    old_text = "Turn: $0.25 · Session: $0.25 (earlier usage unavailable)"
+    old = Event(
+        identity,
+        len(store.restored_events) + 1,
+        "old-turn",
+        "display.message",
+        "old-total",
+        {"source": "usage", "text": old_text},
+    )
+    store.record(old)
+    store.checkpoint(messages, old.sequence, None, True)
+    store.close()
+    logs(cli, identity, [receipt(identity, 0, "0.25"), receipt(identity, 1, "0.50")])
+    canonical = cli.base_dir / identity / "transcript.jsonl"
+    original = canonical.read_bytes()
+    resumed = SharedConversationStore(tmp_path, launch, identity)
+    try:
+        journal = resumed.path / "events.jsonl"
+        before = journal.read_bytes()
+        first = resumed.projection()
+        assert first == resumed.projection()
+        assert first[-1]["text"] == "On resume · Session: $0.75"
+        assert [i for i in first if i["id"] == "old-total"][0]["text"] == "[usage] " + old_text
+        assert canonical.read_bytes() == original
+        assert journal.read_bytes() == before  # Derived, never another durable receipt.
+        assert ledger(resumed).progress("new-turn")["turn"]["calls"] == 0
+    finally:
+        resumed.close()
+
+
 def test_root_nested_utility_receipts_are_read_only_deduplicated_and_session_scoped(
     shared, tmp_path
 ):

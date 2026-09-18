@@ -32,8 +32,13 @@ when the source receipts are missing.
 Structural reading gate: build the native frontend, then run
 `TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q tests/test_structured_reading_terminal.py tests/test_reading_terminal.py tests/test_tmux_scrollback.py`.
 Inspect `mixed-markdown-*` captures at 40/80/175 columns. Exact source copy and draft
-preservation are independent assertions. Rust tests compare styled incremental and
-completed Markdown at every character boundary and reject parser-decoded controls.
+preservation are independent assertions. Inspect `headings-*` captures at all three
+widths with colour enabled/disabled: all six ATX levels and setext headings use
+typography, no source delimiters; literal hashes remain and source copy is exact.
+Rust tests compare styled incremental and completed Markdown at every character
+boundary, preserve soft-break styles and reject parser-decoded controls. Shared usage
+tests require a current On resume summary without rewriting old turn footers or
+adding accounting receipts.
 
 Release upgrade gate: `scripts/release_wheel.py --terminal --scripting --upgrade-from
 PATH_TO_PRIOR_WHEEL` requires the published wheel's adjacent `.receipt.json`, verifies

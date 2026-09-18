@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
   "amplifier-core==1.6.1",
   "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@8a8e4f11918afd38ea8fe8f69cbec002226324f7",
-  "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@e2f665137189b48dca1f8778c24f23aa25fddc60",
+  "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@5d1068dd83d9c6837558c6aa859329fba23bcd50",
   "textual==8.2.8",
   "pillow==12.1.1",
 ]
