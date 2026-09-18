@@ -1,5 +1,48 @@
 # First vertical slice — acceptance evidence
 
+## rc6 readiness — current verification (2026-09-18)
+
+This wave packages the merged CLI-parity implementation; no kernel, runtime or
+native-renderer behavior changes. Older dated entries below retain their original
+scope. Computer-use PR 19 is now merged upstream; installers must resolve a module
+revision containing that fix rather than assume an app upgrade updates every cache.
+
+The combined native/preset/independent-module gate passed **937 tests, no skips**
+(831.42s). This includes actual delegate/recipe/mode execution, nested subprocess
+approval and graceful/forced cancellation, interrupted continuation, isolated memory
+save/injection and actual intelligence HTTP delivery to a loopback receiver. It also
+includes six attached tmux history/copy cases. Rust **66 passed**, release clippy
+and Ruff lint/format (552 files) passed; direction checks retain 600 contract lines
+and 50 production sources, all DRAFT. Private receipt: `.evidence/rc6-combined.xml`. Deterministic providers and
+synthetic service destinations are not paid-model or personal-account certification.
+
+The additional real loopback-SSH gate passed **2 cases** (6.97s): 175×50 and 40×20,
+each with fresh start and resume, bracketed multiline paste, verified remote tty
+resize and explicit tool turns. Both ends restore terminal modes; test listeners
+and tracked descendants are reaped. Private receipt: `.evidence/rc6-ssh-final-assertions.xml`.
+Developer inspected the SSH captures and fresh narrow/laptop/light-theme layout
+captures. The lightweight observer retains stale pre-resize rows; SSH captures after
+resize are not visual-cleanliness evidence. Real attached tmux remains the reflow,
+copy and no-duplicate-history authority. Initial SSH attempts failed authentication because of the shared temporary
+directory ancestor; the private-daemon setup and exact scope are in SMOKE_TESTS.
+
+The published rc5 Linux ARM64 wheel was installed in a disposable uv tool environment,
+used for two actual fixture turns, then replaced with rc6 in that same environment.
+Two more explicit turns pass after no-replay resume. Historical journal bytes remain
+intact, tool events do not advance before Send, unsent drafts survive each restart,
+and both native terminal restoration and compiler-free installation pass. Actual
+installed CLI argument-text, stdin-JSON, argument-JSON-trace and bash/zsh/fish completion
+also pass. Local receipts retain dirty-tree provenance and are not release artifacts;
+publication requires exact clean-source receipts from the five-platform workflow.
+
+Thirty alternating actual-entrypoint warm-cache pairs and the prepared-policy
+comparison are summarized in [PERFORMANCE](PERFORMANCE.md). Runtime-ready median
+is 564.2 ms for the TUI versus 447.5 ms for the CLI; native edit p95 is 20.9 ms.
+The extra question tool and installed skills configuration still differ, with further
+request-time guidance differences. **CLI latency parity remains unestablished.**
+No policy or safety hooks were removed to improve a benchmark. Physical phone/desktop
+clipboard checks and personal-service/paid-provider acceptance remain separate gates.
+
 ## CLI parity — housekeeping, completion and installed execution (2026-09-18)
 
 PARITY-06/07 adds confirmed exact-ID archive/restore under the conversation lock,

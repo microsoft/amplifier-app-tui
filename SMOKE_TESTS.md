@@ -1,5 +1,35 @@
 # Verification guide
 
+Release upgrade gate: `scripts/release_wheel.py --terminal --scripting --upgrade-from
+PATH_TO_PRIOR_WHEEL` requires the published wheel's adjacent `.receipt.json`, verifies
+its name/hash and scans both artifacts before installing. It seeds real fixture turns
+with the prior release, reinstalls the candidate into that SAME isolated tool environment,
+then resumes the original identity twice. Historical bytes must remain a journal prefix;
+return must retain the unsent draft and must not add model turns or tool events before
+explicit Send. Require a successful tool result from each new turn, not old history.
+Installation has no Cargo on PATH. The five-platform workflow downloads rc5 and runs this gate, installed
+CLI scripting/completion, and disposable macOS pasteboard checks. Old versions/artifacts
+are never overwritten. These runs do not prove arbitrary private-module migration.
+Keep first-install and upgrade startup observations labelled separately; neither purges
+global caches or establishes cold-start performance. Publish only reviewed wheels and
+allowlisted receipts from the exact candidate commit, never local diagnostic logs.
+
+SSH transport gate: run `TUI_TEST_SSH=1 uv run --no-sync pytest -q
+tests/test_ssh_terminal.py` serially with all other PTY/service/tmux tests (shared
+resource bookkeeping). Linux and local OpenSSH server/client are required. The test
+owns a loopback-only daemon, temporary keys and a forced synthetic fixture command;
+it never edits system SSH configuration or user authorized keys. Exact public-key and
+strict private host-key verification remain enabled. Only the disposable daemon's
+ownership walk is relaxed because OpenSSH rejects the shared `/tmp` ancestor; the
+key directory must still be private. Assert the remote tty size, not just the local
+observer's grid, before judging a resize. A fresh input repaint must preserve pasted
+text without submission. Both local and remote tty guards require restoration.
+The lightweight observer does not implement terminal reflow; its post-resize image
+can retain stale chrome. Do not call that a visual pass or repair it by clearing real
+history. Use the attached tmux gate for resize/reflow and inspect pre-resize SSH paint.
+Track listener/descendant process identities and verify cleanup before recording
+reaped. This is actual SSH transport, not physical-phone, WAN or clipboard proof.
+
 Entrypoint completion/housekeeping: `tests/test_entrypoint_workflows.py` verifies
 archive confirmation, exact identity, original directory, single-writer refusal,
 retained content and explicit restore. CLI/bash protocol checks cover native options,

@@ -5,6 +5,39 @@ exist in the [review packet](TERMINAL-REVIEW.md); matched CLI policy parity is u
 This protocol makes the draft promises testable; it is not a performance receipt.
 The comparison includes the entire path, not just IPC microbenchmarks or renderer FPS.
 
+## rc6 readiness measurement — 2026-09-18
+
+Thirty alternating fresh-process, warm-cache pairs use actual CLI/native entrypoints
+and the same deterministic digest workload. Builds and other test suites were not
+run concurrently. Current prepared captures agree on kernel, provider, hook, session
+and instruction fingerprints; they still differ in the extra native question tool
+and the skills tool's installed-package configuration. All 21 packaged skill files
+are byte-identical between environments; that explains the latter field without
+silently normalizing it away. No differences are discarded.
+App-owned request guidance and mode observations remain additional request-time
+differences. Thus **default-product latency parity is not established**.
+
+| Observation | TUI median / p95 (ms) | CLI median / p95 (ms) |
+|---|---:|---:|
+| Startup to runtime ready | 564.2 / 597.7 | 447.5 / 510.5 |
+| Submit to first visible fixture text | 252.9 / 282.7 | 433.3 / 631.9 |
+| Submit to final visible fixture text | 347.3 / 366.6 | 434.1 / 632.7 |
+
+The native path becomes runtime-ready about 117 ms later at the median in this
+diagnostic run. Faster visible fixture responses do not cancel that observation or
+prove live-provider speed. Readiness is distinct from the immediately editable
+startup composer; this probe does not measure the latter. Native local edit p95 is
+20.9 ms; Actions open 48.8 ms; inspection open/select/return 17.6/18.8/17.7 ms.
+These are 30 idle interaction samples, not the full 200-sample streaming stress gate.
+Private receipts retain all samples, bootstrap intervals, source hashes and two
+process-tree RSS snapshots. They are not peak-memory, cold-cache or paid-model evidence.
+
+The baseline is the isolated CLI environment used by the configured-policy protocol,
+not an assertion about an arbitrary daily installation. Product dependencies remain
+pinned; no hooks, question tools or enforcement were removed to improve numbers.
+The remaining performance gate is equivalent effective request/workload evidence,
+followed by a non-regression comparison—not another renderer-only speed claim.
+
 ## Experience-wave measurement boundary
 
 Fresh prepared captures still differ in tool count and skills configuration. Inspecting

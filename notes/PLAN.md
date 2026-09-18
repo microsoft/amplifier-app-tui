@@ -5,7 +5,23 @@ Authority: [the steward's approved direction](DIRECTION-REVIEW.md), amended into
 All contract details remain draft targets. This is a local work record, not a formal
 Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
-## Active goal — existing CLI and ecosystem host parity
+## Active readiness wave — 2026-09-18
+
+Five readiness areas follow the completed CLI-parity batch.
+Direction is unchanged: this work verifies existing promises, ships their current
+implementation and reconciles documentation. No new kernel/UI policy, personal-data
+migration or speculative dashboards are implied. Historical tables below are receipts,
+not a second backlog; this table owns current sequencing.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| READY-05 | interaction.v1:6, presentation.v1:8 | Reconcile current coverage, configuration/migration guidance and upstream delivery | Current pages agree with source and distinguish supported CLI handoff from missing native behavior | Delivered; current coverage, migration and upstream disposition reconciled; historical evidence retained |
+| READY-06 | ecosystem.v1:1, continuity.v1:1 | Ship new reviewed compiler-free wheels with installed scripting and prior-release resume | Five platform gates, exact artifact/source receipts, no tool replay during upgrade, immutable publication | In progress |
+| READY-07 | ecosystem.v1:5, ecosystem.v1:6, session.v1:6 | Bounded ecosystem acceptance with explicit service/account scope | Actual module delivery, approval/cancellation/resume evidence; personal or billed scope never inferred from fixtures | Isolated actual-module/service gates pass within the 937-test run; personal destinations and paid calls await explicit scope |
+| READY-08 | performance.v1:1, performance.v1:2, performance.v1:7 | Fresh actual-entrypoint comparison and explained policy/request differences | Paired raw samples and named equivalence limits; no parity verdict from unequal work | Measured 30 pairs; local edit p95 20.9 ms; ready median 117 ms later than CLI. Effective policies still differ; parity not established |
+| READY-09 | presentation.v1:3, presentation.v1:5, presentation.v1:6 | Broaden terminal/platform verification | Actual tmux/copy/resize and narrow/laptop/large captures, installed platform and CI clipboard gates; physical gaps explicit | Attached tmux and layout gates pass; loopback SSH verification added; release-platform checks in progress. Physical devices unverified |
+
+## Completed batch — existing CLI and ecosystem host parity
 
 Steward approved the current-source audit inventory on 2026-09-17. Implement
 capabilities already supplied by the CLI or its bundle/module host, not speculative
@@ -17,21 +33,21 @@ compatibility claims. Personal services remain read-only unless explicitly teste
 |---|---|---|---|---|
 | PARITY-01 | ecosystem.v1:5, continuity.v1:1 | CLI mechanical goal breaker | Actual goal loop stops repeated reasons; visible needs-manager state, durable cleared goal and no replay | Delivered: pinned detector, real loop stop and no-replay resume; current evidence in ACCEPTANCE |
 | PARITY-02 | ecosystem.v1:2, ecosystem.v1:5, performance.v1:5 | Provider diagnostics and argument completion | Every mounted provider addressable; explicit bounded discovery/test; cached argument choices never execute on Tab | Delivered core adapter: all-or-one diagnostics, cached CLI grammar, scoped config choices, actual 175/40-column completion; broader live config remains PARITY-05 |
-| PARITY-03 | ecosystem.v1:3, ecosystem.v1:4, ecosystem.v1:5, presentation.v1:5 | Interactive approval and module output compatibility | Non-TTY host can ask without bypassing denial policy; bounded private diagnostics strip terminal controls and recognizable secrets, disclose limits and never enter chat/history | Approval capability and legacy fd-level private inspection verified. Computer-use upstream PR 19 passes current-main offline946 and CI/CLA; required maintainer review remains. Exact scope in ACCEPTANCE |
+| PARITY-03 | ecosystem.v1:3, ecosystem.v1:4, ecosystem.v1:5, presentation.v1:5 | Interactive approval and module output compatibility | Non-TTY host can ask without bypassing denial policy; bounded private diagnostics strip terminal controls and recognizable secrets, disclose limits and never enter chat/history | Delivered: approval capability and legacy fd-level private inspection verified; computer-use PR 19 merged upstream on 2026-09-18 after CI/CLA passed. Exact scope in ACCEPTANCE |
 | PARITY-04 | ecosystem.v1:6, session.v1:6, session.v1:8, continuity.v1:1 | Delegation admission, subprocess children and routing-aware continuation | Real delegate/recipe callers, cancellation tree, approval, costs and durable identity; UI retention never becomes an accidental execution quota | Admission/retention, routing and canonical continuation verified. Fresh subprocess adapter passes actual delegate/recipe/mode, questions, nested ownership, cancellation/crash and 175/40-column terminal gates; final default579 and ecosystem95 pass. POSIX process isolation, not an OS sandbox; scope in ACCEPTANCE |
 | PARITY-05 | interaction.v1:6, ecosystem.v1:2 | Existing CLI configuration and administration families | Explicit scoped operations reuse CLI policy; bundle/provider/routing/module/source/agent/directory/notification/update workflows; shared settings unchanged without deliberate request | Delivered loaded catalogs, real component toggles, metadata diff/set, confirmed scoped save and retained configuration; default591 and final focused/native54 pass. Full setup/administration retains explicit CLI handoff. Bounds, module-owned adoption and exact evidence in ACCEPTANCE |
 | PARITY-06 | continuity.v1:1, continuity.v1:3, continuity.v1:5, interaction.v1:6 | Session workflows, fork/clear/export and direct tool operations | Validated public/private state boundaries, source preservation, local ordinary resume, deliberate administrative cross-project access; no history execution | Delivered confirmed clear with backup, public-context turn branches, structured private export, hook/approval-owned direct tools and reversible closed-session archive/restore. Actual preset, swap, terminal and housekeeping checks pass. Canonical CLI continuation/delete/cleanup/replay retain explicit CLI-store handoff |
 | PARITY-07 | ecosystem.v1:2, ecosystem.v1:6, composition.v1:3 | CLI scripting and install entrypoint compatibility | Noninteractive prompt/stdin/output-format and shell completion use actual CLI semantics; isolated installed-entrypoint verification | Installed-wheel native start/tool/resume and actual CLI argument/stdin/text/JSON/trace pass. Read-only bash/zsh/fish completion reuses native options and CLI grammar without key/store initialization. Focused entrypoint/navigation51 pass; broader regression gate recorded in ACCEPTANCE |
 
-## Remaining CLI-parity sequence
+## CLI-parity disposition
 
 The identified host and ordinary CLI workflow implementations are delivered through
 native controls or the explicit pinned CLI entrypoint. The combined gate passes 935
 tests; isolated wheel and Git-source installation checks pass.
 Retain setup/source/update and advanced CLI-store
 administration in their existing terminal workflows. Do not reinterpret public import
-as canonical CLI continuation. Computer-use upstream delivery still requires maintainer
-review; no policy bypass. Personal service/device and paid provider verification remain
+as canonical CLI continuation. Computer-use upstream delivery is merged.
+Personal service/device and paid provider verification remain
 explicitly separate from deterministic compatibility checks. New domain dashboards and
 arbitrary module-private-state migration are not implied by this inventory.
 

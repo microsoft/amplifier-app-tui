@@ -5,9 +5,9 @@ Amplifier's bundles and swappable modules. Describe a task, review decisions, in
 changes, and return to saved conversations. The normal view uses your terminal's
 selection and scrollback; conversation output remains after exit.
 
-This is an early product, not complete CLI parity. The working frontend is Ratatui;
-Textual and OpenTUI are retained development/comparison harnesses. Current checkout
-changes are newer than the published `0.3.0rc5` prerelease. See the
+This is an early product. Audited CLI workflows are available through native controls
+or explicit pinned-CLI handoff, not a duplicate native wizard for every command. The
+working frontend is Ratatui; Textual and OpenTUI are development/comparison harnesses. See the
 [coverage map](notes/PARITY.md) and [verification record](notes/ACCEPTANCE.md).
 
 ## Install the native product
@@ -25,9 +25,9 @@ Authenticate Git through your usual credential helper, never a token in the URL.
 Keep `--no-sources`: it honors the packaged dependency pins instead of the CLI
 dependency's development source table, which otherwise conflicts with the Foundation pin.
 For compiler-free installation, download the matching wheel from the private
-[0.3.0rc5 release](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc5)
+[release page](https://github.com/bkrabach/amplifier-app-tui/releases)
 and run `uv tool install --no-sources ./<downloaded-wheel>.whl`. These published wheels do not
-include uncommitted checkout changes.
+include later checkout changes; use the paired receipt to identify tested source.
 
 | Machine | Published wheel / tested build floor |
 |---|---|

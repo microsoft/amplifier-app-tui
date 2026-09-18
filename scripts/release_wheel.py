@@ -124,15 +124,45 @@ def verify_payload(data):
         )
 
 
-def terminal_smoke(command, stage, env):
+def verify_prior_wheel(path):
+    """Require the downloaded release's paired receipt before installing its code."""
+    receipt = path.with_name(path.name + ".receipt.json")
+    if receipt.stat().st_size > 1024 * 1024 or path.stat().st_size > 64 * 1024 * 1024:
+        raise ValueError("Prior release evidence exceeds its bound")
+    record = json.loads(receipt.read_text())
+    if (
+        record.get("wheel") != path.name
+        or record.get("wheel_sha256") != hashlib.sha256(path.read_bytes()).hexdigest()
+    ):
+        raise ValueError("Prior release wheel does not match its receipt")
+    verify_payload(receipt.read_bytes())
+    with ZipFile(path) as archive:
+        for name in archive.namelist():
+            verify_payload(name.encode())
+            verify_payload(archive.read(name))
+
+
+def terminal_smoke(command, stage, env, *, upgrade=False):
     """Installed fixture runtime, real PTY, no sibling sources or model credentials."""
+    from benchmark_candidates import wait_edit
     from terminal_probe import Probe
 
     state = stage / "terminal-state"
     launch = [str(command), "--state-dir", str(state)]
     identity = None
+    retained = None
+    if upgrade:
+        (metadata,) = (state / "conversations").glob("*/metadata.json")
+        identity = json.loads(metadata.read_text())["id"]
+        retained = (metadata.parent / "events.jsonl").read_bytes()
+    previous_tool_events = sum(
+        json.loads(line)["kind"].startswith("tool.") for line in (retained or b"").splitlines()
+    )
     readiness = []
-    for resumed in (False, True):
+    draft = "retained-install-draft"
+    for index in range(2):
+        resumed = upgrade or index > 0
+        expected_turns = (2 if upgrade else 0) + index
         probe = Probe(
             [*launch, *(["--resume", identity] if resumed else ["--fixture"])],
             cwd=stage,
@@ -165,7 +195,14 @@ def terminal_smoke(command, stage, env):
                     json.loads(line) for line in (path / "events.jsonl").read_text().splitlines()
                 ]
 
-            assert sum(e["kind"] == "turn.accepted" for e in events()) == int(resumed)
+            assert sum(e["kind"] == "turn.accepted" for e in events()) == expected_turns
+            assert sum(e["kind"].startswith("tool.") for e in events()) == previous_tool_events
+            if retained is not None:
+                assert (path / "events.jsonl").read_bytes().startswith(retained)
+            if resumed:
+                wait_edit(probe, draft)
+                probe.send(b"\x1b[F" + b"\x7f" * len(draft))
+                probe.wait(draft, absent=True)
             probe.send(b"Compute a digest")
             probe.wait("Compute a digest")
             probe.send(b"\x1bOS")
@@ -174,21 +211,27 @@ def terminal_smoke(command, stage, env):
             probe.wait("Help · choose a topic")
             probe.send(b"\x1b")
             probe.wait("Actions / choices", absent=True)
-            assert sum(e["kind"] == "turn.accepted" for e in events()) == int(resumed)
+            assert sum(e["kind"] == "turn.accepted" for e in events()) == expected_turns
+            assert sum(e["kind"].startswith("tool.") for e in events()) == previous_tool_events
+            before_send = len(events())
             probe.send(b"\r")
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:
                 probe.read()
                 ended = [e for e in events() if e["kind"] == "turn.ended"]
-                if len(ended) == int(resumed) + 1:
+                if len(ended) == expected_turns + 1:
                     assert ended[-1]["payload"]["status"] == "completed"
                     break
             else:
                 raise AssertionError("Installed fixture turn did not complete")
             assert any(
                 e["kind"] == "tool.updated" and e["payload"].get("status") == "succeeded"
-                for e in events()
+                for e in events()[before_send:]
             )
+            previous_tool_events = sum(e["kind"].startswith("tool.") for e in events())
+            probe.wait("[ Send ]")
+            probe.send(draft.encode())
+            wait_edit(probe, draft)
         finally:
             probe.close()  # Includes actual termios restoration and bounded clean exit.
     return {
@@ -196,9 +239,16 @@ def terminal_smoke(command, stage, env):
         "resume_without_submission": True,
         "second_turn": True,
         "help_preserves_draft_without_submission": True,
+        "unsent_draft_retained_across_restart": True,
         "terminal_modes_restored": True,
+        "prior_release_history_preserved": True if upgrade else None,
         "startup_observations": readiness,
-        "startup_scope": "One first isolated-state launch and one resumed launch; source/dependency resolution included as needed. Global uv/Git caches are not purged, so this is not a cold-cache benchmark.",
+        "startup_scope": (
+            "Two resumed launches after replacing a prior release in the same tool environment. "
+            if upgrade
+            else "One first isolated-state launch and one resumed launch. "
+        )
+        + "Source/dependency resolution included as needed; global caches not purged, not a cold-cache benchmark.",
         "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification",
     }
 
@@ -319,6 +369,11 @@ def main():
     )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "dist/release")
     parser.add_argument(
+        "--upgrade-from",
+        type=Path,
+        help="Verified prior wheel: seed fixture history, replace in the same isolated install and resume",
+    )
+    parser.add_argument(
         "--private-failure-log",
         type=Path,
         help="New private diagnostic file on CLI failure; may contain secrets, never upload",
@@ -334,6 +389,13 @@ def main():
         help="Exercise the disposable macOS CI pasteboard; never use on a personal desktop",
     )
     args = parser.parse_args()
+    if args.upgrade_from and not args.terminal:
+        parser.error("--upgrade-from requires --terminal")
+    previous = args.upgrade_from.resolve() if args.upgrade_from else None
+    if previous and (not previous.is_file() or previous.suffix != ".whl"):
+        parser.error("--upgrade-from requires an existing reviewed wheel")
+    if previous:
+        verify_prior_wheel(previous)
     uv = shutil.which("uv")
     if not uv:
         raise SystemExit("uv is required")
@@ -370,11 +432,34 @@ def main():
         )
         env.pop("PYTHONPATH", None)
         assert shutil.which("cargo", path=env["PATH"]) is None
+        command = stage / "bin/amplifier-tui"
+        upgrade_seed = None
+        if previous is not None:
+            # Existing release artifact, not a guessed checkpoint fixture. Only the
+            # disposable tool environment is replaced; the user's command is untouched.
+            checked([uv, "tool", "install", "--no-sources", str(previous)], env=env)
+            prior_report = json.loads(
+                checked([str(command), "--doctor"], env=env, cwd=stage).stdout
+            )
+            terminal_smoke(command, stage, env)
+            upgrade_seed = {
+                "version": prior_report["version"],
+                "wheel_sha256": hashlib.sha256(previous.read_bytes()).hexdigest(),
+            }
         # The pinned CLI's development source table follows Foundation main.
         # Resolve published requirements, including our exact Foundation pin,
         # rather than importing that dependency's development checkout policy.
-        checked([uv, "tool", "install", "--no-sources", str(wheel)], env=env)
-        command = stage / "bin/amplifier-tui"
+        checked(
+            [
+                uv,
+                "tool",
+                "install",
+                "--no-sources",
+                *(["--reinstall"] if previous else []),
+                str(wheel),
+            ],
+            env=env,
+        )
         doctor = checked(
             [str(command), "--doctor"],
             env=env,
@@ -397,7 +482,11 @@ def main():
         assert loaded.returncode == 1
         assert b"Use scripts/compare.py ratatui to launch" in loaded.stderr
         checked([str(command), "--getting-started"], env=env, cwd=stage)
-        terminal = terminal_smoke(command, stage, env) if args.terminal else None
+        terminal = (
+            terminal_smoke(command, stage, env, upgrade=previous is not None)
+            if args.terminal
+            else None
+        )
         scripting = (
             scripting_smoke(command, stage, env, report["python"], uv, args.private_failure_log)
             if args.scripting
@@ -455,6 +544,7 @@ finally:
             "installed_native_load_passed": True,
             "artifact_privacy_scan_passed": True,
             "terminal_fixture": terminal,
+            "upgrade_from": upgrade_seed,
             "scripting_fixture": scripting,
             "clipboard_fixture": clipboard,
         }
