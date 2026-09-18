@@ -33,7 +33,23 @@ intact, tool events do not advance before Send, unsent drafts survive each resta
 and both native terminal restoration and compiler-free installation pass. Actual
 installed CLI argument-text, stdin-JSON, argument-JSON-trace and bash/zsh/fish completion
 also pass. Local receipts retain dirty-tree provenance and are not release artifacts;
-publication requires exact clean-source receipts from the five-platform workflow.
+publication uses the exact clean-source receipts from the five-platform workflow.
+
+[Release v0.3.0rc6](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc6)
+is published from reviewed source `840ae1682d05cd9dbab663e9a1d79dfce97a2585`, merged
+through [PR 5](https://github.com/bkrabach/amplifier-app-tui/pull/5).
+[The five-platform run](https://github.com/bkrabach/amplifier-app-tui/actions/runs/35340561498)
+passed on Ubuntu 22.04/x86-64, Ubuntu 24.04/x86-64, Ubuntu 24.04/ARM64, macOS 14/ARM64
+and macOS 15/Intel. All five verify actual rc5 replacement, retained history/draft,
+no additional turns/tool events before Send, successful tools from each newly sent
+turn, tty restoration, compiler-free installation, CLI script formats and completion.
+Both macOS jobs also pass actual PNG pasteboard acquisition with original bytes.
+Downloaded receipt source hashes and packaged Python/native bytes were verified.
+The four published wheels use Ubuntu 22.04 for the Linux x86-64 floor; the Ubuntu
+24.04/x86-64 result is an additional gate, not a second same-named release asset.
+All eight uploaded wheel/receipt files were downloaded again and matched verified CI
+bytes. No local dirty receipt, raw log, transcript or capture was published. No existing
+release was overwritten. Paired release receipts retain all exact hashes and scope.
 
 Thirty alternating actual-entrypoint warm-cache pairs and the prepared-policy
 comparison are summarized in [PERFORMANCE](PERFORMANCE.md). Runtime-ready median

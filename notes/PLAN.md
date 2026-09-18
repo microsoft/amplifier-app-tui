@@ -16,10 +16,16 @@ not a second backlog; this table owns current sequencing.
 | Item | Source promises | Work | Observable completion / falsifier | State |
 |---|---|---|---|---|
 | READY-05 | interaction.v1:6, presentation.v1:8 | Reconcile current coverage, configuration/migration guidance and upstream delivery | Current pages agree with source and distinguish supported CLI handoff from missing native behavior | Delivered; current coverage, migration and upstream disposition reconciled; historical evidence retained |
-| READY-06 | ecosystem.v1:1, continuity.v1:1 | Ship new reviewed compiler-free wheels with installed scripting and prior-release resume | Five platform gates, exact artifact/source receipts, no tool replay during upgrade, immutable publication | In progress |
+| READY-06 | ecosystem.v1:1, continuity.v1:1 | Ship new reviewed compiler-free wheels with installed scripting and prior-release resume | Five platform gates, exact artifact/source receipts, no tool replay during upgrade, immutable publication | Delivered: v0.3.0rc6, four wheel/receipt pairs from exact reviewed source; all five platform gates and downloaded-asset verification pass |
 | READY-07 | ecosystem.v1:5, ecosystem.v1:6, session.v1:6 | Bounded ecosystem acceptance with explicit service/account scope | Actual module delivery, approval/cancellation/resume evidence; personal or billed scope never inferred from fixtures | Isolated actual-module/service gates pass within the 937-test run; personal destinations and paid calls await explicit scope |
 | READY-08 | performance.v1:1, performance.v1:2, performance.v1:7 | Fresh actual-entrypoint comparison and explained policy/request differences | Paired raw samples and named equivalence limits; no parity verdict from unequal work | Measured 30 pairs; local edit p95 20.9 ms; ready median 117 ms later than CLI. Effective policies still differ; parity not established |
-| READY-09 | presentation.v1:3, presentation.v1:5, presentation.v1:6 | Broaden terminal/platform verification | Actual tmux/copy/resize and narrow/laptop/large captures, installed platform and CI clipboard gates; physical gaps explicit | Attached tmux and layout gates pass; loopback SSH verification added; release-platform checks in progress. Physical devices unverified |
+| READY-09 | presentation.v1:3, presentation.v1:5, presentation.v1:6 | Broaden terminal/platform verification | Actual tmux/copy/resize and narrow/laptop/large captures, installed platform and CI clipboard gates; physical gaps explicit | Attached tmux, layout and two real SSH transport cases pass; five installed-platform gates and both macOS CI pasteboards pass. Physical devices unverified |
+
+The remaining boundary checks are explicit personal/paid acceptance and physical
+terminal/clipboard breadth; they need destination, cost and device scope. The measured
+performance comparison is complete, but policy-equivalent default-product latency
+parity is not established. Do not restart delivered feature work or turn these limits
+into an unbounded polish queue. Release receipts and exact scope are in ACCEPTANCE.
 
 ## Completed batch — existing CLI and ecosystem host parity
 
