@@ -28,15 +28,15 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The default Python suite passes **663 tests, 327 opt-in skips** (140.79s), recorded
-privately in `.evidence/headings-default.xml`. Rust renderer/native tests pass
+The default Python suite passes **664 tests, 327 opt-in skips** (139.84s), recorded
+privately in `.evidence/viewport-default.xml`. Rust renderer/native tests pass
 **72 tests**, with release build and strict Clippy clean. Ruff lint/format and
-direction checks pass. The structured-reading, thinking, reading and tmux terminal
-gate passes **28 tests** (30.54s), recorded in `.evidence/headings-native.xml`.
+direction checks pass. The expanded structured-reading, thinking/activity, flow,
+compact geometry, tmux and capture-observer gate passes **56 tests** (67.99s),
+recorded in `.evidence/viewport-native.xml`.
 It includes exact source copy and retained drafts at 40/80/175 columns, with heading
 attributes verified directly from terminal cells in both colour and NO_COLOR modes.
-The capture rasterizer does not reproduce all text attributes; screenshots alone
-are not the typography oracle. Shared store/usage/bridge checks pass **58 tests**.
+Shared store/usage/bridge checks pass **58 tests**.
 The actual-entrypoint round-trip probe also checks the visible reconciled On resume
 total at laptop and narrow widths, without executing user history.
 The CLI owner tests passed **2353 tests**, with one skip and one expected failure;
@@ -52,13 +52,35 @@ No user transcript or account is a synthetic test fixture.
 Current source comparison is in [MARKDOWN-GAPS](MARKDOWN-GAPS.md). Structural list
 wrapping, loose/tight spacing, quote continuation and heading hierarchy have mixed
 block coverage. All six ATX heading levels and setext headings use typography and
-spacing without source delimiters; escaped hashes and code retain their literals.
+spacing without source delimiters; cyan contrast and underlined H1/H2 do not rely
+solely on a perceptible bold face. NO_COLOR retains the underlines, and expanded
+thinking remains secondary. Escaped hashes and code retain their literals.
 Soft breaks inherit their text style, including multiline setext headings. Journal
 streaming is compared with the complete styled projection at every character boundary
 at 40/80/175 columns. Native terminal captures were inspected at laptop and narrow
 widths. HTML-entity-decoded controls remain inert.
 Links suppress only exact label/destination duplication; no OSC hyperlinks or blind
 URL hiding are claimed. Original Markdown and code copy remain unchanged.
+
+The current terminal gate passes **56 tests** (67.99s), recorded privately in
+`.evidence/viewport-native.xml`: structured reading, thinking/activity, flow, compact
+geometry, real tmux and capture-observer tests. The raster adapter uses actual bold/
+italic faces plus underline/strike and preserves reverse video and hidden cursors.
+PNG sidecars identify reference-font reconstructions, not the user's terminal pixels.
+Separate actual VTE 0.76 screenshots on an owned virtual display compare native TUI
+and interactive CLI at 175×50 with the same synthetic canonical conversation.
+Those images show the heading contrast/typography in that emulator and font; they
+do not establish the user's local presentation or every terminal's glyph fallback.
+
+Startup uses the observed launch cursor instead of archiving a full empty screen.
+In actual 175×50 tmux runs, shell markers at rows 1/25/49 now have **zero added blank
+rows** before the banner, during use and after exit. The full-height live composer
+remains bottom-aligned. Short/long/streaming history, copy mode, exact-width text,
+inspection return and height-only/combined resize retain output once without stale
+composers. Silent/delayed cursor-reply checks preserve pasted input and bound waiting;
+unknown geometry conservatively allocates a bottom row, which may retain stale
+layout on a silent-terminal resize rather than erase uncertain previous output.
+No user session was executed or changed by these checks; no paid model calls ran.
 
 ## Recorded accounting and CLI discovery
 

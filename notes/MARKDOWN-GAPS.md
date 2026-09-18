@@ -7,9 +7,10 @@ Read-only comparison with Codex checkout
 `frontends/ratatui/src/markdown.rs`. Both use pulldown-cmark and Ratatui.
 This is source-derived analysis, not a claim about the newest remote revision.
 No user transcript, private URL or machine identity is a test fixture here.
-Codex retains heading hash markers in its display. This TUI deliberately uses
-typography instead, following its presentation contract; shared parser choice
-does not require identical reading policy.
+The inspected Codex source retains heading hash markers. That does not establish
+the presentation in the steward's terminal, where they report no visible markers.
+This TUI uses typography and accent contrast without hashes, following its
+presentation contract; shared parser choice does not require identical reading policy.
 
 Codex source anchors:
 
@@ -31,7 +32,7 @@ Codex source anchors:
 | Nested and loose lists | Paragraph boundaries retain deliberate spacing; tight list rows remain compact | Mixed lists, continuation paragraphs, code and tables retain container indentation |
 | Following sections | A single blank row separates the next block | Headings do not attach directly to preceding list text |
 | Blockquotes | Every wrapped content row retains its quote prefix, including nested blocks | Quote scope ends before following ordinary prose |
-| Headings | ATX and setext use distinct bold/underline/italic styles and block spacing without source delimiters | Styles survive wrapping and NO_COLOR; escaped hashes and code stay literal; source copy retains delimiters |
+| Headings | ATX and setext use cyan contrast, bold/underline/italic styles and block spacing without source delimiters; H1/H2 are underlined | Underlining survives NO_COLOR and indistinct bold fonts; wrapped styles, literal hashes, dim thinking and exact source copy remain intact |
 | Links | Exact label/destination duplicates display once; other destinations remain visible | No OSC hyperlink transport; long nonredundant URLs remain intentionally visible in tmux/unknown terminals |
 | Streaming | The journal's incremental styled output matches completed structural rendering | Every-character splits through lists, links, tables and fences at 40/80/175 columns |
 

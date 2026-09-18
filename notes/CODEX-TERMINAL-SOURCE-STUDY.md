@@ -175,15 +175,18 @@ ten-row descriptions above describe the inspected baseline, not the new implemen
 The app's [presentation contract](../contracts/presentation.v1.md) was amended first.
 Behavior and remaining limits belong in [acceptance evidence](ACCEPTANCE.md), not an
 inferred upstream certification. The implementation is original app code; no upstream
-terminal driver or execution policy was copied. The two-second fallback is intentionally
-distinguished from Codex's 100 ms probe, and history-purging resize remains unadopted.
+terminal driver or execution policy was copied. Startup and resize probes have a
+100 ms deadline with input replay; history-purging resize remains unadopted.
 
 The steward subsequently requested full-height appearance and borderless input
 (WORKSPACE-01). This is an explicit Amplifier adaptation, not a claim about every
 Codex launch path. At the same source pin, `bottom_pane/chat_composer.rs` around
 `render_with_mask` paints a styled borderless block, a single prompt marker and a
 separate textarea; continuation rows have no box sides. Our open input omits even
-that marker so selected draft rows contain only text and inset whitespace. A fresh
-primary-screen page removes the need for a startup cursor query; resize queries
-remain separate. Ordinary live renderer/runtime labels are removed, not fixture
+that marker so selected draft rows contain only text and inset whitespace. Startup
+scrolls only rows above the observed launch cursor, retaining prior shell output
+without archiving unused screen space. The normal workspace still fills the screen;
+silent probes conservatively allocate a bottom row without erasing uncertain content.
+Resize follows the actual cursor anchor, not a guessed full-height growth offset.
+Ordinary live renderer/runtime labels are removed, not fixture
 warnings or inspectable composition facts.

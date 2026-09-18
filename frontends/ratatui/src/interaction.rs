@@ -1208,7 +1208,10 @@ impl App {
             let mut words = rest.split_whitespace();
             let turn = words.next()?.parse::<usize>().ok()?;
             let name = words.collect::<Vec<_>>().join(" ");
-            return Some(Action::ForkTurn(turn, if name.is_empty() { None } else { Some(name) }));
+            return Some(Action::ForkTurn(
+                turn,
+                if name.is_empty() { None } else { Some(name) },
+            ));
         }
         match value.trim() {
             "/clear" => Some(Action::ClearContext),
