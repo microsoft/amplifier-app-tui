@@ -167,11 +167,10 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
             Md::Start(tag) => {
                 let next = match &tag {
                     Tag::Heading { level, .. } => {
-                        style.fg(palette().ink).add_modifier(match level {
-                            pulldown_cmark::HeadingLevel::H1 => {
+                        style.fg(palette().green).add_modifier(match level {
+                            pulldown_cmark::HeadingLevel::H1 | pulldown_cmark::HeadingLevel::H2 => {
                                 Modifier::BOLD | Modifier::UNDERLINED
                             }
-                            pulldown_cmark::HeadingLevel::H2 => Modifier::BOLD,
                             pulldown_cmark::HeadingLevel::H3 => Modifier::BOLD | Modifier::ITALIC,
                             pulldown_cmark::HeadingLevel::H4 => Modifier::UNDERLINED,
                             pulldown_cmark::HeadingLevel::H5 => Modifier::ITALIC,
@@ -473,7 +472,7 @@ mod tests {
     fn heading_typography_survives_wrapping_without_source_delimiters() {
         let styles = [
             Modifier::BOLD | Modifier::UNDERLINED,
-            Modifier::BOLD,
+            Modifier::BOLD | Modifier::UNDERLINED,
             Modifier::BOLD | Modifier::ITALIC,
             Modifier::UNDERLINED,
             Modifier::ITALIC,
@@ -489,6 +488,7 @@ mod tests {
                 for span in lines.iter().flat_map(|line| &line.spans) {
                     assert!(!span.content.contains('#'));
                     assert_eq!(span.style.add_modifier, modifier);
+                    assert_eq!(span.style.fg, Some(palette().green));
                 }
                 assert_eq!(render_live(&atx, width), lines);
                 if level < 2 {

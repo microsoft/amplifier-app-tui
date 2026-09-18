@@ -182,7 +182,7 @@ thread.join()
 
 
 @pytest.mark.parametrize("reply", ["silent", "delayed"])
-def test_fresh_page_startup_needs_no_cursor_reply_and_preserves_input(tmp_path, reply):
+def test_startup_cursor_timeout_is_bounded_and_preserves_input(tmp_path, reply):
     probe = scene(tmp_path, [])
     original = probe.screen.write_process_input
     replies = []
@@ -196,7 +196,7 @@ def test_fresh_page_startup_needs_no_cursor_reply_and_preserves_input(tmp_path, 
             probe.screen.write_process_input = original
         probe.wait("Enter send", timeout=5)
         draft_is(probe, "early 界")
-        assert not replies and b"\x1b[6n" not in probe.raw
+        assert replies and probe.raw.count(b"\x1b[6n") == 1
         assert b"\x1b[3J" not in probe.raw
         assert probe.process.poll() is None
         capture(probe, f"compact-probe-{reply}")
@@ -238,7 +238,12 @@ def test_inspection_without_cursor_replies_preserves_draft_and_primary_history(t
         settle(probe)
         draft_is(probe, "unsent second")
         probe.send(b"\x1bOP")  # F1 returns to primary-screen transcript.
-        probe.wait("Retained source")
+        # With no startup anchor the conservative bottom-origin fallback can
+        # already have committed this short reply into scrollback. Inspection
+        # still has its source; the simple observer does not model native history.
+        probe.wait("[Activity]")
+        probe.wait("Message · draft stays editable", absent=True)
+        assert probe.screen.primary is None
         probe.send(b"\x1bOS")  # F4 opens Actions, another inspection transition.
         probe.wait("Actions · type to search", timeout=3)
         capture(probe, "inspection-no-cursor-replies")

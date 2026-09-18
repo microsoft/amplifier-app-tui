@@ -34,7 +34,12 @@ Structural reading gate: build the native frontend, then run
 Inspect `mixed-markdown-*` captures at 40/80/175 columns. Exact source copy and draft
 preservation are independent assertions. Inspect `headings-*` captures at all three
 widths with colour enabled/disabled: all six ATX levels and setext headings use
-typography, no source delimiters; literal hashes remain and source copy is exact.
+cyan accent plus typography, with underlined H1/H2 even in NO_COLOR, no source
+delimiters; literal hashes remain and source copy is exact. The local capture
+adapter requires all four DejaVu Sans Mono faces and reproduces underline/strike,
+reverse video and hidden cursors. Each PNG has a `.capture.json` identifying its
+reference-font reconstruction: it is not a screenshot of the user's terminal/font.
+Run `tests/test_terminal_raster.py` to check the observer's attributes independently.
 Rust tests compare styled incremental and completed Markdown at every character
 boundary, preserve soft-break styles and reject parser-decoded controls. Shared usage
 tests require a current On resume summary without rewriting old turn footers or
@@ -700,10 +705,16 @@ Direct Codex adoption gate: build Ratatui, then run `TUI_TEST_CANDIDATES=1` with
 suite. Verify a fresh primary-screen page, bottom-aligned five-row ordinary idle chrome plus an empty cursor-anchor separator,
 growing/wrapped drafts, narrow controls,
 visual-row history boundaries, delayed readiness preserving selection, zero implicit
-submissions, and startup without any CPR request/reply, retaining typed input. Resize
+submissions, and startup with silent/delayed CPR replies, retaining typed input. Startup/resize
 queries have a 100 ms Unix deadline and replay all captured bytes through the pinned
 Crossterm fork; a silent responder disables later probes. Real tmux resize must keep
-both SHELL-BEFORE and each transcript marker exactly once. Inspect private `compact-*`
+both SHELL-BEFORE and each transcript marker exactly once. Count the exact gap from
+shell output to the banner at top/middle/bottom launch positions: no unused page is
+archived. Exercise height-only growth with little history as well as combined width/
+height changes; a guessed growth offset can leave stale chrome or erase real rows.
+Without cursor replies, preserve uncertain rows and allocate only a fresh bottom
+row; that conservative fallback may retain stale layout after resize, not purge it.
+Inspect private `compact-*`
 captures alongside actual live-preset ready/completed views. Corrupt local recovery
 storage must prevent startup draft overwrite; `test_daily_replacement.py` verifies this.
 Run native PTY/tmux probes serially: they share manifest bookkeeping.
@@ -896,8 +907,9 @@ not first open `/scrollback`. It checks real attached tmux selection across page
 short Unicode replies in full-pane capture previews, inspection return, repeated
 narrow/wide resizes and transcript retained after exit. Capture all history and count
 markers: a still-visible footer or duplicate reply is a failure, not proof of retention.
-Never clear history to repair a redraw. tmux can expose old rows on growth without moving
-its reported cursor. The observer models DEC 1049 save/restore; real tmux remains the gate.
+Never clear history to repair a redraw. Growth and width reflow can expose more or
+fewer rows; adding the height delta to the observed cursor is not a reliable anchor.
+The observer models DEC 1049 save/restore; real tmux remains the gate.
 Locate the composer by its Message heading, not old border glyphs. Prior-conversation terminal
 text is expected after New/Resume; assert model-context isolation from checkpoints.
 The ordinary view leaves the mouse to terminal selection; injected mouse test sequences
@@ -1072,7 +1084,9 @@ PYTHONDONTWRITEBYTECODE=1 uv run --no-sync python scripts/capture_candidates.py 
 The capture script requires the workspace's terminal-tester submodule at
 fde68aa883ff64b2ee1c94a4b6afa721443ddc55. It does not install an app bundle into the
 user's CLI. Its local adapter preserves incremental UTF-8, numeric row order after
-resize and hidden-cursor state; upstream source is unchanged. The low-overhead probe
+resize and hidden-cursor state; its reference-font rasterizer preserves bold/italic
+faces and underline/strike instead of substituting brightness for bold. PNG sidecars
+disclose reconstruction limits; upstream source is unchanged. The low-overhead probe
 answers cursor-position requests and measures parsed PTY output, not screenshot delay.
 All spawned test process groups are recorded and reconciled in the workspace manifest.
 

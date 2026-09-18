@@ -77,13 +77,13 @@ def test_headings_are_typography_not_source_syntax(tmp_path, width, no_colour):
         probe.wait("Reading complete.")
         for title, modifiers in [
             ("Title", (True, False, True)),
-            ("Section", (True, False, False)),
+            ("Section", (True, False, True)),
             ("Subsection", (True, True, False)),
             ("Topic", (False, False, True)),
             ("Detail", (False, True, False)),
             ("Note", (False, True, True)),
             ("Setext title", (True, False, True)),
-            ("Setext section", (True, False, False)),
+            ("Setext section", (True, False, True)),
         ]:
             row = next(y for y, text in enumerate(probe.screen.display) if text.strip() == title)
             assert probe.screen.display[row].startswith(title)  # No left gutter or hashes.
@@ -91,6 +91,7 @@ def test_headings_are_typography_not_source_syntax(tmp_path, width, no_colour):
             for x in range(len(title)):
                 cell = probe.screen.buffer[row][x]
                 assert (cell.bold, cell.italics, cell.underscore) == modifiers
+                assert cell.fg == ("default" if no_colour else "00d9f5")
         assert "# Literal hash" in probe.text and "## inline code" in probe.text
         capture(probe, f"headings-{width}-{'plain' if no_colour else 'colour'}")
         action(probe, "Assistant replies", "Assistant replies · latest")

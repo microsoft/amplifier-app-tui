@@ -1250,20 +1250,6 @@ fn draw_interactive(f: &mut Frame, app: &mut App) {
 type Tty = Terminal<CrosstermBackend<io::Stdout>>;
 static ALTERNATE_OWNED: AtomicBool = AtomicBool::new(false);
 
-fn cursor_row_or_fresh_page(height: u16) -> io::Result<u16> {
-    match bounded_cursor_row()? {
-        Some(row) => Ok(row),
-        None => {
-            // A silent terminal gets a fresh page by scrolling, NEVER CSI 3 J.
-            for _ in 0..height {
-                write!(io::stdout(), "\r\n")?;
-            }
-            execute!(io::stdout(), cursor::MoveTo(0, 0))?;
-            Ok(0)
-        }
-    }
-}
-
 // Called only on the UI/input thread, outside Crossterm polling. All bytes go
 // back through its parser (including partial Unicode/paste and internal CPRs).
 #[cfg(unix)]
@@ -1396,18 +1382,31 @@ impl Screen {
         let result = (|| {
             execute!(io::stdout(), EnableBracketedPaste, DisableMouseCapture)?;
             let size = tty::size()?;
-            // Preserve the whole preceding screen, including rows below the shell
-            // cursor. A fresh page needs no cursor query or startup CPR timeout.
+            // Only rows ABOVE the shell's cursor are prior output. Scroll those
+            // rows into history, not a full page of unused space below the prompt.
+            // A silent terminal conservatively starts at the bottom; without a
+            // trustworthy position we cannot erase the preceding screen.
+            let launch_row = bounded_cursor_row()?;
+            let row = launch_row
+                .unwrap_or(size.1.saturating_sub(1))
+                .min(size.1.saturating_sub(1));
             execute!(
                 io::stdout(),
                 ResetColor,
                 cursor::MoveTo(0, size.1.saturating_sub(1))
             )?;
-            for _ in 0..size.1 {
+            if launch_row.is_some() {
+                for _ in 0..row {
+                    write!(io::stdout(), "\r\n")?;
+                }
+            } else {
+                // We do not know whether the bottom row contains prior output.
+                // Allocate one fresh row before taking ownership of it.
                 write!(io::stdout(), "\r\n")?;
             }
-            execute!(io::stdout(), cursor::MoveTo(0, 0))?;
-            let area = Rect::new(0, 0, size.0, 1);
+            let origin = if launch_row.is_some() { 0 } else { row };
+            execute!(io::stdout(), cursor::MoveTo(0, origin))?;
+            let area = Rect::new(0, origin, size.0, 1);
             let terminal = Terminal::with_options(
                 CrosstermBackend::new(io::stdout()),
                 TerminalOptions {
@@ -1449,21 +1448,21 @@ impl Screen {
             if !self.alternate {
                 // Cursor is parked at the live region's origin after every frame.
                 // Ask the terminal where resize/reflow moved it; never clear history.
-                let y = cursor_row_or_fresh_page(size.1)?;
-                // tmux can pull history onto a growing screen without moving
-                // the reported cursor. Never clear those newly exposed rows.
-                // This guard applies only to growth with an unmoved cursor.
-                // Applying the old origin as a floor on shrink (or overriding
-                // a genuinely moved cursor) scrolls stale chrome into history.
-                let floor = if size.1 > self.size.1
-                    && self.area.bottom() >= self.size.1
-                    && y <= self.area.y
-                {
-                    self.area.y + size.1.saturating_sub(self.size.1)
+                // Without a reply, resized/reflowed rows have uncertain ownership.
+                // Preserve them and allocate one fresh bottom row, never a page.
+                let observed = bounded_cursor_row()?;
+                let y = if let Some(y) = observed {
+                    y
                 } else {
-                    0
+                    execute!(
+                        io::stdout(),
+                        ResetColor,
+                        cursor::MoveTo(0, size.1.saturating_sub(1))
+                    )?;
+                    write!(io::stdout(), "\r\n")?;
+                    size.1.saturating_sub(1)
                 };
-                self.area.y = y.max(floor).min(size.1.saturating_sub(1));
+                self.area.y = y.min(size.1.saturating_sub(1));
             }
             self.size = size;
         }

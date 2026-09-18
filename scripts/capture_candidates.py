@@ -52,19 +52,14 @@ def read_utf8(self, timeout=0.01, max_reads=10):
 
 
 PTYSession._read_output = read_utf8
-_render_image = PTYSession._render_image
 
 
 def render_visible_cursor(self, *args, **kwargs):
-    # Respect DECTCEM: do not paint a false hardware cursor when the app hides it.
-    cursor = self.screen.cursor
-    old_x = cursor.x
-    if cursor.hidden:
-        cursor.x = self.cols + 10
-    try:
-        return _render_image(self, *args, **kwargs)
-    finally:
-        cursor.x = old_x
+    # Local observer adapter: upstream uses a regular font even for bold and
+    # omits italic/underline. Keep reference-font limitations with each image.
+    from terminal_raster import render_terminal
+
+    return render_terminal(self, *args, **kwargs)
 
 
 PTYSession._render_image = render_visible_cursor

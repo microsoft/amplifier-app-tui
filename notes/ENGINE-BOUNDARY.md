@@ -77,7 +77,11 @@ Structured child events stay under their observed parent, not timing-guessed roo
 
 The primary terminal screen retains committed output for terminal/tmux copy and
 scrollback. Inspection temporarily owns an alternate view without replacing retained
-history. Rendering consumes source text; display wrapping never changes copied source.
+history. Startup archives rows above its observed cursor, not unused screen space.
+Temporary live padding is cleared by owned line before scrolling; never use a full
+screen history purge to repair geometry. Bounded cursor probes replay input bytes;
+missing geometry preserves uncertain rows via a conservative bottom-row fallback.
+Rendering consumes source text; display wrapping never changes copied source.
 Structural Markdown prefixes preserve wrapped list and quote scope; copied source
 is unchanged. Parser-decoded controls are sanitized too. Conservative links retain
 nonredundant destinations; capabilities are recorded in [MARKDOWN-GAPS](MARKDOWN-GAPS.md).

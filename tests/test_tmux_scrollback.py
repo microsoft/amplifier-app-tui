@@ -152,6 +152,14 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
             time.sleep(0.02)
         raise AssertionError(f"No painted {width}x{height} frame: {lines!r}")
 
+    def no_artificial_startup_gap(history):
+        lines = history.splitlines()
+        shell = lines.index("SHELL-BEFORE")
+        banner = next(i for i, line in enumerate(lines) if line.startswith("amplifier ·"))
+        # Only the fixture's deliberate shell rows may precede the banner.
+        # Startup must not archive the unused remainder of the terminal screen.
+        assert banner - shell - 1 == start_row - 1, (start_row, lines[: banner + 1])
+
     wrapper = (
         "import subprocess; print('SHELL-BEFORE', flush=True); "
         + f"print('\\n' * {start_row - 1}, end='', flush=True); "
@@ -193,6 +201,7 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
         wait(marker, "capture-pane", "-p")
         assert tmux("display-message", "-p", "#{alternate_on}").strip() == "0"
         history = tmux("capture-pane", "-p", "-S", "-")
+        no_artificial_startup_gap(history)
         if short:
             preview = tmux("capture-pane", "-e", "-p", "-S", "-30")
             assert "Short answer: 界 é 🦀 end." in preview
@@ -230,13 +239,14 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
                 assert exited.count("SHELL-BEFORE") == exited.count(marker) == 1
                 assert exited.count("EDGE-") == exited.count("-END") == 1
                 assert "APP-EXIT 0" in exited and "[ Actions ]" not in exited
+                no_artificial_startup_gap(exited)
                 return
             tmux("send-keys", "Escape")
             wait("0", "display-message", "-p", "#{alternate_on}")
             settled_draft("Unsent tmux draft\nSecond copy line 界\nThird copy line")
             retained = tmux("capture-pane", "-p", "-S", "-")
             assert retained.count(marker) == 1, retained
-            for width, height in [(60, 25), (40, 20), (160, 40), (80, 24), (120, 40)]:
+            for width, height in [(60, 25), (40, 20), (40, 40), (160, 40), (80, 24), (120, 40)]:
                 tmux("resize-window", "-x", str(width), "-y", str(height))
                 sized_frame(width, height)
                 tmux("send-keys", "-l", "z")
@@ -267,6 +277,7 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
             assert exited.count("EDGE-") == exited.count("-END") == 1
             assert "[ Actions ]" not in exited
             assert "APP-EXIT 0" in exited
+            no_artificial_startup_gap(exited)
             return
         assert int(tmux("display-message", "-p", "#{history_size}")) > 100
         assert "EARLY-TMUX-MARKER" in history and "native row 149" in history
@@ -338,6 +349,7 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
             assert exited.count(f"native row {i:03d}") == 1
         assert "[ Actions ]" not in exited
         assert "APP-EXIT 0" in exited
+        no_artificial_startup_gap(exited)
     finally:
         tmux("kill-server", check=False)
         absent = subprocess.run(
