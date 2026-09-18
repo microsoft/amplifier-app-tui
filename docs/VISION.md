@@ -64,7 +64,7 @@ System explains the difference, observed context usage and local versus remote i
 A development preset brings expertise without implying installed services.
 
 ### 5. The conversation outlives a screen
-Returning does not require reconstructing intent from terminal rows.
+Returning does not require reconstructing intent from terminal rows. Reversible archival removes closed conversations from ordinary return without deleting their retained work.
 The person's draft and the agent's history have different owners.
 Retained decisions keep their source and can be corrected.
 Historical events explain previous work without initiating it again. A safely stopped child can continue explicitly under its own identity; deliberate model routing changes preserve its canonical history and non-routing policy, while uncertainty remains visible and never authorizes replay.
@@ -122,6 +122,7 @@ Rendering and transport do not monopolize input or cancellation; process and lan
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-18 | Preserve retained work through reversible archive and keep scripting/completion distinct from native conversation launch. | CLI-parity work covers closed-session housekeeping and installed command verification without authorizing private-state migration or background model work. |
 | 2026-09-17 | Distinguish session-owned configuration, deliberate context clearing, turn branching and structured observations. | Continued CLI-parity work requires supported controls to survive return and session operations to retain provenance without replay or private-state migration claims. |
 | 2026-09-17 | Make loaded configuration inspectable without model work or credential disclosure. | Continued CLI-parity authorization; the local control previously exposed only root tools, while the CLI inspects the wider loaded composition. |
 | 2026-09-17 | Preserve interactive child controls across explicit process isolation. | CLI parity audit found subprocess spawning refused; the headless runner cannot alone retain approvals, live activity or safe cancellation/continuation. |

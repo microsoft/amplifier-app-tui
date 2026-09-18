@@ -29,6 +29,37 @@ occur. A missing provider key is expected before live setup, not a broken instal
 
 ## Choose a first run
 
+### Shell completion and scripting
+
+Enable completion for the current shell (no startup files are changed):
+
+```sh
+# Bash
+eval "$(_AMPLIFIER_TUI_COMPLETE=bash_source amplifier-tui)"
+# Zsh
+eval "$(_AMPLIFIER_TUI_COMPLETE=zsh_source amplifier-tui)"
+# Fish
+_AMPLIFIER_TUI_COMPLETE=fish_source amplifier-tui | source
+```
+
+Completion covers native flags and the CLI-owned command tree using read-only local
+candidates. It does not initialize providers or read conversation bodies. To script
+the pinned CLI, use `amplifier-tui run "Your request" --output-format json` or pipe a
+prompt into `amplifier-tui run --output-format json-trace`. These execute real model
+work with your CLI settings and CLI session store; they do not launch the native UI.
+
+### Keep the Resume list tidy
+
+After closing a conversation, use `amplifier-tui --list-sessions` to find its exact ID,
+then `amplifier-tui --archive ID --confirm`. This hides it from ordinary Resume,
+search and input recall without deleting history, drafts or checkpoints. The command
+refuses active conversations and sessions belonging to another working directory.
+Use `amplifier-tui --list-archived` and `amplifier-tui --restore ID --confirm` to undo
+archival. Run these from the original directory with the same `--state-dir` if used.
+Restoring visibility does not repair an uncertain checkpoint or execute any work.
+
+### Start a conversation
+
 **Live AI:** open the directory you want to work in and run `amplifier-tui`. New launches
 use your CLI's global/project/local settings, active bundle, configured behaviors and
 providers. Settings are not rewritten; credentials remain with their provider modules.

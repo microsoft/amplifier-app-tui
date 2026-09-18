@@ -1,5 +1,44 @@
 # First vertical slice — acceptance evidence
 
+## CLI parity — housekeeping, completion and installed execution (2026-09-18)
+
+PARITY-06/07 adds confirmed exact-ID archive/restore under the conversation lock,
+directory-local discovery and a direct-open archived guard. Only metadata changes;
+history, drafts, queued intent and checkpoint status remain intact. Archived rows
+are omitted from ordinary resume/search/recall, and explicit restore reverses that.
+An active client refuses housekeeping rather than being stopped or edited externally.
+Read-only shell completion derives native flags from their parser and combines them
+with the pinned CLI command tree. Invalid instructions fail before import; actual
+key-manager/session-store constructor sentinels prove the completion import guard.
+
+Focused entrypoint/install/navigation/history-index gate: **51 passed** (13.00s).
+The isolated installed wheel passes compiler-free installation, native loading,
+actual fixture PTY start/tool turn/no-replay resume/second turn and terminal restoration.
+Actual installed CLI subprocesses pass argument text, stdin JSON and argument JSON-trace
+round trips, with saved prompts checked in the CLI store. Installed bash/zsh/fish
+completion sources pass. No developer environment, global policy or daily command was
+replaced; no paid model calls. Initial scripting attempts used a bare bundle path,
+which the CLI correctly treats as a name; the corrected fixture uses its file URI.
+Private receipt: `.evidence/parity-installed/`, with exact source hashes and explicit
+dirty-tree provenance. This is not a new release/tag, cold-cache benchmark or live-wire
+certification. Optional failure diagnostics are private mode 0600 and never uploaded.
+
+The combined native/preset/module-swap regression gate passed **935 tests with no
+skips** (843.40s); `.evidence/parity-combined.xml`. The additional completion-constructor
+sentinel is included in the focused 51-test gate above. Rust **66 passed**, release
+clippy, Ruff lint/format (551 files), diff and direction/archive integrity checks pass
+(600 contract lines / 50 production sources). Fresh-context privacy review found no
+identity leaks; an unnecessary work-schedule reference was removed. Computer-use
+upstream review remains required and is not bypassed.
+
+Actual `uv tool install --no-sources git+https` against reviewed snapshot
+`324b734cd9e7f69672638617b826448c3b9a3e59` also passed in a disposable tool environment.
+Installed package source hashes match the reviewed product; native start/tool/resume,
+second turn, terminal restoration, CLI script formats/stdin and three-shell completion
+pass again. Private receipt: `.evidence/parity-source-install.json`. The developer's
+command link and running conversation remain untouched. Source installation requires
+Rust/Cargo at build time; the separate wheel-install gate does not.
+
 ## CLI parity — explicit session and tool workflows (2026-09-18)
 
 PARITY-06 adds default-No context clearing and turn-boundary branches, plus private

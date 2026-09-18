@@ -20,21 +20,20 @@ compatibility claims. Personal services remain read-only unless explicitly teste
 | PARITY-03 | ecosystem.v1:3, ecosystem.v1:4, ecosystem.v1:5, presentation.v1:5 | Interactive approval and module output compatibility | Non-TTY host can ask without bypassing denial policy; bounded private diagnostics strip terminal controls and recognizable secrets, disclose limits and never enter chat/history | Approval capability and legacy fd-level private inspection verified. Computer-use upstream PR 19 passes current-main offline946 and CI/CLA; required maintainer review remains. Exact scope in ACCEPTANCE |
 | PARITY-04 | ecosystem.v1:6, session.v1:6, session.v1:8, continuity.v1:1 | Delegation admission, subprocess children and routing-aware continuation | Real delegate/recipe callers, cancellation tree, approval, costs and durable identity; UI retention never becomes an accidental execution quota | Admission/retention, routing and canonical continuation verified. Fresh subprocess adapter passes actual delegate/recipe/mode, questions, nested ownership, cancellation/crash and 175/40-column terminal gates; final default579 and ecosystem95 pass. POSIX process isolation, not an OS sandbox; scope in ACCEPTANCE |
 | PARITY-05 | interaction.v1:6, ecosystem.v1:2 | Existing CLI configuration and administration families | Explicit scoped operations reuse CLI policy; bundle/provider/routing/module/source/agent/directory/notification/update workflows; shared settings unchanged without deliberate request | Delivered loaded catalogs, real component toggles, metadata diff/set, confirmed scoped save and retained configuration; default591 and final focused/native54 pass. Full setup/administration retains explicit CLI handoff. Bounds, module-owned adoption and exact evidence in ACCEPTANCE |
-| PARITY-06 | continuity.v1:1, continuity.v1:3, continuity.v1:5, interaction.v1:6 | Session workflows, fork/clear/export and direct tool operations | Validated public/private state boundaries, source preservation, local ordinary resume, deliberate administrative cross-project access; no history execution | Delivered confirmed clear with backup, public-context turn branches, structured private export and hook/approval-owned direct tools. Actual preset, module-swap and 175/40-column terminal checks pass. Reversible native housekeeping remains; canonical CLI continuation/admin retain explicit CLI handoff |
-| PARITY-07 | ecosystem.v1:2, ecosystem.v1:6, composition.v1:3 | CLI scripting and install entrypoint compatibility | Noninteractive prompt/stdin/output-format and shell completion use actual CLI semantics; isolated installed-entrypoint verification | Partial: run/cli handoff and actual isolated help paths pass; single-shot output, shell completion and installed wheel gates remain |
+| PARITY-06 | continuity.v1:1, continuity.v1:3, continuity.v1:5, interaction.v1:6 | Session workflows, fork/clear/export and direct tool operations | Validated public/private state boundaries, source preservation, local ordinary resume, deliberate administrative cross-project access; no history execution | Delivered confirmed clear with backup, public-context turn branches, structured private export, hook/approval-owned direct tools and reversible closed-session archive/restore. Actual preset, swap, terminal and housekeeping checks pass. Canonical CLI continuation/delete/cleanup/replay retain explicit CLI-store handoff |
+| PARITY-07 | ecosystem.v1:2, ecosystem.v1:6, composition.v1:3 | CLI scripting and install entrypoint compatibility | Noninteractive prompt/stdin/output-format and shell completion use actual CLI semantics; isolated installed-entrypoint verification | Installed-wheel native start/tool/resume and actual CLI argument/stdin/text/JSON/trace pass. Read-only bash/zsh/fish completion reuses native options and CLI grammar without key/store initialization. Focused entrypoint/navigation51 pass; broader regression gate recorded in ACCEPTANCE |
 
 ## Remaining CLI-parity sequence
 
-PARITY-05 loaded configuration and PARITY-06 session/tool operations are delivered;
-retain explicit CLI administration handoff for setup/source/update workflows that
-require their own interactive terminal. Finish reversible native housekeeping with
-original histories and directory-local ordinary resume intact. Then PARITY-07:
-actual single-shot stdin/text/JSON/trace paths,
-shell completion and isolated installed-wheel execution. Keep unsupported private
-state migration explicit; do not reinterpret import as canonical CLI continuation.
-Run focused, actual module and terminal checks before full integration; publish
-reviewed incremental snapshots. Required upstream
-review is not bypassed; independent work continues while that review is pending.
+The identified host and ordinary CLI workflow implementations are delivered through
+native controls or the explicit pinned CLI entrypoint. The combined gate passes 935
+tests; isolated wheel and Git-source installation checks pass.
+Retain setup/source/update and advanced CLI-store
+administration in their existing terminal workflows. Do not reinterpret public import
+as canonical CLI continuation. Computer-use upstream delivery still requires maintainer
+review; no policy bypass. Personal service/device and paid provider verification remain
+explicitly separate from deterministic compatibility checks. New domain dashboards and
+arbitrary module-private-state migration are not implied by this inventory.
 
 ## Local follow-up — action emphasis
 
