@@ -471,7 +471,21 @@ class LocalCommands:
                     else []
                 )
         if self.completion and "\n" not in before and (not after or after[0].isspace()):
-            if complete_words == ["/provider"]:
+            if complete_words == ["/tool"]:
+                candidates = [
+                    Candidate(n) for n in ("list", "info", "invoke") if n.startswith(prefix)
+                ]
+            elif (
+                len(complete_words) == 2
+                and complete_words[0] == "/tool"
+                and complete_words[1] in ("info", "invoke")
+            ):
+                candidates = [
+                    Candidate(n)
+                    for n, enabled in self.completion.snapshot.config_items.get("tools", ())
+                    if enabled and n.startswith(prefix)
+                ]
+            elif complete_words == ["/provider"]:
                 candidates.extend(Candidate(n) for n in ("status", "login") if n.startswith(prefix))
             elif complete_words == ["/provider", "login"]:
                 candidates = [
@@ -695,6 +709,9 @@ class LocalCommands:
                 "/config",
                 "/agents",
                 "/tools",
+                "/tool",
+                "/clear",
+                "/fork",
                 "/allowed-dirs",
                 "/denied-dirs",
                 "/provider",
@@ -721,12 +738,65 @@ class LocalCommands:
             "/denied-dirs",
             "/provider",
             "/mode",
+            "/clear",
+            "/fork",
+            "/tool",
         ):
             return None
         if image:
             return False, "Local controls cannot consume attachments; detach them first"
         try:
-            tokens = shlex.split(args) if command not in ("/goal", "/mode") else []
+            tokens = (
+                args.split(maxsplit=2)
+                if command == "/tool"
+                else shlex.split(args)
+                if command not in ("/goal", "/mode")
+                else []
+            )
+            if command == "/tool":
+                if not tokens or tokens == ["list"]:
+                    command, tokens = "/config", ["tools"]
+                elif len(tokens) >= 2 and tokens[1] in (self.coordinator.get("tools") or {}):
+                    if tokens[0] == "invoke" and len(tokens) == 3:
+                        try:
+                            arguments = json.loads(tokens[2])
+                            if (
+                                not isinstance(arguments, dict)
+                                or len(json.dumps(arguments, allow_nan=False)) > 32768
+                            ):
+                                raise ValueError
+                        except (ValueError, TypeError):
+                            raise ValueError(
+                                "Tool input must be a JSON object of at most 32768 characters"
+                            ) from None
+                        name = tokens[1]
+
+                        async def invoke():
+                            return await self.invoke_tool(name, arguments)
+
+                        invoke.manual_tool = True
+                        return self.host.submit(text, operation=invoke)
+                    if tokens[0] != "info" or len(tokens) != 2:
+                        raise ValueError("Usage: /tool list | info NAME | invoke NAME JSON_OBJECT")
+                else:
+                    raise ValueError(
+                        "Choose a mounted tool: /tool info NAME | invoke NAME JSON_OBJECT"
+                    )
+            if command == "/clear":
+                if tokens != ["--confirm"]:
+                    raise ValueError(
+                        "Confirm clearing context and goal with /clear --confirm; history and prior effects remain"
+                    )
+                if not self.host.store or not callable(
+                    getattr(self.coordinator.get("context"), "clear", None)
+                ):
+                    raise ValueError(
+                        "Context clearing requires durable storage and a supported context module"
+                    )
+            if command == "/fork" and tokens:
+                raise ValueError(
+                    "Use /fork to list turns, then the native client's /fork N [name] confirmation"
+                )
             if command == "/goal" and not self.goal_supported():
                 raise ValueError("This orchestrator has no supported goal protocol")
             if command == "/goal" and args:
@@ -874,7 +944,70 @@ class LocalCommands:
                         else "Applying local control",
                     }
                 )
-            if auth:
+            if command == "/tool":
+                tool = self.coordinator.get("tools")[tokens[1]]
+                text = json.dumps(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": tool.input_schema,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+                host.show_message(
+                    text[:32768]
+                    + ("\nSchema preview truncated" if len(text) > 32768 else "")
+                    + "\n/tool invoke NAME JSON_OBJECT executes directly using hooks and approvals. No root model request; tools may call models/services, incur charges or change files.",
+                    source="tool",
+                )
+            elif command == "/clear":
+                context = self.coordinator.get("context")
+                messages = await context.get_messages()
+                backup = {
+                    "version": 1,
+                    "session_id": host.session_id,
+                    "messages": messages,
+                    "goal": self.coordinator.session_state.get("goal"),
+                    "sequence": host.sequence,
+                }
+                if len(json.dumps(backup, allow_nan=False).encode()) > 16 * 1024 * 1024:
+                    raise ValueError(
+                        "Context exceeds the 16 MiB clear-backup bound; nothing cleared"
+                    )
+                directory = host.store.path / "context-clears"
+                directory.mkdir(mode=0o700, exist_ok=True)
+                atomic_json(directory / f"{uuid.uuid4().hex}.json", backup)
+                self.save("pending")
+                await context.clear()
+                if await context.get_messages() != []:
+                    raise ValueError("Context module did not clear its canonical messages")
+                self.coordinator.session_state["goal"] = None
+                self.coordinator.session_state.pop("goal_circuit_breaker", None)
+                self.goal_detector.reset()
+                self.save()
+                host.emit("goal.status", "goal-status", **self.goal_status())
+                host.show_message(
+                    "Context and goal cleared. Conversation/history retained; prior effects are not undone. A private context backup was retained. Pending input stays held.",
+                    source="context",
+                )
+            elif command == "/fork":
+                from amplifier_foundation.session import count_turns, get_turn_summary
+
+                messages = await self.coordinator.get("context").get_messages()
+                total = count_turns(messages)
+                lines = [f"Captured context · {total} turns (latest 10)"]
+                for turn in range(total, max(0, total - 10), -1):
+                    summary = get_turn_summary(messages, turn)
+                    lines.append(
+                        f"{turn}: {summary['user_content'][:100]} · {summary['tool_count']} tools"
+                    )
+                host.show_message(
+                    "\n".join(lines)
+                    + "\n/fork N [name] opens a new public-context branch through that turn after confirmation. No tools replayed; pins, modes, goals, queues and private module state are not transferred.",
+                    source="fork",
+                )
+            elif auth:
                 provider = self.coordinator.get("providers")[tokens[1]]
                 prompts = []
 
@@ -1063,6 +1196,67 @@ class LocalCommands:
                         "status": "Ready" if host.ready else "Control recovery required",
                     }
                 )
+
+    async def invoke_tool(self, name, arguments):
+        """Explicit user dispatch using the kernel hook/approval/cancellation seams."""
+        from amplifier_core import ToolResult
+
+        host, coordinator = self.host, self.coordinator
+        identity = uuid.uuid4().hex
+        data = {
+            "tool_name": name,
+            "tool_call_id": identity,
+            "tool_input": arguments,
+            "parallel_group_id": identity,
+            "manual": True,
+        }
+        task = asyncio.current_task()
+        contexts = getattr(coordinator, "_tool_dispatch_contexts", None)
+        if contexts is None:
+            contexts = coordinator._tool_dispatch_contexts = {}
+        try:
+            pre = await coordinator.hooks.emit("tool:pre", data)
+            pre = await coordinator.process_hook_result(pre, "tool:pre", name)
+            if host._stop_requested:
+                raise asyncio.CancelledError
+            if pre.action == "deny":
+                result = ToolResult(
+                    success=False, error={"message": "Denied by hook: " + str(pre.reason)}
+                )
+            else:
+                if pre.data is not None and "tool_input" in pre.data:
+                    arguments = pre.data["tool_input"]
+                    if not isinstance(arguments, dict):
+                        raise ValueError("Hook-modified tool input must be an object")
+                    data["tool_input"] = arguments
+                coordinator.cancellation.register_tool_start(identity, name)
+                contexts[task] = {"tool_call_id": identity, "parallel_group_id": identity}
+                result = await coordinator.get("tools")[name].execute(arguments)
+            encoded = result.model_dump() if hasattr(result, "model_dump") else str(result)
+            post = await coordinator.hooks.emit("tool:post", {**data, "result": encoded})
+            post = await coordinator.process_hook_result(post, "tool:post", name)
+            shown = post.data.get("result", encoded) if isinstance(post.data, dict) else encoded
+            # A returned failure/denial is still a completed dispatch with known
+            # evidence, not broken conversation state. The tool keeps its outcome.
+            status = "succeeded" if getattr(result, "success", False) else "failed"
+            host.outcome = "success"
+            body = json.dumps(shown, ensure_ascii=False, default=str)
+            return (
+                f"Direct tool · {name} · {status}\n"
+                + body[:65536]
+                + ("\nResult preview truncated; inspect Activity." if len(body) > 65536 else "")
+            )
+        except asyncio.CancelledError:
+            raise  # Host retains unknown observations; never invent a tool result.
+        except Exception as exc:
+            host.outcome = "error"
+            await coordinator.hooks.emit(
+                "tool:error", {**data, "error": {"type": type(exc).__name__, "message": str(exc)}}
+            )
+            raise
+        finally:
+            contexts.pop(task, None)
+            coordinator.cancellation.register_tool_complete(identity)
 
 
 class RuntimeControls:

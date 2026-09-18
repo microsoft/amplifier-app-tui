@@ -261,6 +261,19 @@ class WorkspaceBridge(RuntimeBridge):
             return True, "Standalone provider probe; no conversation or workspace content sent"
         if self.history_loading and op in ("submit", "queue", "queue_run", "switch"):
             return False, "Loading directory history; draft retained, send when ready"
+        if op == "clear_context":
+            if identity != self.host.session_id or request.get("confirm") is not True:
+                return False, "Confirm clearing the current context; history/effects remain"
+            if not self.host.ready or self.host.task and not self.host.task.done():
+                return False, "Finish or stop active work before clearing context"
+            self.followups.hold()
+            return super().command({**request, "op": "submit", "text": "/clear --confirm"})
+        if (
+            op == "submit"
+            and isinstance(request.get("text"), str)
+            and request["text"].strip().split()[:1] == ["/clear"]
+        ):
+            self.followups.hold()
         if op in ("request_capture", "request_clear") or (
             op == "inspect" and request.get("category") == "wire_request"
         ):
@@ -333,7 +346,12 @@ class WorkspaceBridge(RuntimeBridge):
         if op == "export":
             from .recovery import export
 
-            path = export(self.state_dir, self.host.session_id)
+            try:
+                path = export(
+                    self.state_dir, self.host.session_id, request.get("format", "markdown")
+                )
+            except (OSError, ValueError) as exc:
+                return False, str(exc)
             self.emit(
                 {
                     "type": "error",
@@ -428,6 +446,31 @@ class WorkspaceBridge(RuntimeBridge):
             target = request.get("target")
             conversion = request.get("conversion_overlay")
             cli_import = request.get("cli_import")
+            fork_turn, fork_name = request.get("fork_turn"), request.get("fork_name")
+            if fork_turn is not None and (
+                type(fork_turn) is not int
+                or not 1 <= fork_turn <= 10000
+                or target != "new"
+                or conversion is not None
+                or cli_import is not None
+                or identity != self.host.session_id
+                or request.get("confirm_fork") is not True
+                or fork_name is not None
+                and (
+                    not isinstance(fork_name, str)
+                    or not fork_name.strip()
+                    or len(fork_name) > 100
+                    or not fork_name.isprintable()
+                )
+            ):
+                return (
+                    False,
+                    "Confirm a public-context branch at a valid turn with an optional 1–100 character name",
+                )
+            if fork_turn is None and (
+                fork_name is not None or request.get("confirm_fork") is not None
+            ):
+                return False, "Branch options require a turn"
             if request.get("structured_import") is not None and (
                 cli_import is None or type(request["structured_import"]) is not bool
             ):
@@ -471,6 +514,8 @@ class WorkspaceBridge(RuntimeBridge):
                     conversion=conversion,
                     cli_import=cli_import,
                     structured_import=request.get("structured_import", False),
+                    fork_turn=fork_turn,
+                    fork_name=fork_name,
                 )
             )
             self.switch_task.add_done_callback(
@@ -714,6 +759,8 @@ class WorkspaceBridge(RuntimeBridge):
         conversion=None,
         cli_import=None,
         structured_import=False,
+        fork_turn=None,
+        fork_name=None,
     ):
         candidate = None
         committed = False
@@ -750,6 +797,14 @@ class WorkspaceBridge(RuntimeBridge):
                 )
             transferred = None
             imported = None
+            if fork_turn is not None:
+                from amplifier_foundation.session import slice_to_turn
+
+                from .recovery import context_transfer
+
+                messages = await self.host.session.coordinator.get("context").get_messages()
+                sliced = slice_to_turn(messages, fork_turn, handle_orphaned_tools="error")
+                transferred = context_transfer(sliced, self.host.session_id, turn=fork_turn)
             if cli_import is not None:
                 from .cli_compat import import_session
 
@@ -781,6 +836,8 @@ class WorkspaceBridge(RuntimeBridge):
             candidate = SessionHost(
                 ConversationStore(self.state_dir, launch, None if target == "new" else target)
             )
+            if fork_name:
+                candidate.store.set_title(fork_name)
             if imported:
                 atomic_json(candidate.store.path / "imported-reference.json", imported)
                 candidate.store.save_draft(self.host.store.draft)

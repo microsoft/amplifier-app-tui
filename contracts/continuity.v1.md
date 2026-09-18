@@ -32,7 +32,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: An unsent input becoming submitted on return violates intent.
    Affected: the boundary's clients and the person relying on them.
 
-3. **Replay only observations.** History reconstruction never invokes a tool, provider or approval.
+3. **Replay only observations.** History reconstruction and exports never invoke a tool, provider or approval. Explicit turn branching creates a new identity with validated captured public context and disclosed private-state exclusions; clearing active context preserves identity/history and records that prior effects remain. Neither operation replays work or dispatches held input.
    Explicit CLI-session discovery/import preserves source bytes and distinguishes historical reference from supported executable adoption; neither silently replays tools or changes the original session's policy. Structured public adoption validates tool pairing and exact context readback under a new identity; it never claims original private-state continuation.
    Broken: A repeated external effect during replay violates recovery.
    Affected: the boundary's clients and the person relying on them.

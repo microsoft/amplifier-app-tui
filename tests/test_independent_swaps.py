@@ -24,6 +24,47 @@ pytestmark = pytest.mark.skipif(
 
 @pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])
 @pytest.mark.parametrize("context", ["context-simple", "context-persistent"])
+async def test_clear_uses_module_seam_and_stays_empty_on_resume(prepared, tmp_path, loop, context):
+    from test_cli_controls import local
+
+    workspace = Path(__file__).resolve().parents[2]
+    value, report = prepared
+    plan = copy.deepcopy(value.mount_plan)
+    for slot, name in (("orchestrator", loop), ("context", context)):
+        plan["session"][slot] = {
+            "module": name,
+            "source": str(workspace / f"amplifier-module-{name}"),
+            "config": {},
+        }
+    if context == "context-persistent":
+        plan["session"]["context"]["config"] = {
+            "transcript_path": str(tmp_path / "isolated-clear.jsonl"),
+            "memory_files": [],
+        }
+    value = replace(value, mount_plan=plan)
+    store = ConversationStore(tmp_path / "state", {})
+    host = SessionHost(store)
+    try:
+        await host.open(value, report, tmp_path)
+        assert host.submit("Synthetic clear context seam")[0]
+        await host.task
+        assert await host.session.coordinator.get("context").get_messages()
+        await local(host, "/clear --confirm")
+        assert host.ready
+        assert await host.session.coordinator.get("context").get_messages() == []
+    finally:
+        await host.close()
+    restored = SessionHost(ConversationStore(tmp_path / "state", {}, store.identity))
+    try:
+        await restored.open(value, report, tmp_path)
+        assert await restored.session.coordinator.get("context").get_messages() == []
+        assert not restored.session.coordinator.get("providers")["fixture"].calls
+    finally:
+        await restored.close()
+
+
+@pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])
+@pytest.mark.parametrize("context", ["context-simple", "context-persistent"])
 @pytest.mark.parametrize("decision", ["allow", "deny", "stop"])
 async def test_independent_swaps_preserve_approval_and_cancellation(
     prepared, tmp_path, loop, context, decision

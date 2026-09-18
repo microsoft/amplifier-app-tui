@@ -1,5 +1,30 @@
 # First vertical slice — acceptance evidence
 
+## CLI parity — explicit session and tool workflows (2026-09-18)
+
+PARITY-06 adds default-No context clearing and turn-boundary branches, plus private
+JSON observation export and explicit direct tools. Clear retains a pre-mutation
+context/goal backup, visible history, draft and held queue; actual empty readback is
+required. A branch preserves its source and copies only validated public context to
+a new identity under current launch configuration, never replaying tools. Export is
+not canonical context or a resumable session. Direct tools use kernel pre/post policy,
+modified input/result, interactive approvals, delegate attribution and owned graceful
+or forced cancellation; no root-model or automatic naming call is introduced.
+A returned tool failure is known evidence and does not make its conversation unsafe.
+
+Final default suite: **606 passed, 316 skipped** (127.14s). Combined focused/native/swap
+gate: **84 passed, 2 skipped** (35.55s). Both actual presets additionally passed
+direct-delegate and existing depth checks (**4 passed**, 7.56s). Final known-result
+resume and post-hook modification regression gate: **18 passed** (3.91s).
+Rust **66 passed**, release build/clippy, Ruff lint/format and direction/archive checks
+passed (600 contract lines / 50 production sources). Private receipts use the
+`.evidence/session-operations-*` prefix. Developer inspected actual 175×50 and 40×20
+branch/approval captures; six native cases exercise both dimensions. Initial terminal
+attempts corrected stale completion-label, narrow search and wrapped-draft waiters;
+the final gate passes. These are deterministic actual-module and terminal checks,
+not paid provider or private-state migration certification. Canonical CLI sessions
+and advanced administration continue through the explicit pinned CLI handoff.
+
 ## CLI parity — scoped configuration controls (2026-09-17)
 
 PARITY-05 adds actual Foundation tool/provider/context/agent/behavior controls,

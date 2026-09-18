@@ -1,5 +1,36 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Explicit session and tool operations (2026-09-17)
+
+Context clear is confirmed user intent, not a model tool. It holds pending input,
+writes a private bounded pre-clear context/goal backup, marks local controls pending,
+calls the mounted context's public `clear`, verifies empty canonical readback, clears
+the active goal and checkpoints under the same identity. History and effects remain.
+A no-op, failed or cancelled mutation cannot become a ready checkpoint. Persistent
+modules may truncate their own transcript; the app backup precedes that call.
+
+Turn branches use Foundation's CLI turn boundaries and strict orphan-tool handling,
+then the existing public-context transfer/readback path under a new identity. The
+source stays open until the candidate is ready. They are not private-state forks:
+new launch configuration applies, while old pins/modes/goals/controls/queues do not
+transfer. Unsupported context modules refuse rather than synthesizing success.
+JSON export serializes the displayed projection with source identity and sequence,
+including explicit partial-stream markers. It omits raw session-ready composition
+and is neither canonical context nor a resumable session. Input journal remains
+bounded at 16 MiB; rendered output is bounded at 32 MiB, created mode 0600.
+
+Manual tool invocation is a host operation, not a provider instruction. The app uses
+kernel pre/post hook processing (including denial, changed input and ask_user), normal
+tool approval, cancellation registration and the same delegate dispatch identity.
+It does not call a root provider or emit prompt-complete naming triggers. Tools and
+their hooks/children can still use providers or external services; no free/safe-tool
+claim follows from bypassing the root model. Ephemeral next-LLM injections have no
+implicit continuation to trigger. Module result status and observed outcome remain
+separate; post-hook result modifications are used in the displayed returned value.
+The existing owned-execution boundary now also shields/drains host operations; forced
+unverified operation cancellation marks uncertainty rather than abandoning execution
+and claiming safe resume. No orchestration policy moves into the kernel.
+
 ## Existing CLI host parity (2026-09-17)
 
 The `/config` read path reuses Foundation's loaded `SessionConfigurator`, as the

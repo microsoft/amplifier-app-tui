@@ -44,7 +44,7 @@ class ExecutionOwner:
             task.cancel()
 
 
-async def execute_owned(session, prompt, *, grace=0.25, on_forced=None):
+async def execute_owned(session, prompt, *, grace=0.25, on_forced=None, operation=None):
     """Retain execution ownership while cooperative cancellation records its outcome.
 
     Cancelling the Rust-backed wait can return before Python callbacks have drained.
@@ -54,7 +54,9 @@ async def execute_owned(session, prompt, *, grace=0.25, on_forced=None):
     nor extends that grace. An
     uncooperative module still requires the client's separately owned process deadline.
     """
-    execution = asyncio.ensure_future(session.execute(prompt))
+    execution = asyncio.ensure_future(
+        operation() if operation is not None else session.execute(prompt)
+    )
     try:
         return await asyncio.shield(execution)
     except asyncio.CancelledError:
