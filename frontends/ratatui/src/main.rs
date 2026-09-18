@@ -1,3 +1,4 @@
+use chrome as activity;
 use crossterm::{
     event::{
         self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
@@ -14,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::os::unix::process::CommandExt;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     io::{self, BufRead, Read, Write},
     process::{Child, Command, Stdio},
     sync::{
@@ -43,14 +44,89 @@ mod workflow;
 mod workspace;
 use interaction::{Action, Interaction};
 
-const BG: Color = Color::Rgb(20, 25, 31);
-const PANEL: Color = Color::Rgb(29, 36, 45);
-const INK: Color = Color::Rgb(224, 230, 236);
-const MUTED: Color = Color::Rgb(162, 176, 191);
-const LINE: Color = Color::Rgb(57, 70, 84);
-const GREEN: Color = Color::Rgb(142, 213, 183);
-const AMBER: Color = Color::Rgb(232, 193, 111);
-const RED: Color = Color::Rgb(243, 163, 174);
+#[derive(Clone, Copy)]
+enum SyntaxTheme {
+    Plain,
+    Light,
+    Dark,
+}
+
+struct Palette {
+    bg: Color,
+    panel: Color,
+    ink: Color,
+    muted: Color,
+    line: Color,
+    green: Color,
+    amber: Color,
+    red: Color,
+    syntax_theme: SyntaxTheme,
+}
+
+impl Palette {
+    fn named(name: &str, plain: bool) -> Self {
+        if plain {
+            return Self {
+                bg: Color::Reset,
+                panel: Color::Reset,
+                ink: Color::Reset,
+                muted: Color::Reset,
+                line: Color::Reset,
+                green: Color::Reset,
+                amber: Color::Reset,
+                red: Color::Reset,
+                syntax_theme: SyntaxTheme::Plain,
+            };
+        }
+        match name {
+            "light" => Self {
+                bg: Color::Rgb(240, 246, 255),
+                panel: Color::Rgb(232, 233, 238),
+                ink: Color::Rgb(13, 17, 23),
+                muted: Color::Rgb(74, 80, 96),
+                line: Color::Rgb(142, 149, 163),
+                // Darkened brand accents preserve readable contrast on light.
+                green: Color::Rgb(0, 104, 120),
+                amber: Color::Rgb(139, 82, 0),
+                red: Color::Rgb(178, 44, 40),
+                syntax_theme: SyntaxTheme::Light,
+            },
+            "terminal" => Self {
+                bg: Color::Reset,
+                panel: Color::Reset,
+                ink: Color::Reset,
+                muted: Color::Reset,
+                line: Color::Reset,
+                green: Color::Reset,
+                amber: Color::Reset,
+                red: Color::Reset,
+                syntax_theme: SyntaxTheme::Plain,
+            },
+            _ => Self {
+                // muxplex brand.conf / tokens.css, reference f88898e.
+                bg: Color::Rgb(13, 17, 23),
+                panel: Color::Rgb(26, 31, 43),
+                ink: Color::Rgb(240, 246, 255),
+                muted: Color::Rgb(142, 149, 163),
+                line: Color::Rgb(42, 48, 64),
+                green: Color::Rgb(0, 217, 245),
+                amber: Color::Rgb(241, 166, 64),
+                red: Color::Rgb(248, 81, 73),
+                syntax_theme: SyntaxTheme::Dark,
+            },
+        }
+    }
+}
+
+fn palette() -> &'static Palette {
+    static PALETTE: std::sync::OnceLock<Palette> = std::sync::OnceLock::new();
+    PALETTE.get_or_init(|| {
+        Palette::named(
+            &std::env::var("AMPLIFIER_TUI_THEME").unwrap_or_default(),
+            std::env::var_os("NO_COLOR").is_some(),
+        )
+    })
+}
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 struct Item {
@@ -94,6 +170,10 @@ struct App {
     draft_changed: Instant,
     draft_pending: bool,
     expanded: bool,
+    interacting: bool,
+    interaction_focus: bool,
+    inline_open: HashSet<String>,
+    background: String,
     selected: usize,
     detail_scroll: usize,
     request: u64,
@@ -103,6 +183,7 @@ struct App {
     output: Receiver<Value>,
     disconnected: bool,
     ready: bool,
+    startup_failure: String,
     startup_recovery: Option<String>,
     rows: Vec<(u16, usize)>,
     tab_y: u16,
@@ -121,10 +202,10 @@ fn safe(text: &str) -> String {
 }
 fn color(status: &str) -> Color {
     match status {
-        "failed" => RED,
-        "succeeded" | "completed" => GREEN,
-        "waiting" | "running" => AMBER,
-        _ => MUTED,
+        "failed" | "error" | "interrupted" | "cancelled" | "stopping" | "stopped" => palette().red,
+        "succeeded" | "completed" => palette().green,
+        "waiting" | "running" | "warning" | "unknown" => palette().amber,
+        _ => palette().muted,
     }
 }
 fn icon(status: &str) -> &str {
@@ -138,12 +219,12 @@ fn icon(status: &str) -> &str {
 
 fn editor() -> TextArea<'static> {
     let mut draft = TextArea::default();
-    draft.set_style(Style::default().fg(INK).bg(BG));
+    draft.set_style(Style::default().fg(palette().ink).bg(palette().panel));
     draft.set_cursor_line_style(Style::default());
-    draft.set_cursor_style(Style::default().fg(BG).bg(GREEN));
-    draft.set_selection_style(Style::default().fg(INK).bg(LINE));
+    draft.set_cursor_style(Style::default().fg(palette().bg).bg(palette().green));
+    draft.set_selection_style(Style::default().fg(palette().ink).bg(palette().line));
     draft.set_placeholder_text("Ask, correct, or describe the next task…");
-    draft.set_wrap_mode(ratatui_textarea::WrapMode::Glyph);
+    draft.set_wrap_mode(ratatui_textarea::WrapMode::WordOrGlyph);
     draft
 }
 
@@ -228,6 +309,10 @@ impl App {
             draft_changed: Instant::now(),
             draft_pending: false,
             expanded: false,
+            interacting: false,
+            interaction_focus: false,
+            inline_open: HashSet::new(),
+            background: "Starting runtime".into(),
             selected: 0,
             detail_scroll: 0,
             request: 0,
@@ -237,6 +322,7 @@ impl App {
             output,
             disconnected: false,
             ready: false,
+            startup_failure: String::new(),
             startup_recovery: None,
             rows: vec![],
             tab_y: 0,
@@ -245,6 +331,9 @@ impl App {
         })
     }
     fn upsert(&mut self, item: Item) {
+        if self.flow.busy && !self.disconnected {
+            self.flow.clocks.observe(&item);
+        }
         if item.kind == "outcome" {
             self.native.finish();
         }
@@ -264,7 +353,9 @@ impl App {
         } else {
             self.index.insert(item.id.clone(), self.items.len());
             if item.kind == "tool" {
-                self.selected = self.items.len();
+                if native::expandable(&item) && !self.interaction_focus {
+                    self.selected = self.items.len();
+                }
                 self.tool_indices.push(self.items.len());
             }
             self.items.push(item);
@@ -273,6 +364,7 @@ impl App {
     }
     fn receive(&mut self, v: Value) {
         if v["type"] != "disconnected" && v["version"] != 1 {
+            self.flow.clocks.freeze();
             self.disconnected = true;
             self.status = "Protocol mismatch · no work retried".into();
             return;
@@ -280,6 +372,7 @@ impl App {
         match v["type"].as_str().unwrap_or("") {
             "snapshot" => {
                 if v["reset"] == true {
+                    self.startup_failure.clear();
                     self.startup_recovery = None;
                     self.native.reset();
                     self.flow = workflow::Workflow::default();
@@ -291,7 +384,14 @@ impl App {
                     self.index.clear();
                     self.tool_indices.clear();
                     self.layouts.clear();
-                    self.ui = Interaction::default();
+                    // Legacy stdout/stderr belongs to the process, not the
+                    // conversation being replaced. Keep its count-only badge.
+                    self.ui = Interaction {
+                        runtime_output_lines: self.ui.runtime_output_lines,
+                        runtime_output_omitted: self.ui.runtime_output_omitted,
+                        runtime_output_failed: self.ui.runtime_output_failed,
+                        ..Interaction::default()
+                    };
                     self.pending.clear();
                     self.approval = None;
                     self.view = 0;
@@ -299,6 +399,9 @@ impl App {
                     self.anchors = [None; 2];
                     self.anchor_offsets = [None; 2];
                     self.expanded = false;
+                    self.interacting = false;
+                    self.interaction_focus = false;
+                    self.inline_open.clear();
                     self.detail_scroll = 0;
                     self.copy = None;
                     // Undo/selection state belongs to the source conversation too.
@@ -307,8 +410,13 @@ impl App {
                     self.draft_pending = false;
                 }
                 self.nav.session = string(&v, "session_id");
+                self.controls.auth_prompt = None;
+                self.controls.goal.clear();
                 // Older v1 scene adapters have no readiness field; real hosts emit it.
                 self.ready = v["ready"].as_bool().unwrap_or(true);
+                if self.ready {
+                    self.background.clear();
+                }
                 self.policy = "loading".into();
                 self.nav.enabled = v["navigation"] == true;
                 self.ui.skills = v["skills"]
@@ -362,11 +470,7 @@ impl App {
                     }
                     self.native.skip_replay_item = false;
                 }
-                self.selected = self
-                    .items
-                    .iter()
-                    .rposition(|i| i.kind == "tool")
-                    .unwrap_or(0);
+                self.selected = self.items.iter().rposition(native::expandable).unwrap_or(0);
                 self.ui.history = self
                     .items
                     .iter()
@@ -429,6 +533,18 @@ impl App {
                 }
             }
             "system" => {
+                self.controls.mode_names = v["mode_names"]
+                    .as_array()
+                    .unwrap_or(&vec![])
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect();
+                self.ui.commands = v["commands"]
+                    .as_array()
+                    .unwrap_or(&vec![])
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect();
                 self.controls.steer = v["steer"] == true;
                 self.controls.providers = v["conversation_provider"].clone();
                 self.ui.skills = v["skills"]
@@ -450,22 +566,73 @@ impl App {
                     .filter_map(|s| s.as_str().map(safe))
                     .collect();
             }
+            "commands" if v["session_id"] == self.nav.session => {
+                self.ui.commands = v["commands"]
+                    .as_array()
+                    .unwrap_or(&vec![])
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect();
+            }
+            "background" => self.background = safe(&string(&v, "phase")),
+            "runtime_output_status" => {
+                self.ui.runtime_output_lines = v["lines"].as_u64().unwrap_or_default();
+                self.ui.runtime_output_omitted = v["omitted"].as_u64().unwrap_or_default();
+                self.ui.runtime_output_failed = v["failed"] == true;
+            }
+            "model_activity"
+                if self.flow.busy
+                    && v["session_id"] == self.nav.session
+                    && v["turn_id"] == self.controls.turn =>
+            {
+                self.flow.meter.phase = safe(&string(&v, "phase"));
+            }
             "state" => {
                 if let Some(ready) = v["ready"].as_bool() {
                     self.ready = ready;
                 }
                 self.flow.busy = v["busy"] == true;
+                if !self.flow.busy {
+                    self.flow.clocks.freeze();
+                } else if self.controls.turn != string(&v, "turn_id") {
+                    self.flow.clocks = native::ActivityClocks::default();
+                }
+                if !self.flow.busy {
+                    self.flow.cancellation.clear();
+                } else if let Some(stage) = v["cancellation"].as_str() {
+                    self.flow.cancellation = stage.into();
+                }
                 self.controls.turn = if self.flow.busy {
                     string(&v, "turn_id")
                 } else {
                     String::new()
                 };
+                self.flow.meter.state(&self.controls.turn, self.flow.busy);
                 self.status = safe(&string(&v, "status"));
+                if self.ready {
+                    self.background.clear();
+                    self.startup_failure.clear();
+                } else if self.status.starts_with("Startup failed:") {
+                    self.background.clear();
+                    self.startup_failure = self.status.clone();
+                    self.upsert(Item {
+                        id: "startup-failure".into(), kind: "notice".into(),
+                        text: format!("{}\nNothing sent. Your draft remains editable; correct the startup problem and relaunch.", self.status),
+                        status: "failed".into(), ..Item::default()
+                    });
+                }
                 self.approval = if v["approval"].is_object() {
                     Some(v["approval"].clone())
                 } else {
                     None
                 };
+            }
+            "turn_metrics"
+                if self.flow.busy
+                    && v["session_id"] == self.nav.session
+                    && v["turn_id"] == self.controls.turn =>
+            {
+                self.flow.meter.observe(v);
             }
             "reply" => {
                 let id = string(&v, "request_id");
@@ -511,7 +678,20 @@ impl App {
                         self.ui.menu = None;
                     }
                     self.reject_lookup(&id);
-                    self.status = safe(&string(&v, "reason"));
+                    // Delayed autosave refusal after failed startup keeps
+                    // admission and local-only draft state explicit.
+                    self.status = if self.ready {
+                        safe(&string(&v, "reason"))
+                    } else {
+                        format!(
+                            "Session not ready · {} · draft retained locally",
+                            if self.startup_failure.is_empty() {
+                                safe(&string(&v, "reason"))
+                            } else {
+                                self.startup_failure.clone()
+                            }
+                        )
+                    };
                 }
             }
             "error" => self.status = safe(&string(&v, "message")),
@@ -531,6 +711,68 @@ impl App {
             | "workspace_edit_prepare"
             | "workspace_edit_apply" => self.review_result(&v),
             "inspection" => self.inspection_result(v),
+            "auth_prompt" if v["session_id"] == self.nav.session => {
+                if v["active"] == true {
+                    self.controls.auth_prompt = Some(safe(&string(&v, "text")));
+                    if let Some(menu) = self
+                        .ui
+                        .menu
+                        .as_mut()
+                        .filter(|m| m.title.starts_with("Provider login ·"))
+                    {
+                        menu.detail = self.controls.auth_prompt.clone().unwrap_or_default();
+                    }
+                    self.status = "Login instructions available: Actions → Provider login prompt · Stop cancels".into();
+                } else {
+                    self.controls.auth_prompt = None;
+                    self.status = safe(&string(&v, "text"));
+                    if self
+                        .ui
+                        .menu
+                        .as_ref()
+                        .is_some_and(|m| m.title.starts_with("Provider login ·"))
+                    {
+                        self.ui.menu = None;
+                    }
+                }
+            }
+            "goal_status" if v["session_id"] == self.nav.session => {
+                self.controls.goal = if v["active"] == true {
+                    format!(
+                        " · Goal ≤{} turns",
+                        v["cap"]
+                            .as_u64()
+                            .map(|n| n.to_string())
+                            .unwrap_or_else(|| "unlimited".into())
+                    )
+                } else {
+                    String::new()
+                };
+            }
+            "runtime_tools" if v["session_id"] == self.nav.session => {
+                if let Some(start) = self
+                    .system
+                    .iter()
+                    .position(|s| s.starts_with("Tools (mounted"))
+                {
+                    let end = self
+                        .system
+                        .iter()
+                        .enumerate()
+                        .skip(start + 1)
+                        .find(|(_, s)| s.is_empty())
+                        .map(|(i, _)| i)
+                        .unwrap_or(start + 1);
+                    self.system.splice(
+                        start + 1..end,
+                        v["tools"]
+                            .as_array()
+                            .unwrap_or(&vec![])
+                            .iter()
+                            .filter_map(|s| s.as_str().map(|s| format!("  • {}", safe(s)))),
+                    );
+                }
+            }
             "provider_validation" if v["session_id"] == self.nav.session => {
                 self.status = safe(&string(&v, "message"));
                 if self
@@ -610,19 +852,51 @@ impl App {
                 }
             }
             "disconnected" => {
+                self.flow.clocks.freeze();
+                if !self.disconnected {
+                    self.upsert(Item {
+                        id: "connection-failure".into(),
+                        kind: "notice".into(),
+                        text: if self.ready {
+                            "Runtime disconnected · outstanding outcomes may be uncertain. Copy your unsent draft before exiting; new edits cannot be saved. Relaunch explicitly; nothing is retried."
+                        } else {
+                            "Startup disconnected before readiness · nothing sent. Copy your unsent draft before exiting; new edits cannot be saved. Relaunch explicitly."
+                        }.into(),
+                        status: "failed".into(),
+                        ..Item::default()
+                    });
+                }
                 self.disconnected = true;
+                self.ready = false;
+                self.background.clear();
+                if self.policy == "loading" {
+                    self.policy = "unavailable".into();
+                }
                 self.nav.switching = None;
                 self.nav.lookup = None;
                 self.approval = None;
                 self.controls.lookup = None;
-                self.status = "Disconnected · outcome uncertain; draft retained; no retry".into();
+                self.status =
+                    "Disconnected · draft is local only; copy before exiting · no retry".into();
             }
             _ => (),
         }
     }
+    fn not_ready(&mut self) {
+        self.status = if self.disconnected {
+            "Disconnected · draft is local only; copy before exiting · no retry".into()
+        } else if self.startup_failure.is_empty() {
+            "Session not ready · draft retained; send explicitly when ready".into()
+        } else {
+            format!(
+                "Session not ready · {} · draft retained",
+                self.startup_failure
+            )
+        };
+    }
     fn send(&mut self, mut request: Value) {
         if self.disconnected {
-            self.status = "Disconnected · draft retained; no automatic retry".into();
+            self.not_ready();
             return;
         }
         if let Some(image) = &self.insights.image
@@ -637,7 +911,7 @@ impl App {
                 Some("draft" | "editor_draft" | "cancel_switch")
             )
         {
-            self.status = "Session not ready · draft retained; send explicitly when ready".into();
+            self.not_ready();
             return;
         }
         if matches!(
@@ -709,8 +983,56 @@ impl App {
             return true;
         }
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        if ctrl
+            && matches!(key.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&'c'))
+            && key.kind != KeyEventKind::Press
+        {
+            return true;
+        }
+        if let Some(keep_running) = self.quit_key(key) {
+            return keep_running;
+        }
+        if self.interacting
+            && self.interaction_focus
+            && self.ui.menu.is_none()
+            && self.flow.prompt.is_none()
+            && self.ui.focus.is_none()
+        {
+            match key.code {
+                KeyCode::Up | KeyCode::Down => {
+                    let eligible: Vec<_> = self
+                        .items
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, item)| native::expandable(item))
+                        .map(|(index, _)| index)
+                        .collect();
+                    let index = if key.code == KeyCode::Down {
+                        eligible
+                            .iter()
+                            .find(|index| **index > self.selected)
+                            .or(eligible.first())
+                    } else {
+                        eligible
+                            .iter()
+                            .rev()
+                            .find(|index| **index < self.selected)
+                            .or(eligible.last())
+                    };
+                    if let Some(index) = index {
+                        self.reveal_item(*index);
+                    }
+                    return true;
+                }
+                KeyCode::Enter if key.modifiers.is_empty() => {
+                    return self.activate(Action::InlineToggle);
+                }
+                KeyCode::Char(_) if !ctrl => self.interaction_focus = false,
+                _ => (),
+            }
+        }
         if self.ui.menu.is_none() && self.flow.prompt.is_none() && self.selection.start.is_some() {
-            if ctrl && key.code == KeyCode::Char('c') {
+            if ctrl && matches!(key.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&'c')) {
                 self.copy = Some(self.selection.text());
                 return true;
             }
@@ -719,7 +1041,15 @@ impl App {
                 return true;
             }
         }
-        if ctrl && matches!(key.code, KeyCode::Char('q' | 'c')) {
+        if ctrl && matches!(key.code, KeyCode::Char(c) if c.eq_ignore_ascii_case(&'c')) {
+            if self.flow.busy && !self.disconnected {
+                self.send(json!({"op":"stop"}));
+                return true;
+            }
+            self.flow.quit_confirmation = Some(false);
+            return true;
+        }
+        if ctrl && key.code == KeyCode::Char('q') {
             return false;
         }
         if self.nav.switching.is_some() {
@@ -735,7 +1065,7 @@ impl App {
             return keep_running;
         }
         match key.code {
-            KeyCode::Char('q' | 'c') if ctrl => return false,
+            KeyCode::Char('q') if ctrl => return false,
             KeyCode::F(n @ 1..=3) => self.view = (n - 1) as usize,
             KeyCode::Char('e') if ctrl => {
                 self.expanded = !self.expanded;
@@ -765,6 +1095,10 @@ impl App {
             }
             KeyCode::End if ctrl && self.view < 2 => self.anchors[self.view] = None,
             KeyCode::Esc => {
+                if self.interacting {
+                    self.status = "Native copy · terminal/tmux owns selection".into();
+                }
+                self.interacting = false;
                 self.expanded = false;
                 self.view = 0;
                 self.anchors = [None; 2];
@@ -877,50 +1211,73 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
 fn text(f: &mut Frame, area: Rect, value: impl Into<Text<'static>>, fg: Color) {
     f.render_widget(Paragraph::new(value).style(Style::default().fg(fg)), area);
 }
-fn item_lines(item: &Item, width: usize, selected: bool) -> Vec<(String, Color)> {
-    match item.kind.as_str() {
-        "tool" => vec![(
-            format!(
-                "{} {}  {}",
-                if selected { "›" } else { " " },
-                icon(&item.status),
-                item.text
-            ),
-            color(&item.status),
-        )],
+fn item_lines(
+    kind: &str,
+    text: &str,
+    status: &str,
+    width: usize,
+    selected: bool,
+) -> Vec<(String, Color)> {
+    match kind {
+        "tool" => {
+            let mut source = text.lines();
+            let heading = format!(
+                "{}{}  {} · {}",
+                if selected { "› " } else { "" },
+                icon(status),
+                source.next().unwrap_or("Tool"),
+                status
+            );
+            let mut rows: Vec<_> = wrap(&heading, width)
+                .into_iter()
+                .map(|s| (s, color(status)))
+                .collect();
+            for line in source.take(10) {
+                rows.extend(wrap(line, width).into_iter().map(|s| {
+                    (
+                        s,
+                        if status == "failed" {
+                            palette().amber
+                        } else {
+                            palette().muted
+                        },
+                    )
+                }));
+            }
+            rows
+        }
         "correction" => {
             let mut lines = vec![(
-                format!("your correction · {}", item.status),
-                if item.status == "applied" {
-                    GREEN
+                format!("your correction · {}", status),
+                if status == "applied" {
+                    palette().green
                 } else {
-                    AMBER
+                    palette().amber
                 },
             )];
-            lines.extend(wrap(&item.text, width).into_iter().map(|s| (s, INK)));
-            if item.status == "unconfirmed" {
-                lines.extend(wrap("Insertion not confirmed. Not retried or queued; inspect before sending again.", width).into_iter().map(|s| (s, AMBER)));
+            lines.extend(wrap(text, width).into_iter().map(|s| (s, palette().ink)));
+            if status == "unconfirmed" {
+                lines.extend(wrap("Insertion not confirmed. Not retried or queued; inspect before sending again.", width).into_iter().map(|s| (s, palette().amber)));
             }
-            lines.push((String::new(), INK));
+            lines.push((String::new(), palette().ink));
             lines
         }
         "user" | "assistant" => {
             let mut lines = vec![(
-                if item.kind == "user" {
-                    "you"
+                if kind == "user" { "you" } else { "amplifier" }.into(),
+                if kind == "user" {
+                    palette().muted
                 } else {
-                    "amplifier"
-                }
-                .into(),
-                if item.kind == "user" { MUTED } else { GREEN },
+                    palette().green
+                },
             )];
-            lines.extend(wrap(&item.text, width).into_iter().map(|s| (s, INK)));
-            lines.push((String::new(), INK));
+            lines.extend(wrap(text, width).into_iter().map(|s| (s, palette().ink)));
+            lines.push((String::new(), palette().ink));
             lines
         }
-        _ => wrap(&item.text, width)
+        _ => wrap(text, width)
             .into_iter()
-            .map(|s| (s, color(&item.status)))
+            .map(|s| (s, color(status)))
             .collect(),
     }
 }
@@ -928,21 +1285,31 @@ fn draw(f: &mut Frame, app: &mut App) {
     app.ui.buttons.clear();
     let outer = f.area();
     f.render_widget(
-        Block::default().style(Style::default().bg(BG).fg(INK)),
+        Block::default().style(Style::default().bg(palette().bg).fg(palette().ink)),
         outer,
     );
     if outer.width < 32 || outer.height < 12 {
-        text(f, outer, "Please resize to at least 32 × 12", AMBER);
+        text(
+            f,
+            outer,
+            "Please resize to at least 32 × 12",
+            palette().amber,
+        );
         return;
     }
     let a = outer;
     let inner = a;
-    text(f, Rect::new(inner.x, 1, 12, 1), "amplifier", GREEN);
+    text(
+        f,
+        Rect::new(inner.x, 1, 12, 1),
+        "amplifier",
+        palette().green,
+    );
     text(
         f,
         Rect::new(inner.x + 14, 1, inner.width.saturating_sub(14), 1),
         app.title.clone(),
-        INK,
+        palette().ink,
     );
     text(
         f,
@@ -953,13 +1320,13 @@ fn draw(f: &mut Frame, app: &mut App) {
             chrome::runtime_notice(&app.mode),
             app.context
         ),
-        MUTED,
+        palette().muted,
     );
     app.tab_y = 4;
     f.render_widget(
         Block::default()
             .borders(Borders::TOP)
-            .border_style(Style::default().fg(LINE)),
+            .border_style(Style::default().fg(palette().line)),
         Rect::new(a.x, 3, a.width, 3),
     );
     for (i, label) in ["F1  Work", "F2  Review", "F3  System"].iter().enumerate() {
@@ -979,7 +1346,7 @@ fn draw(f: &mut Frame, app: &mut App) {
             Action::Latest,
         );
     }
-    let composer_h = if a.height >= 30 { 8 } else { 6 };
+    let composer_h = if a.height >= 30 { 9 } else { 6 };
     let approval_h = if app.approval.is_some() {
         if a.height >= 30 { 7 } else { 5 }
     } else {
@@ -1020,11 +1387,11 @@ fn draw(f: &mut Frame, app: &mut App) {
                     Rect::new(app.body.x, app.body.y + 2 + i as u16, app.body.width, 1),
                     line.clone(),
                     if line.starts_with('-') {
-                        RED
+                        palette().red
                     } else if line.starts_with('+') {
-                        GREEN
+                        palette().green
                     } else {
-                        INK
+                        palette().ink
                     },
                 );
             }
@@ -1049,7 +1416,11 @@ fn draw(f: &mut Frame, app: &mut App) {
                 f,
                 Rect::new(app.body.x, app.body.y + i as u16, app.body.width, 1),
                 line.clone(),
-                if i == 0 { GREEN } else { MUTED },
+                if i == 0 {
+                    palette().green
+                } else {
+                    palette().muted
+                },
             );
         }
     } else {
@@ -1058,14 +1429,19 @@ fn draw(f: &mut Frame, app: &mut App) {
         let used = visible.len();
         let mut y = app.body.y;
         for (index, line) in visible {
-            text(f, Rect::new(app.body.x, y, app.body.width, 1), line, INK);
+            text(
+                f,
+                Rect::new(app.body.x, y, app.body.width, 1),
+                line,
+                palette().ink,
+            );
             if app.items[index].kind == "tool" || app.items[index].kind == "question" {
                 app.rows.push((y, index));
             }
             y += 1;
         }
         if app.view == 1 && used == 0 {
-            text(f, app.body, "No tool evidence yet", MUTED);
+            text(f, app.body, "No tool evidence yet", palette().muted);
         }
     }
     if app.selection.area != app.body {
@@ -1080,13 +1456,13 @@ fn draw(f: &mut Frame, app: &mut App) {
             f,
             Rect::new(inner.x, approval_y, inner.width, 1),
             "Question waiting · your draft stays yours",
-            AMBER,
+            palette().amber,
         );
         text(
             f,
             Rect::new(inner.x, approval_y + 1, inner.width, 1),
             prompt,
-            INK,
+            palette().ink,
         );
         app.button(
             f,
@@ -1101,8 +1477,8 @@ fn draw(f: &mut Frame, app: &mut App) {
             Block::default()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
-                .border_style(Style::default().fg(AMBER))
-                .style(Style::default().bg(Color::Rgb(56, 47, 29)))
+                .border_style(Style::default().fg(palette().amber))
+                .style(Style::default().bg(palette().panel))
                 .title(format!(" Decision needed · {} ", string(&approval, "id"))),
             area,
         );
@@ -1113,14 +1489,14 @@ fn draw(f: &mut Frame, app: &mut App) {
                 f,
                 Rect::new(x, area.y + 1, w, 1),
                 safe(&string(&approval, "prompt")),
-                INK,
+                palette().ink,
             );
         }
         text(
             f,
             Rect::new(x, area.y + approval_h - 4, w, 1),
             safe(&string(&approval, "command")),
-            AMBER,
+            palette().amber,
         );
         // Compact card is an entry point. Full question/options live in Decisions.
         app.button(
@@ -1165,18 +1541,18 @@ fn draw_footer(
         ),
         Action::QueueList,
     );
-    if inner.width >= 30 {
+    if inner.width >= 36 {
         app.button(
             f,
-            Rect::new(inner.x + 23, compose_y, 7, 1),
-            "[Steer]",
+            Rect::new(inner.x + 23, compose_y, 13, 1),
+            "[Change task]",
             Action::CorrectActive,
         );
     }
-    if inner.width >= 42 {
+    if inner.width >= 45 {
         app.button(
             f,
-            Rect::new(inner.x + 31, compose_y, 11, 1),
+            Rect::new(inner.x + 37, compose_y, 8, 1),
             "[Modes]",
             Action::Modes,
         );
@@ -1190,13 +1566,22 @@ fn draw_footer(
         } else {
             "Message · draft stays editable"
         },
-        GREEN,
+        palette().green,
     );
     let edit = Rect::new(
         composer.x,
-        composer.y + 1,
+        composer.y + 2,
         composer.width,
-        composer.height - 2,
+        composer.height.saturating_sub(3).max(1),
+    );
+    f.render_widget(
+        Block::default().style(Style::default().bg(palette().panel)),
+        Rect::new(
+            composer.x,
+            composer.y + 1,
+            composer.width,
+            composer.height - 1,
+        ),
     );
     composer::render_fitted(&mut app.draft, edit, f.buffer_mut());
     let y = a.bottom() - 2;
@@ -1275,19 +1660,24 @@ fn draw_footer(
                     .count(),
                 if app.flow.paused { " (paused)" } else { "" }
             ),
-            MUTED,
+            palette().muted,
         );
     }
     f.render_widget(
         Paragraph::new(format!(" {}", chrome::status_label(&app.status))).style(
             Style::default()
-                .fg(if app.disconnected { RED } else { MUTED })
-                .bg(PANEL),
+                .fg(if app.disconnected {
+                    palette().red
+                } else {
+                    palette().muted
+                })
+                .bg(palette().panel),
         ),
         Rect::new(a.x, a.bottom() - 1, a.width, 1),
     );
     app.draw_menu(f);
     app.draw_prompt(f);
+    app.draw_quit_confirmation(f);
 }
 
 fn main() -> io::Result<()> {
@@ -1300,15 +1690,24 @@ fn main() -> io::Result<()> {
         .ok_or_else(|| io::Error::other("Use scripts/compare.py ratatui to launch"))?;
     let mut app = App::new(command)?;
     let stop = Arc::new(AtomicBool::new(false));
-    for signal in [signal_hook::consts::SIGTERM, signal_hook::consts::SIGINT] {
-        signal_hook::flag::register(signal, stop.clone())?;
-    }
+    let interrupt = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGTERM, stop.clone())?;
+    signal_hook::flag::register(signal_hook::consts::SIGINT, interrupt.clone())?;
     let mut terminal = native::Screen::new()?;
     let result = (|| -> io::Result<()> {
         let mut dirty = true;
         let mut last = Instant::now() - Duration::from_secs(1);
         let mut edge_tick = Instant::now();
         while !stop.load(Ordering::Relaxed) {
+            if interrupt.swap(false, Ordering::Relaxed) {
+                if !app.key(crossterm::event::KeyEvent::new(
+                    KeyCode::Char('c'),
+                    KeyModifiers::CONTROL,
+                )) {
+                    break;
+                }
+                dirty = true;
+            }
             for _ in 0..64 {
                 match app.output.try_recv() {
                     Ok(v) => {
@@ -1349,6 +1748,11 @@ fn main() -> io::Result<()> {
                 }
                 app.draft_pending = false;
             }
+            // Quiet tools still owe elapsed-time feedback; repaint only the live
+            // projection, never append timer ticks to terminal or saved history.
+            if activity::repaint_after(&app).is_some_and(|period| last.elapsed() >= period) {
+                dirty = true;
+            }
             if dirty && last.elapsed() >= Duration::from_millis(16) {
                 terminal.paint(&mut app)?;
                 dirty = app.native.has_work();
@@ -1363,7 +1767,7 @@ fn main() -> io::Result<()> {
                         }
                     }
                     Event::Paste(s) => {
-                        if app.nav.switching.is_some() {
+                        if app.nav.switching.is_some() || app.flow.quit_confirmation.is_some() {
                             continue;
                         }
                         // Large pasted intent should not wait for the typing debounce.
@@ -1383,7 +1787,24 @@ fn main() -> io::Result<()> {
                             menu.selected = 0;
                         } else {
                             app.ui.focus = None;
+                            app.interaction_focus = false;
                             app.draft.insert_str(safe(&s));
+                        }
+                    }
+                    Event::Mouse(m) if app.flow.quit_confirmation.is_some() => {
+                        if matches!(m.kind, MouseEventKind::Down(_)) {
+                            let choice = app
+                                .flow
+                                .quit_buttons
+                                .iter()
+                                .find(|(area, _)| area.contains((m.column, m.row).into()))
+                                .map(|(_, yes)| *yes);
+                            if choice == Some(true) {
+                                break;
+                            }
+                            if choice == Some(false) {
+                                app.flow.quit_confirmation = None;
+                            }
                         }
                     }
                     Event::Mouse(_) if app.flow.prompt.is_some() => (),
@@ -1430,7 +1851,12 @@ fn main() -> io::Result<()> {
                                     app.question_open(item.id.clone());
                                 } else {
                                     app.selected = *i;
-                                    app.expanded = true;
+                                    if app.interacting {
+                                        app.interaction_focus = true;
+                                        app.activate(Action::InlineToggle);
+                                    } else {
+                                        app.expanded = true;
+                                    }
                                     app.detail_scroll = 0;
                                 }
                             } else if app.ui.menu.is_none()
@@ -1441,6 +1867,7 @@ fn main() -> io::Result<()> {
                                 app.begin_selection(m.column, m.row);
                             } else if app.ui.menu.is_none() {
                                 app.ui.focus = None;
+                                app.interaction_focus = false;
                             }
                         }
                         _ => (),
@@ -1479,6 +1906,35 @@ fn main() -> io::Result<()> {
 mod tests {
     use super::*;
     #[test]
+    fn brand_text_roles_have_readable_contrast_on_both_surfaces() {
+        let luminance = |c| {
+            let Color::Rgb(r, g, b) = c else {
+                panic!("expected RGB")
+            };
+            let linear = |v: u8| {
+                let s = f64::from(v) / 255.0;
+                if s <= 0.04045 {
+                    s / 12.92
+                } else {
+                    ((s + 0.055) / 1.055).powf(2.4)
+                }
+            };
+            0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b)
+        };
+        for name in ["dark", "light"] {
+            let p = Palette::named(name, false);
+            for surface in [p.bg, p.panel] {
+                for foreground in [p.ink, p.muted, p.green, p.amber, p.red] {
+                    let (a, b) = (luminance(surface), luminance(foreground));
+                    assert!(
+                        (a.max(b) + 0.05) / (a.min(b) + 0.05) >= 4.5,
+                        "{name}: {foreground:?} on {surface:?}"
+                    );
+                }
+            }
+        }
+    }
+    #[test]
     fn unicode_wrap_keeps_source() {
         let s = "界e\u{301}🦀abcdef";
         assert_eq!(wrap(s, 4).concat(), s);
@@ -1488,8 +1944,29 @@ mod tests {
         assert_eq!(safe("a\x1b[31m\x07b"), "a[31mb");
     }
     #[test]
+    fn bare_control_commands_reach_the_host() {
+        for command in ["/config", "/provider", "/mode"] {
+            assert_eq!(App::local_action(command), None);
+        }
+        assert_eq!(
+            App::local_action("/system"),
+            Some(interaction::Action::View(2))
+        );
+        assert_eq!(
+            App::local_action("/providers"),
+            Some(interaction::Action::Providers)
+        );
+        assert_eq!(
+            App::local_action("/modes"),
+            Some(interaction::Action::Modes)
+        );
+    }
+    #[test]
     fn failure_keeps_red() {
-        assert_eq!(color("failed"), RED);
+        assert_eq!(color("failed"), palette().red);
+        for status in ["interrupted", "stopping", "stopped", "cancelled"] {
+            assert_eq!(color(status), palette().red);
+        }
         assert_eq!(icon("failed"), "×");
     }
 }

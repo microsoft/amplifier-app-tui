@@ -1,5 +1,857 @@
 # First vertical slice — acceptance evidence
 
+## CLI parity — loaded configuration and upstream delivery (2026-09-17)
+
+PARITY-05 adds `/config`, category lists and `/config show CATEGORY NAME` through
+the actual Foundation inspector used by the pinned CLI. Actions insert unsent
+commands; explicit Send inspects names, status, module identity and origins. Agents
+are labeled definitions, context rows entries, and arbitrary configuration values,
+source URLs and instruction bodies are omitted. Lists cap at 32 rows per category;
+exact-name lookup reaches omitted records. Tab uses the already-built CLI metadata
+snapshot and never advertises unsupported mutations or persistent-save flags.
+Existing root tool toggles remain separate; shared settings and model context stay
+unchanged. Other live mutations and CLI session/scripting parity are still pending.
+
+Default gate: **581 passed, 302 skipped** (122.84s). After the final narrow-screen
+wording, combined controls/navigation/native/process-terminal gate: **51 passed,
+2 preset-only skips** (39.92s). Rust **66 passed**, release build and clippy passed;
+Ruff lint/format and direction checks passed (600 contract lines / 50 sources).
+Private receipts: `.evidence/config-default.xml` and `.evidence/config-final.xml`.
+Developer inspected actual `config-loaded-*` / `config-provider-*` terminal captures
+at 175×50 and 40×20. Earlier attempts corrected a test's event-envelope lookup, a
+wrapped notice, and a stale dashboard row satisfying an exact-query waiter. The final
+PTY test waits for a new config observation and distinguishes suggestion acceptance
+from Send. Deterministic module/terminal evidence; no paid provider or release claim.
+
+The reusable computer-use approval transport fix is published as
+[upstream PR 19](https://github.com/microsoft/amplifier-bundle-computer-use/pull/19).
+Rebased onto current upstream main: **946 passed, 4 platform skips** (6.86s), one
+existing event-loop deprecation warning; Ruff passes. GitHub Python 3.11/3.12, lint
+and CLA checks pass. Maintainer review is required and auto-merge is disabled; this
+is not yet delivered on upstream main. No branch protection or approval was bypassed.
+The three-file patch and TUI additions received fresh-context privacy review.
+
+## CLI parity — subprocess children (2026-09-17, development)
+
+PARITY-04 now supports explicit `use_subprocess` and agent/recipe `spawn_mode:
+subprocess` without downgrading them to local execution. A fresh interpreter mounts
+the same Foundation/core session and selected modules; the parent retains composition,
+admission, provider routing, activity ownership, accounting and durable receipts.
+An inherited socket carries bounded JSON requests independently of terminal output.
+Approvals, questions, nested child calls and module observations return to the host.
+The shared child setup retains actual mode enforcement and canonical readback.
+
+First Stop propagates the public graceful token; the second can terminate an
+unresponsive process group. Forced/lost workers retain uncertain, non-resumable
+receipts, not fabricated tool outcomes. Cooperative drained work can continue under
+the same identity in a new interpreter, including cold receipt restoration. Startup
+failure, transport loss and repeated cancellation still join the owned process.
+A watchdog terminates an app-created worker group if its parent disappears while
+the event loop is blocked. This is POSIX process ownership, not a permission sandbox
+or a guarantee about independently daemonized/native-code descendants.
+
+The private wire has 16 MiB frames and 128 concurrent requests per direction; invalid
+or oversized evidence fails closed. Provider cost decimals retain exact precision.
+Foundation's pinned child environment allowlist is reused. No credential-bearing
+config file, pickle, network listener, automatic retry or thin-kernel change is used.
+Both source count and contract budgets remain 50 / 600; direction remains DRAFT.
+
+Focused child/process/continuation/admission gate: **47 passed** (24.65s). Actual
+delegate and recipe paths in both presets: **4 passed** (68.50s); inherited child mode
+in both presets: **2 passed** (7.88s). Native process/output/graceful regressions:
+**17 passed** (100.77s). Developer inspected private 175×50 and 40×20 approval,
+stopping and stopped captures. The first terminal attempt found full child IDs hid
+questions on narrow screens; approval text now leads, with exact identity in its
+details. Tests also wait for modal closure/full repaint before judging draft loss.
+Emergency cleanup initially surfaced an expected socket reset before reaping; the
+owner now absorbs that transport closure and still joins the process.
+
+Rust **66 passed**, clippy and Ruff/format/diff checks pass. The initial full default
+gate had **578 passed, 300 skipped** (119.86s). Final expanded default: **579 passed,
+300 skipped** (122.17s). Actual preset, independent loop/context swaps, owned execution
+and continuation gate: **95 passed** (206.39s). Final decimal/control-channel test:
+**1 passed**. Private JUnit receipts use `.evidence/child-process-{focused,terminal,
+ecosystem,default-final}.xml`. Structural direction/archive checks pass at 600/50;
+these checks are not formal contract verdicts. All task PTYs were reaped; only the
+seven pre-existing owner-retained resources remain active. These are real module/runtime
+and native-terminal tests using deterministic providers, not billed provider-wire
+certification. The privacy-only outsider review found no new private literals in
+fixtures, guidance or the final acceptance addendum; generated PID/cwd observations
+and captures remain private.
+The broader live-configuration, session-workflow and scripting/install parity batches
+remain open, as does publishing the previously patched upstream approval hook.
+
+## CLI parity — legacy module output (2026-09-17, development)
+
+PARITY-03 now gives legacy print/Rich/logging and descriptor output a bounded private
+inspection route. The bridge reserves its protocol descriptor before runtime imports;
+an independent reader drains stdout/stderr while the native client remains the terminal
+owner. Actions → Runtime output shows the recent tail, refresh, redaction/capture limits
+and an explicit private-copy warning. Count-only updates never enter conversation history.
+This process-scoped tail spans conversation switches without inventing child ownership.
+
+Real fixture-host/core execution exercised an ordinary hook using Python print, Rich,
+logging, native fd writes and inherited subprocess output. Split controls/UTF-8, synthetic
+credential/PEM/endpoint removal, oversize/retention limits, a 20,000-line flood, decoder
+failure, stream restoration, joined shutdown and conversation switching are covered.
+No journal or canonical tool outcome is derived from these diagnostics. Redaction is
+necessarily limited; this is not arbitrary-secret detection, crash-durable logging,
+an interactive Rich terminal, or proof of an external pipeline's complete lifecycle.
+
+Focused bridge/install/navigation/output gate: **49 passed** (21.01s). Final queue/output
+gate: **17 passed** (9.28s), including an explicitly delayed completion callback. Native
+output/controls/Activity/graceful regressions: **28 passed** (106.71s); final rebuilt
+output-view checks: **2 passed** (4.32s). Rust **66 passed**, release build/clippy and
+Ruff/format/diff pass. Developer inspected 175×50 and 40×20 private `runtime-output-*`
+captures, then removed empty conversation/turn fields from diagnostic details and
+verified the simpler warning/copy view with the draft preserved. System also now uses
+the actual per-parent delegation capacity instead of the obsolete four-active label.
+
+The first full default run had **561 passes, 294 skips and one failure**: its queue
+test considered a done task settled before the completion callback admitted the next
+queued row. The waiter now includes runnable queued work; a controlled delayed-callback
+case pins that distinction without changing runtime admission. Final default rerun:
+**563 passed, 294 skipped** (120.54s). Direction remains DRAFT at 600 contract lines /
+50 production sources. The fresh-context privacy review found no private data in the
+new fixtures/guidance and final evidence additions. All task PTYs are reaped; the seven
+pre-existing owner-retained resources are unchanged. These runs use deterministic
+providers, not personal services. Published upstream approval-module delivery and
+the remaining PARITY-04/05/06/07 work are still open; full parity is not claimed.
+
+## CLI parity — routing-aware child continuation (2026-09-17, development)
+
+PARITY-04 now applies the pinned CLI's provider-preference and model-role policy on
+explicit child continuation, preserving the child identity and canonical history.
+Omitted routing keeps the saved preference chain; unresolved preferences produce an
+identified child warning and use configured provider priority. The parent mount plan
+is unchanged. A child retains its own approved mode independently of its parent's.
+Non-routing policy changes still refuse continuation; old receipts must reconstruct
+their exact original plan before accepting a routing override. Receipt digests check
+consistency, not authenticity, and private in-memory routing baselines are not saved.
+
+Interrupted children become resumable only after execution and cleanup drain and the
+canonical tool-result structure validates. Uncertain, legacy incomplete and unpaired
+histories remain refused without repair. Opening a root performs no child work;
+explicit continuation does not repeat old tool calls. Cancellation before capacity
+admission restores the prior row and leaves its receipt bytes unchanged.
+
+Final default gate: **556 passed, 292 skipped** (123.50s). Final real-preset,
+independent-module, continuation and daily-replacement gate: **106 passed** (183.38s).
+That includes the actual delegate with changed provider preferences, hot/cold child
+mode restoration, and graceful/forced continuation across both independent loops and
+both context modules. Providers and effects are deterministic fixtures on the real
+host/core/modules, not live-provider wire evidence. Native session-repair, sustained
+work and graceful-stop regressions: **29 passed, 1 skipped** (152.00s); the skip is the
+separately gated full-preset terminal setup. No native rendering code changed in this
+batch. Ruff, format, diff and direction checks pass (600 contract lines / 50 sources).
+
+An intermediate default run caught a receipt-consistency regression: validating only
+the new unrouted policy hash stopped detecting changed routed mount metadata. The
+new checkpoint binds both digests and routing/mode fields, with legacy reconstruction
+retained. The final suites above include the refusal and byte-preservation regression.
+Subprocess child execution remains open, as do PARITY-03/05/06/07 items. This is a
+verified compatibility increment, not a full parity or release verdict.
+
+## CLI parity — delegation admission and retention (2026-09-17, development)
+
+PARITY-04's admission/retention portion now separates capacity, canonical context
+and display history. Per-parent cancellable capacity replaces four-active refusal;
+durable cold continuation replaces the 32-total-child refusal; the delegate's actual
+self-depth replaces the host's separate total-nesting ceiling. The real delegate
+still rejects its own configured self-depth boundary in both supported presets.
+No kernel change or automatic history execution was introduced.
+
+Actual host/core/loop fixture checks execute forty sequential children and continue
+the oldest after its heavy state was evicted, admit ten parallel requests with two
+slots, drain graceful and forced stops without starting waiters, execute five nested
+levels with one slot per parent, and preserve completed receipts byte-for-byte when
+an unadmitted continuation is cancelled. Accounting and ancestry stay resident;
+only completed heavy payloads are bounded. No constant-total-memory or live-provider
+performance claim is made. Legacy receipt validation limits still apply.
+
+The new test first exposed cancelled admission propagating CancelledError into the
+parent's gather and reporting a failed turn. Graceful admission cancellation now
+returns a cancelled child result so existing calls can drain. The regression verifies
+both the final root outcome and that only the original two child calls started.
+
+Verification: full default gate **541 passed, 276 skipped** (112.34s). Earlier focused
+real-preset/independent-swap/child gate **86 passed** (156.89s); final focused admission,
+sustained-work and Activity tests **36 passed** (21.04s). The subsequently added actual
+delegate self-depth boundary test passes in both presets (**2 passed**, 4.08s); it is
+separate from that default collection. Native sustained/Activity/graceful regressions
+**25 passed** (99.70s), Rust **66 passed**, release build/clippy, Ruff/format/diff and
+direction checks pass. Direction remains DRAFT: 600 contract lines / 50 source files.
+
+Developer inspected 175×50 and 40×20 native, expanded and Activity captures in private
+`.evidence/interaction/admission-*`. A synthetic hundred-child transport scenario
+uses the actual progress reducer: 32 preview rows retain the live child, 68 omissions
+are disclosed, and totals/error badges still cover all children. Activity can open
+the older records. These are not a hundred actual model calls. Initial terminal
+assertions assumed a single Activity level and unwrapped narrow text; the corrected
+tests follow the actual parent/child navigation and visual wrapping. The capacity
+state now has a short readable Activity label that preserves narrow agent identity.
+All task PTYs were reaped; existing owner-retained resources were unchanged. The
+required fresh-context privacy review found no disclosures in the new fixture and
+evidence/documentation additions, including the final module-policy test.
+
+Remaining PARITY-04 work: subprocess children, changed routing on continuation, and
+safe interrupted-child continuation. Raw output compatibility, broader native config,
+CLI/TUI session workflows and scripting/install gates remain in PARITY-03/05/06/07.
+
+## CLI host parity — first compatibility batch (2026-09-17, development)
+
+PARITY-01/02 implement the CLI mechanical goal backstop, complete all-or-one mounted
+provider diagnostics, and cached CLI argument completion. The real loop stops after
+normalized repeated reasons, journals a needs-manager message and resumes with no
+active goal or implicit call. The UI ignores the triggering stale continuing notice.
+Provider fixtures include fourteen additional named instances, redacted failures and
+explicit standalone probes; neither discovery nor completion changes routing.
+
+PARITY-03's approval half declares a boolean transport capability before root/child
+mounting. The upstream computer-use gate recognizes it without enabling unattended
+writes. Actual core/orchestrator/host approval tests wait for Allow or Deny before a
+counted fixture effect; headless remains unavailable. Real preparation resolves the
+patched workspace module without altering declared mount policy. This is not actual
+desktop-input/provider-wire certification; a published install still needs upstream
+module delivery. Raw module output remains an open compatibility item.
+
+Administration/scripting subcommands now hand literal argv and terminal ownership to
+the pinned CLI, retaining its settings/home guards and distinct session store. Actual
+isolated help checks cover the installed launcher path. These are not claims that
+native CLI-session continuation, shell installation or a billed single-shot run were
+exercised. Remaining work stays in PARITY-04 through PARITY-07, not marked delivered.
+
+Verification: default Python gate **529 passed, 274 skipped** (100.28s); focused
+real-preset/independent-swap gate **135 passed** (154.85s); actual native completion,
+provider/control and graceful-stop regressions **29 passed** (107.02s); native Rust
+**65 passed**, release build and clippy pass. Upstream computer-use offline suite
+**854 passed**, with its existing event-loop deprecation warning. Ruff, format, diff
+and direction checks pass; budgets are 599 contract lines / 50 production source files.
+Developer inspected completion captures at 175×50 and 40×50; selection inserts without
+submission. Synthetic captures stay in private `.evidence/interaction/cli-parity-*`.
+Fresh-context privacy review found no private identifiers in new public content.
+
+The first default gate found one regression (527 passes, 274 skips): a read-only model
+query's queued progress notice could arrive after its correlated result. Progress now
+belongs only to the explicit local command; the final full rerun above is green. No
+shared settings, personal sessions, credentials or remote services were changed. Task
+PTY resources are reaped; pre-existing owner-retained workspace resources are untouched.
+
+## Semantic action emphasis (2026-09-17, development)
+
+READ-07 follows the steward-approved source comparison, with VISION and presentation
+P6/P7 amended first. Tool summaries now separate action/task title, explicit outcome,
+child badges and secondary evidence into styled spans. Known actions have concise
+verbs; unknown tools retain their names. Successful delegates keep red tool-error and
+amber uncertainty/hook-warning badges independently of their cyan completion state.
+Width clipping preserves graphemes and prioritizes state/warnings over long titles.
+Only the observed live-state span shimmers; draft text, metadata and exact event source
+are unchanged. No kernel, runtime, provider, cancellation or accounting policy changed.
+
+Expanded shell requests reuse the palette-limited syntax renderer and retain literal
+source. Ordinary code text stays secondary rather than conversation white. Result
+previews allow eight wrapped rows, command previews twelve; source/row bounds are
+disclosed with full evidence in Activity. The exact tool name shares the Request
+heading, avoiding an unnecessary row at minimum height. Active todo items are bold
+cyan; completed and pending tasks remain quiet without inferred completion.
+
+Developer inspected real PTY captures at 175×50, 40×20 and 32×12 (`actions-*`), including
+native/Interact command expansion and reduced-motion/NO_COLOR narrow warnings. Seven
+new painted-cell tests pass; six sustained-delegate regressions also pass after the
+heading adjustment. The first pass caught a redundant heading displacing the Request
+at minimum height. Test sampling was corrected to distinguish the completion badge
+from `done` inside command text, and to inspect wrapped request rows individually.
+All content is invented transport-fixture evidence, not the steward's session.
+
+Native unit gate: 65 tests pass in dark, light and NO_COLOR treatments; clippy, Ruff,
+format and diff checks pass. Direction/archive integrity passes (598 contract lines,
+50 production files). Fresh-context privacy review, including probe-selector changes,
+found no private identifiers or copied session content.
+
+The all-enabled Python gate (`TUI_TEST_PRESETS`, `TUI_TEST_CANDIDATES`, `TUI_TEST_SWAPS`)
+ran 791 checks: 788 passed and three mouse-expansion tests awaited the retired
+`succeeded`-first row label. No production fix was needed; corrected selectors retain
+the actual-success event assertion and now click the named tool row. All 14 flow-
+terminal/benchmark-observer checks passed on the focused rerun, including those three
+sizes. Receipts: `.evidence/action-integrated-final.xml` (includes the initial three
+selector failures) and `.evidence/action-selector-final.xml` (green rerun). This is
+combined verification, not a claim that the initial all-enabled invocation was green.
+Standalone native probes use the new labels too; OpenTUI and Activity menu selectors
+retain their separate vocabulary. The all-enabled run exercised real fixture runtime,
+both independent loops/contexts, cancellation, native tmux history/copying and the
+new seven painted-cell checks. Explicitly excluded unrelated local tooling/upgrade
+documents from documentation traversal, as in preceding waves; none were edited.
+Standalone `interaction_probe.py` passed its two-turn fixture path with decisions,
+evidence and clean exit (`.evidence/action-interaction-fixture.json`). The configured
+CLI-policy fixture probe also passed local discovery, tool evidence and cancelled
+historical import with the original unchanged (`.evidence/action-cli-compat-fixture.json`).
+Its initial attempt awaited a hash in the collapsed transcript; corrected the probe
+to inspect the exact retained result instead, without changing application behavior.
+No billed provider, installed-wheel or new matched-CLI benchmark is claimed in this
+presentation-only follow-up. Real-runtime fixture and native terminal regressions,
+not screenshots alone, remain the completion gate.
+
+## Stop-state contrast and quiet clocks (2026-09-17, development)
+
+CANCEL-06 keeps the existing two-stage cancellation policy. Stopping shimmers in
+the palette's negative accent; its explanation, Stop/Force controls and interrupted
+outcomes use steady red. Accounting stays muted, and reduced-motion/NO_COLOR retain
+explicit state wording without shimmer. No engine or kernel policy changed.
+
+A controlled terminal reproduction distinguished the clocks: the turn meter advanced
+through quiet graceful draining, while a delegate's duration stayed at its last
+progress observation. Long turns also displayed only hours/minutes, hiding seconds.
+The renderer now advances identified live-child durations without tick records,
+source rewrites or cost extrapolation; completed durations remain authoritative.
+Repeated sibling snapshots preserve a quiet child's anchor. Both native and Interact
+views freeze stale clocks on disconnection, and long turns retain seconds.
+
+Actual PTY checks cover 175×50, 40×20 and 32×12, including current real fixture calls,
+both stop stages, unsent drafts, stopped/idle output silence and confirmation.
+Inspect `stop-style-*` and `graceful-*` captures. The first visual pass exposed a
+wrapped emergency hint pushing the hour-long timer off the smallest viewport;
+the shorter hint preserves timer, costs and editor together. A test also assumed
+the tiny meter used a bullet, overlooking its existing upward-history cue; sampling
+the named state verifies the same styling without relying on that cue.
+
+Final default Python gate: **519 passed, 265 opt-in skips in 95.29 seconds**
+(`.evidence/stop-style-python-final.xml`). Focused candidate-enabled terminal gate:
+**43 passed, one preset-only mode test skipped in 215.78 seconds**
+(`.evidence/stop-style-terminal-final.xml`). All **62 Rust tests** pass in dark,
+light and NO_COLOR treatments. Ruff, formatting, Clippy, diff hygiene and
+direction/archive-integrity checks pass: 50 production sources, 598 contract lines.
+An initial document check caught the individual contract's 100-line ceiling even
+though the family total fit; wording was consolidated without relaxing the guard.
+No production source changed during the final gates. Captures were personally
+inspected; fresh-context privacy review found no new private disclosures. All test
+terminal resources were reaped; pre-existing owner-retained resources were untouched.
+This is controlled runtime/transport and actual-terminal evidence, not a new full
+all-opt-in, billed-provider or installed-wheel release gate.
+
+## Graceful tree Stop and confirmed exit (2026-09-17, development)
+
+CANCEL-05 supersedes the immediate-first and idle-exit policy in CANCEL-04 below.
+First interactive Stop signals graceful cancellation through public parent/child
+tokens; in-flight model/tool calls finish, new tool invocations are denied, and
+nested delegates return partial results upward. No timer promotes this to force.
+Second Stop explicitly cancels and joins owned execution while preserving checkpoint
+ownership. Real errors remain failures even when cancellation intent is present.
+Fresh explicit local controls reset the old cancellation scope, just like new turns.
+No kernel or upstream module implementation changed for this follow-up.
+
+The live indicator keeps elapsed/accounting and explains how to force Stop. Idle
+Ctrl-C and SIGINT open a separate default-No exit confirmation; drafts and underlying
+dialogs remain owned by their existing editors. Enter on No, Escape, repeat/release,
+another Ctrl-C and pasted text do not confirm exit. Choice clicks and explicit Yes
+do. Ctrl-Q remains explicit Quit and selected transcript text retains copy priority.
+
+Controlled checks exercise actual core/Foundation, both loop modules and both context
+modules, parallel children with a grandchild, a child mounting during Stop, streaming,
+asynchronous tool policy, late approvals, real delegate tools in both presets, and
+graceful-to-force escalation during checkpoint capture. No user session or billed
+model call is a fixture. Native PTY captures are inspected at 175×50, 40×20 and 32×12;
+a compact force hint/button preserves the timer at the smallest size. A terminal
+observer must wait for Send readiness: a skipped tool can say “Stopped” before the
+turn's final checkpoint has finished.
+
+The first integrated run passed 766 tests and exposed two mode-fixture failures:
+an ephemeral mode reminder made the scripted provider repeat calls until the test's
+timeout cancelled the root; the test had not asserted its terminal status. Child
+token propagation correctly rejected work inheriting that cancelled parent. The
+corrected fixture issues one operation per turn and requires actual completion.
+Both corrected preset cases pass; no cancellation safety was relaxed to satisfy them.
+
+The **final all-enabled gate passes 775 tests in 574.42 seconds**, with no failures
+or skips (`.evidence/graceful-integrated-final.xml`). It includes the final failure-
+preservation, checkpoint-escalation and post-Stop local-control regressions, both
+presets, independent module swaps, and native key/mouse/SIGINT checks. No production
+source changed after that gate started. All **60 Rust tests**, Ruff, formatting,
+Clippy and direction/archive-integrity checks pass: 50 production source files and
+598 contract lines. Captures at all three sizes were personally inspected. The
+privacy-only fresh-context review found no new identifying disclosures.
+
+This is controlled-runtime and actual-terminal evidence, not a new live-provider or
+installed-wheel release gate. Force is cancellation, not rollback; a third-party
+operation that ignores cancellation can still require explicit owned-process Quit.
+The daily development command points at this checkout; restart to load the changes.
+
+## Cancellation and safe return (2026-09-17, development)
+
+CANCEL-04 separates an interrupted turn from an unsafe saved conversation. The
+reported failure had three contributing boundaries: native Ctrl-C quit during
+work, all interrupted checkpoints were labelled uncertain, and cancelling the
+native execution awaiter could precede the actual Python callback's final notice.
+Large checkpoint previews also hid uncertainty by treating an oversized preview
+as absent. No original checkpoint was relabelled safe to bypass these checks.
+
+The app now owns the selected orchestrator's task through its public mount seam.
+Stop joins real execution before canonical capture; complete interrupted context
+can resume under the same identity. Missing tool outcomes, unverified execution,
+delivery failure and uncertain policy still fail closed. Busy Ctrl-C stops/stays,
+preserving the draft and holding queued work; selected-text copying comes first,
+Press-only handling avoids repeated-key exit, and Ctrl-Q remains explicit Quit.
+Idle Ctrl-C still exits. No kernel or upstream module code changed in this wave.
+
+The actual core cancellation/store/recovery gate passes **33 tests in 9.08 seconds**
+(`.evidence/cancel-core.xml`). The native terminal gate passes **8 tests in 39.09
+seconds**, with its existing preset-only case disabled for that focused run
+(`.evidence/cancel-terminal-final.xml`). It covers Ctrl-C, draft retention, shutdown
+and same-identity restart at 175×50, 40×20 and 32×12, zero resumed tool calls until
+explicit Send, selected copying, Caps Lock and repeated/released keys. Captures
+were personally inspected. Initial test mistakes supplied forbidden composition
+overrides on resume and demanded a completed response remain visible above a tiny
+native viewport; corrected observers assert saved outcomes and actual input instead.
+
+Explicit legacy recovery was also applied locally to the affected conversation:
+all **204 saved public messages** were retained exactly under a new identity, plus
+an explicit recovery notice. Hashes of **17 original files** were unchanged. The
+copy passed store/context validation with no session mount, provider calls, tool
+replay or queue admission. It does not claim continuation of module-private state
+or undo of earlier effects; the original remains available. Identifying values
+and private content are kept outside the source/evidence documentation.
+
+The all-enabled integrated run passes **742 tests with four obsolete assertions**
+in 546.77 seconds (`.evidence/cancel-integrated.xml`). Those assertions required
+every stopped checkpoint to be uncertain, regardless of valid captured context.
+They now require a ready checkpoint plus an actual reopened session with zero
+provider/tool calls. The updated independent-module gate passes **19 tests in
+9.35 seconds** (`.evidence/cancel-swaps.xml`), covering both loops and both contexts.
+No production behavior was changed after the integrated run began; this is staged
+verification, not a claim of a clean single all-enabled run.
+The final combined composition/lifecycle/store/recovery/navigation/control,
+both-preset ecosystem, independent-module and native cancellation regression gate
+passes **118 tests in 186.93 seconds**, with no failures or skips
+(`.evidence/cancel-final-regressions.xml`), including all four corrected assertions.
+
+All **60 Rust tests**, Ruff/format, Clippy and direction/archive-integrity checks
+pass. A fresh-context privacy-only review found no unexpected disclosures in the
+scoped additions. These observations are controlled-runtime and actual-terminal
+evidence, not a new billed-provider or installed-wheel gate.
+All task terminal resources were reaped; only pre-existing owner-retained resources
+remain. The development command uses the rebuilt native client and current source
+on next launch. No release, shared-settings update or upstream change was made.
+
+## Resumed-startup transport repair (2026-09-17, development)
+
+STARTUP-04 repairs an existing obligation, without changing readiness, saved context,
+execution permissions or keyboard policy. A read-only diagnostic reproduced a large
+saved-history snapshot overlapping actual synchronous bundle preparation: the old
+asyncio drain deadline expired while its own loop was blocked, then cleanup swallowed
+the writer failure and exited successfully. The frontend's Enter/hint paths replaced
+the disconnect warning with loading wording. No user session was mounted, rewritten
+or executed by that diagnostic.
+
+After the repair, repeating the actual saved-history/preparation-only diagnostic
+delivered the same approximately 1.19 MB snapshot and completed preparation in
+3.14 seconds with exit zero. Hashes of the original metadata, checkpoint, draft
+and journal were unchanged. No session mount or provider call was performed;
+this proves the failing preparation/transport boundary, not a new live model turn.
+
+Output now has one owned nonblocking writer thread, bounded by both record count
+and encoded bytes. The inactivity clock tracks actual pipe progress independently
+of runtime scheduling. Encoded immutable records cross the boundary; shutdown joins
+the writer. Transport and source-delivery failures exit nonzero. Disconnection has a
+persistent transcript notice and composer warning, never stale Starting/Mode: loading;
+the unsent draft stays editable with an explicit warning that new edits cannot save.
+Nothing reconnects, resubmits or replays automatically.
+
+Focused transport/installation checks pass **30 tests in 8.38 seconds**; actual
+terminal startup checks pass **4 tests in 5.11 seconds**. The latter resume a real
+Foundation/core fixture conversation with more than 1 MiB of synthetic retained
+detail, block preparation for 2.4 seconds, retain edits made during startup and
+verify zero execution until explicit Send, followed by exactly one new fixture
+tool invocation. Disconnect checks cover 175×50, 40×20 and 32×12. Actual captures
+were personally inspected. These are controlled-provider/transport observations,
+not a new live-provider or installed-wheel certification. Private receipts:
+`.evidence/startup-transport.xml`, `.evidence/startup-terminal-final.xml`.
+
+Initial new-test assertions used a nonexistent tool event name, inspected an empty
+first-launch restored projection, and matched warning text before an edit painted.
+They now assert actual running-tool observations, the reopened projection's byte
+size, and a unique newly typed suffix across wrapping. No runtime behavior was
+weakened to satisfy those observers. The all-enabled integrated gate passed **736
+tests with one obsolete warning-text assertion** in 523.39 seconds
+(`.evidence/startup-integrated.xml`). That disconnect test now checks the new warning,
+retained draft after Enter and absence of stale startup text. The final surrounding
+native/OpenTUI candidate, brand, everyday and flow terminal gate passes **42 tests in
+95.70 seconds**, including the corrected case
+(`.evidence/startup-terminal-regressions.xml`). Production source was unchanged
+between these gates; this is staged verification, not a clean single full-suite run.
+
+All **60 Rust tests** pass. The release native client was rebuilt; Ruff, Clippy,
+format/diff checks and direction/private-method integrity checks pass. A fresh-context
+privacy-only review, including the diagnostic evidence addendum, found no unexpected
+identifying disclosures. Test terminal resources were reaped; pre-existing owner
+resources and unrelated local changes remain untouched. The existing development
+launcher uses this source on the next launch; no package/release was published.
+
+[The Ctrl-C source comparison](CODEX-TERMINAL-SOURCE-STUDY.md#ctrl-c-follow-up-2026-09-17-recommendation-not-adopted)
+records view/draft/interrupt/exit precedence and rich draft recovery. The inspected
+Codex pin disables double-press-to-quit. Adoption is separate: this repair leaves
+the TUI's current Ctrl-C/Ctrl-Q quit and Ctrl-X Stop bindings unchanged.
+
+## Directory-local return and usage spacing (2026-09-17, development)
+
+RETURN-02 follows the CLI's resolved-directory session scope without migrating or
+rewriting stored conversations. Startup and in-app Resume, message search, paging,
+listing and latest/ID resolution exclude other directories. Foreign direct switch
+and recovery requests refuse before target writes or mounting; the current draft
+and context remain usable. Parent/child/sibling paths are separate, while symlink
+aliases agree. Missing or malformed saved directory identities are not local matches.
+
+READ-06 removes the blank above usage after activity, retaining it after assistant
+responses. Separators wait for the next item so committed terminal history never
+needs deletion or repaint; native live and inspection views use the same rule.
+
+The focused store/navigation/launcher/index/backlog gate passes **60 tests in 22.20
+seconds**. Checks include the actual CLI project/store implementation under a
+temporary home, foreign cached search results, more than one local page, exact
+metadata/source preservation and real Foundation/core switching with a controlled
+provider. **60 Rust tests pass**, including separately committed/streaming and live
+spacing at 32, 40 and 175 columns. **15 focused terminal checks pass in 35.19 seconds**
+(`.evidence/directory-spacing-terminal.xml`, private receipt); startup/native directory
+pickers and native/Interact usage captures were personally inspected. The empty-parent
+probe explicitly expects a refusal exit; the initial observer wrongly expected zero.
+The spacing probe also exposed and corrected a duplicate response gap in Interact.
+After a final streamed-block separator guard, the native client was rebuilt. The
+all-enabled integrated run passed **721 tests with one stale scroll assertion**
+(`.evidence/directory-spacing-integrated.xml`, private receipt). That assertion
+assumed two trailing blank rows; the intended single response gap moves the same
+three-row scroll one row earlier. The corrected test still checks exact scrolling,
+anchored reading during streaming and resize.
+
+A final shared-index refinement preserves other directories' cached rows and
+filters both long and short searches before the result limit. After that change,
+**72 store/navigation/launcher/index/CLI regressions pass in 30.15 seconds** and
+**31 actual-terminal regressions pass in 91.00 seconds**, including the corrected
+scroll assertion, directory-local startup/in-app return, spacing, readable work and
+flow (`.evidence/directory-search-final.xml` and
+`.evidence/directory-spacing-terminal-final.xml`, private receipts). The full
+integrated suite was not repeated after this refinement; these are staged checks,
+not a claim of a clean final full-suite run. Ruff, Clippy, format and diff checks
+pass; a fresh privacy-only review found no disclosure issues in the scoped additions.
+
+No shared settings, user sessions, permissions, source repositories or installed
+releases were changed by this follow-up. Controlled fixture execution is not a new
+live-provider, CLI-performance or release-artifact certification.
+
+## Readable ongoing work (2026-09-17, development)
+
+READ-04 adopts word-first composer wrapping after inspecting Codex's source-indexed
+editor. Actual editor cursor/height checks and terminal input preserve Unicode,
+selection, visual navigation, resize and exact submitted text. This is not a claim
+of identical Codex whitespace or insertion-point behavior.
+
+READ-05 presents observed todo counts/current task and an expandable checklist.
+Count-only update results are validated against their original arguments; failed,
+truncated and unfamiliar results retain generic evidence. Per-call usage occupies
+one muted row, with full retained source expandable and final turn/session totals
+unchanged. BRAND-02 applies paint-only shimmer to running tools and observed model
+phases. Human waits, completed history, stale observations and reduced-motion/plain
+treatments remain static; the foreground phase never becomes a journal row.
+
+The focused real-runtime/preset gate passes **25 tests in 19.54 seconds**. After
+the final display refinements, **13 native terminal tests pass in 53.42 seconds**
+(`.evidence/readable-terminal.xml`, private receipt), including word-wrapped paste,
+todo/usage inspection, active/idle styling and static human waiting. The 58 Rust
+tests pass in default, light, terminal, NO_COLOR and high-contrast treatments.
+Laptop and narrow captures at 175×50, 40×20 and 32×12 were personally inspected.
+The smallest inspection view requires scrolling; it retains the draft and meter.
+
+The first integrated gate passed 714 tests with one new observer failure: sampling
+the substring Waiting combined separately styled footer and meter labels. The
+observer now identifies the complete meter label. An earlier tiny-view observer
+also needed to await expansion painting before scrolling past its target row.
+Neither correction changed production behavior. The final all-enabled integrated
+rerun passes **715 tests in 491.97 seconds**, with no failures or skips
+(`.evidence/readable-integrated-final.xml`, private receipt). Ruff, Clippy, format,
+diff and direction/archive checks pass. Fresh-context privacy review, including
+the final prose additions, found no remaining disclosure concerns.
+
+These are controlled-runtime and actual-terminal checks, not a new billed-provider,
+installed-wheel, service or CLI-latency certification. Existing terminal-copy and
+native history ownership are preserved. Resume was inspected read-only: it restores
+the conversation's saved cwd/policy, not the restarting shell's cwd. No session,
+permission or shared settings were changed, and user transcripts are not fixtures.
+
+## Brand, cumulative usage and explicit recovery (2026-09-17, development)
+
+METER-02 labels cumulative Turn usage and reported calls without changing the
+ledger. TITLE-02 excludes Foundation's inherited-context wrapper/history from
+short task titles; the child's full effective instruction remains untouched.
+DIR-01 explains explicit local filesystem recovery without granting new paths,
+weakening denies or changing child/shared policy. Both real preset graphs pass
+controlled-provider checks for actual delegate inheritance and permission/resume.
+
+BRAND-01 adopts muxplex brand roles for native surfaces, chrome and syntax.
+Working/Stopping and named background labels have a bounded local brighter sweep;
+metrics stay muted, waiting is static, reduced-motion/NO_COLOR are supported and
+idle emits no animation frames. Text, source, history and execution are unchanged.
+Actual terminal cells, quiet animation, bounded output, draft preservation and
+Interact return were exercised at 175×50, 40×20 and 32×12; captures inspected.
+The smallest combined task/meter view exposed an omission banner hiding the last
+task; the history cue now shares the meter so the task remains visible.
+
+The all-enabled integrated run passes **698 tests in 444.10 seconds**, no skips or
+failures (`.evidence/brand-usage-integrated-final.xml`, private receipt). After the
+final disconnect-only guard, **38 actual-terminal checks pass in 92.59 seconds**
+(`.evidence/brand-terminal-final.xml`), including actual host-pipe closure, static
+disconnection, retained draft, Activity, controls and the three-size visual checks.
+The 54 Rust tests pass across default, light, terminal, NO_COLOR and high-contrast
+treatments. Ruff, Clippy, format, diff and direction/archive checks pass. A fresh
+stranger review found no unexpected private information in the scoped changes.
+These are controlled-runtime and actual-terminal checks, not a new live-provider,
+installed-wheel, service or whole-app performance certification. User transcripts
+are not test fixtures and no running user session or permission policy was changed.
+
+## Task-first agent titles (2026-09-17, development)
+
+TITLE-01 adds stable short job titles to delegated work, keeping role, current
+activity and instructions separate. The child adapter uses bounded local headings
+or excerpts, with no extra naming/model calls. Parallel same-role jobs remain
+distinct; continuation refreshes the title. Hot and saved Activity retain title
+metadata through large-output bounds and completion, without rewriting source.
+
+Focused runtime/inspection checks pass (44); terminal title/expansion checks pass at
+175×50, 40×20 and 32×12 alongside the working meter. Native, Interact and expanded
+captures were personally inspected. A minimum-size combined test exposed padding
+hiding the last task; the live tail now preserves that row before optional blank
+space. Committed terminal history is unchanged. The 52 Rust tests pass in default,
+NO_COLOR, terminal and high-contrast treatments; Clippy, Ruff and direction checks pass.
+Final all-enabled verification passes **678 tests in 367.40 seconds**, no skips or
+failures (`.evidence/titles-integrated.xml`, private receipt). A fresh-context privacy
+review found no issues in the scoped source, synthetic fixtures and documentation.
+These are controlled-runtime and actual-terminal checks, not a new live-provider,
+installed-wheel, service or performance certification. No user transcript is a fixture.
+
+## Active-turn meter (2026-09-16, development)
+
+METER-01 adds elapsed wall time, reported turn tokens, turn dollars and session dollars
+to native Working/Waiting/Stopping, including child calls. Host Decimal accounting
+remains authoritative; naming contributes only to session cost. Missing/partial data
+stays explicit. New turns reset the meter; resumed sessions retain recorded costs.
+
+Focused runtime tests pass (17); native clock/draft/Interact/reset checks pass at
+175×50, 40×20 and 32×12 with personally inspected controlled-transport captures.
+Final all-enabled verification passes **659 tests in 363.80 seconds**, no skips or
+failures (`.evidence/meter-integrated.xml`, private receipt). The 50 Rust tests pass
+in default, NO_COLOR, terminal and high-contrast treatments; Clippy, Ruff, formatting
+and direction checks pass. Native decision/partial-history captures were also
+inspected at the smallest size. A fresh-context privacy review found no new issues.
+These are controlled-runtime and actual-terminal checks, not a new live-provider,
+installed-wheel, personal-service or matched-performance certification. The user's
+session was inspected read-only, never replayed or copied into fixtures.
+
+## Child ownership and forked-skill clarity (2026-09-16, development)
+
+[Ownership validation](evidence/ownership-validation.md): **654 integrated tests pass
+in 346.10 seconds**, zero skips/failures/warnings, including 19 independent-module swap
+cases. Reproduced child-notice ownership and resumed tool-ID collisions are repaired;
+current-run filtering also prevents late obsolete children updating new parent work.
+Hook notices stay under their child/tool with separate visible severity counts.
+Forked skills name the skill; summaries distinguish completion from inner errors and
+use readable elapsed time. Existing local changes were preserved.
+
+Rust passes 48 tests in four colour treatments; Clippy, Ruff and direction checks pass.
+The focused native/activity/flow/tmux gate passes 19 tests, with laptop/narrow captures
+and a child-hook warning drilldown inspected. Both final live launcher presets pass
+four parallel delegates, a recipe and resume: one root/five children/13 calls each,
+with all 44 source fingerprints matching. This does not enforce read-only skill policy,
+rewrite old unlinked evidence, repair uncooperative cancellation, or certify a new wheel.
+
+## Sustained work clarity (2026-09-16, development)
+
+[Clarity validation](evidence/clarity-validation.md): **646 integrated tests pass in
+333.84 seconds**, with native/preset/swap gates enabled and no skips or warnings.
+Four actual controlled child sessions exercise 80 calls and 228 tools; saved Activity
+retains access to 700 siblings after hot-cache eviction. Compact delegate summaries
+retain distinct agents, current-execution costs and warning counts without a flat
+child-telemetry flood. Status-only invocation evidence survives result truncation
+without retaining pre-policy output or overriding a valid processed error.
+
+Both final live daily-launcher presets pass four parallel delegates, a recipe,
+recursive inspection and resume: one root/five children and 13 model calls each.
+All 44 source fingerprints match. Actual laptop/narrow captures were inspected;
+three-size input and existing attached-tmux copy/history checks pass. Rust's 44 tests
+pass in four colour treatments, with strict Clippy, Ruff and direction checks.
+The first full gate found an introduced anchor regression and a tiny-screen observer
+error; both were corrected before the final clean gate. Child-mode, inspection focus,
+stale lookup and pre-write recovery validation regressions also pass. Native-copy versus
+Interact remains an explicit tradeoff; uncooperative search-tool cancellation is not
+fixed. No kernel changes, private-session rewriting or new release publication.
+
+## Provider budget compatibility (2026-09-16, development)
+
+A first-turn failure was traced to an awaitable provider budget decision being
+validated as a dictionary before it had completed. The streaming-loop seam now
+awaits returned awaitables before applying its existing validation; synchronous
+providers, initial unavailability and fail-closed rebuild rules are unchanged.
+No kernel, provider, settings or context-limit changes are needed.
+
+The regression reproduced the exact error before the fix. The loop suite passes
+**374 tests**, including **98** immediate/deferred budget cases, future completion,
+failure and cancellation. The TUI's **13** flow tests pass with a new first-turn
+host/core regression. The installed OpenAI provider's native-count branch was
+also exercised against a controlled SDK boundary without network access.
+The all-enabled integrated TUI gate passes **629 tests in 323.42 seconds**, with
+no skips or warnings (`.evidence/budget-integrated-final-1.xml`, private receipt).
+App Ruff and the direction/link guard pass. The loop has twelve pre-existing
+Ruff findings, verified unchanged against HEAD; the changed test file is clean.
+An isolated real `amplifier-tui` terminal run at 175×50 completes two consecutive
+OpenAI turns; the final painted capture was inspected. This is a
+focused provider/launcher smoke, not the user's complete bundle or service setup.
+Raw synthetic-run state and capture stay private. The fix currently lives in the
+workspace loop checkout used by the daily launcher; no upstream release or
+standalone-install fix is claimed.
+
+## Control clarity, visual consistency and naming (2026-09-16, development)
+
+[Feedback validation](evidence/feedback-validation.md): **628 integrated tests pass in
+320.40 seconds**, all native/preset/swap gates enabled, no skips or warnings. Actual
+painted terminal cells verify dim expanded thinking, charcoal user corrections
+and contiguous final usage; native tmux history/copy checks remain green. Rust passes
+42 tests in four colour treatments. Both real-launcher presets pass in-app New, two
+read-only turns, configured automatic naming, attributed utility usage and resume
+with retained draft and no replay. All 44 live source fingerprints match.
+Separate 30-pair/18-cell timing gives native typing p95 20.7–34.4 ms and streaming
+p95 20.2–42.7 ms; all 27 benchmark source fingerprints match. No CLI parity claim.
+
+Explicit names win generation races; late naming usage cannot reset another turn or
+repair uncertain admission. Stop interrupts the controlled cooperative tool, but the
+long-grep defect is separately reproduced in synchronous tool-search execution and
+is **not fixed**. Interact/copy-mode UX is unchanged pending reconsideration. No kernel
+changes, personal-service mutation or new published release are implied.
+
+## Continuous work and accounting (2026-09-16, development)
+
+[Flow validation](evidence/flow-validation.md): **620 integrated tests pass in 312.99
+seconds**, with all native/preset/swap gates enabled and no skips or warnings. Named
+startup phases preserve the provisional draft; streaming uses available height; four
+parallel delegates expose distinct tasks and observed child activity. Explicit Interact
+opens inline previews and recursive Activity, then returns native mouse ownership.
+Both final real-launcher presets pass one root/five child turns and 13 attributed model
+responses each, with retained draft and resume without replay or duplicate usage costs.
+All 44 live and 27 benchmark source fingerprints match the final runtime/renderer.
+
+Thirty renderer-startup pairs and 18 stress cells are recorded separately from live work.
+Native typing p95 is 21.6–34.6 ms; streaming p95 is 20.9–39.1 ms across its nine cells.
+The initial timing failure exposed replay hiding fresh output and was corrected, not
+averaged away. Six real tmux cases pass copy/resize/history retention; 39 Rust tests pass
+in four colour treatments. This is scoped local evidence, not CLI latency parity,
+physical-device certification, billing reconciliation or a new published release.
+
+## Conversation-first Activity (2026-09-16, development)
+
+[Activity validation](evidence/activity-validation.md): **610 integrated tests pass in
+308.56 seconds**, all native/preset/swap gates enabled, no skips or warnings. Both actual
+daily-launcher live presets pass real delegation/recipe and recursive child-tool inspection.
+Charcoal user/composer surfaces, quiet tools/public thinking, Markdown expansion and the
+working tail were inspected in actual terminal captures. Six real tmux cases pass,
+including added 40×20 resize, copying and retained history. Native stress typing p95 is
+19.9–34.9 ms; this is not a CLI-parity claim. Thin kernel and module execution policy stay
+unchanged; observed ancestry is exact or explicitly unknown. No release was published.
+
+## Review cleanup (2026-09-16, development)
+
+Three independent reviews covered reuse, quality and resource behavior across the
+working-tree diff. The resulting cleanup keeps provider usage in constant space with
+Foundation's Decimal cost accumulator; bounds active thinking observation; reuses
+normalized tool presentation instead of reparsing result envelopes; removes
+full-evidence clones during native inline rendering; and centralizes syntax theme policy.
+It also makes recipe guidance honor the live tool set, prevents forwarding diagnostics
+from exposing URL-shaped destinations, avoids local-control state writes until a
+stateful control is used, handles unavailable authentication status after successful
+login, bounds the disposable HTTP receiver, cleans successful probe state by default,
+and fingerprints bounded stable regular release sources. Stale untracked upgrade and
+agent-report artifacts were removed rather than retained as product material.
+
+Focused ecosystem checks passed: **82 tests** across CLI controls/compatibility,
+workflow, service delivery and installation; **37 Rust tests**, rustfmt and strict
+Clippy also passed. The ordinary Python suite passed **423 tests** with **175 expected
+gated skips**. The complete all-enabled gate then passed **607 tests in 298.38 seconds**,
+with candidates, presets and swaps enabled. `check_direction.py`, Ruff and `uv build`
+also passed; this does not turn its scoped cleanup into complete CLI parity or a
+live-provider/service certification.
+
+## Review follow-up (2026-09-16, development)
+
+Three independent reuse, quality and efficiency reviews covered 76 tracked and
+34 untracked changes. The follow-up now reuses the CLI's sync-or-async model
+catalog helper and Foundation's canonical `AMPLIFIER_HOME` resolver; source
+receipts use the bounded, stable release fingerprint helper. Provider costs are
+aggregated with Foundation `Decimal` in the host and sent as display-ready
+values, never summed as frontend floating point. Bare `/config`, `/provider`
+and `/mode` reach the host controls while the distinct plural aliases retain
+native menus; an inactive login prompt cannot stop unrelated work.
+
+Saved Activity checks its journal identity and reuses one of four unchanged
+pages rather than decoding the journal every second. Its hot projection and
+child excerpts bound nested values before JSON serialization, while usage
+deduplication retains at most 1024 recent identities. The native renderer
+reuses its already parsed detail for the immediate visibility check. Fixture
+probes now assert the current concise tool-result row instead of the retired
+checkmark presentation.
+
+Verification after cleanup: focused regressions passed **51 tests** (15
+expected gated skips); default suite **458 passed, 192 skipped** in 76.44
+seconds; all-enabled native/preset suite **627 passed, 23 skipped** in 326.62
+seconds. Rust release tests passed **46 tests** and strict Clippy; Ruff and
+`git diff --check` pass. `interaction_probe.py` completed two fixture turns
+and exited 0. No live provider, personal service or publication action ran.
+
+## Approachable daily experience (2026-09-16, development)
+
+[Experience validation](evidence/experience-validation.md) records **595 tests passing
+in 291.86 seconds**, all native/preset/swap cases enabled, no skips or warnings. Shared
+themes, responsive decision paging, task-grouped Actions, concise source-backed activity,
+and a current-mode request-observation fix are exercised through real native terminals.
+Both sustained live preset journeys and both exact-wheel installed live presets pass.
+The local Linux ARM wheel installs without Cargo; dirty-source fingerprints and a fresh
+semantic source/decompressed-artifact privacy review identify its actual scope.
+
+Thirty warm runtime pairs yield local typing/Actions/selection p95 of 14.6/44.9/16.7 ms;
+native streaming stress editing p95 is 19.2–21.7 ms, syntax stress 21.9 ms. Prepared and
+request-policy differences prevent a CLI-parity verdict. Owned memory crosses independent
+sessions; personal indexing/account authorization, physical device comfort and new
+cross-platform release certification remain explicit gates. No release was published;
+the existing development launcher picks up this checkout on relaunch.
+
+## Scoped CLI controls (2026-09-16, development)
+
+[Current validation](evidence/cli-controls-validation.md) records **571 integrated tests
+passing in 272.42 seconds**, with candidates/presets/swaps enabled and no warnings/skips.
+New evidence covers real goal caps and root mount/directory controls, mode arguments,
+structured public adoption from CLI-written history, transient cancellable authentication,
+owned memory injection, and actual intelligence HTTP transport/failure diagnostics.
+Both final live presets pass explicit mode transitions followed by real tool execution;
+final probe source hashes match the checkout. Rapid mode-change/exit/resume is covered.
+Synthetic OAuth is not account authorization; a local receiver is not personal-service
+or remote-indexing certification. Original-identity CLI/private-state continuation and
+arbitrary/global configuration remain explicit limits. No new release was published.
+
+## Everyday CLI workflows (2026-09-16, development)
+
+[Previous validation](evidence/cli-workflows-validation.md) covers cursor-query-free
+inspection, normalized root/child results, discoverable skill commands, scoped recipe
+file browsing and persistent startup errors. The all-enabled integrated run passes
+**551 tests in 258.83 seconds**, with no skips or warnings. Native captures were inspected;
+real memory skill definitions and recipe tools are exercised without personal-service
+writes. Both controlled live presets pass skill arguments, recipe browsing and read-file
+checks. This is checkout work, not a new release. Source-derived remaining gaps live in
+[the additional CLI comparison](CLI-WORKFLOW-GAPS.md).
+
+## Configured CLI compatibility (2026-09-15, development)
+
+[Previous-batch validation](evidence/cli-compatible-validation.md) records the settings adapter,
+inline execution content, safe command/skill behavior and confirmed CLI history import.
+The integrated all-enabled suite passes **526 tests in 248.79 seconds**; both controlled
+live presets pass native tool/menu checks. New-launch default is CLI policy; older saved
+conversations remain isolated. Declared destinations are preserved, not certified healthy.
+Interactive TUI login, canonical CLI private-state resume and equivalent latency remain
+unproven. Thirty alternating configured CLI/TUI fixture pairs are recorded in the linked
+validation; remaining prepared-policy differences prevent a latency-parity verdict.
+This work is unpublished; older evidence below describes its original source.
+
 ## rc5 recovery, control and release checkpoint (2026-09-15)
 
 Private `0.3.0rc5` is published at `67150fd825ea71b2dd231adfe6da3ec5450c6b24`.

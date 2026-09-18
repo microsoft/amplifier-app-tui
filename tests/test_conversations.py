@@ -8,6 +8,38 @@ from amplifier_tui.conversations import ConversationStore, catalog, resolve_resu
 from amplifier_tui.host import SessionHost
 
 
+def test_catalog_scope_is_exact_resolved_directory_and_filters_invalid_metadata(tmp_path):
+    state = tmp_path / "state"
+    work = tmp_path / "work"
+    work.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(work, target_is_directory=True)
+    saved = []
+    for cwd in (
+        work,
+        alias,
+        tmp_path,
+        work / "child",
+        tmp_path / "sibling",
+        "relative",
+        "",
+        None,
+        42,
+    ):
+        store = ConversationStore(state, {"cwd": str(cwd) if hasattr(cwd, "resolve") else cwd})
+        saved.append(store.identity)
+        store.close()
+    assert {r["id"] for r in catalog(state, cwd=work)} == set(saved[:2])
+    assert catalog(state, cwd=alias) == catalog(state, cwd=work)
+    assert resolve_resume(state, "latest", cwd=work)["id"] == saved[1]
+    assert len(catalog(state)) == len(saved)  # Global export/inspection still owns its catalog.
+    for identity in (saved[2], saved[3], saved[4], "latest"):
+        with pytest.raises(ValueError, match="this working directory"):
+            resolve_resume(state, identity, cwd=tmp_path / "empty")
+    with pytest.raises(ValueError, match="this working directory"):
+        resolve_resume(state, saved[3], cwd=work)
+
+
 async def complete(host, prompt):
     assert host.submit(prompt)[0]
     await host.task
@@ -50,7 +82,7 @@ async def test_resume_restores_context_draft_identity_without_reexecution(prepar
         assert stat.S_IMODE((first.path / name).stat().st_mode) == 0o600
 
 
-async def test_uncertain_turn_refuses_resume_without_repair(prepared, tmp_path):
+async def test_drained_tool_interruption_resumes_without_replay(prepared, tmp_path):
     store = ConversationStore(tmp_path, {})
     host = SessionHost(store)
     await host.open(*prepared, tmp_path)
@@ -61,9 +93,41 @@ async def test_uncertain_turn_refuses_resume_without_repair(prepared, tmp_path):
         while not tool.calls:
             await asyncio.sleep(0.01)
     await host.close()
-    with pytest.raises(ValueError, match="uncertain/incomplete"):
-        ConversationStore(tmp_path, {}, store.identity)
     assert tool.calls == 1
+    restored = SessionHost(ConversationStore(tmp_path, {}, store.identity))
+    try:
+        await restored.open(*prepared, tmp_path)
+        assert restored.ready
+        assert restored.session.coordinator.get("tools")["fixture_probe"].calls == 0
+        assert not restored.session.coordinator.get("providers")["fixture"].calls
+    finally:
+        await restored.close()
+
+
+async def test_interrupted_unpaired_context_still_refuses_resume(prepared, tmp_path, monkeypatch):
+    store = ConversationStore(tmp_path, {})
+    host = SessionHost(store)
+    await host.open(*prepared, tmp_path)
+    provider = host.session.coordinator.get("providers")["fixture"]
+    entered = asyncio.Event()
+
+    async def incomplete(request, **kwargs):
+        await host.session.coordinator.get("context").add_message(
+            {"role": "assistant", "content": "", "tool_calls": [{"id": "unresolved-fixture"}]}
+        )
+        entered.set()
+        await asyncio.Future()
+
+    monkeypatch.setattr(provider, "complete", incomplete)
+    try:
+        assert host.submit("Controlled incomplete context")[0]
+        await asyncio.wait_for(entered.wait(), 5)
+        await asyncio.wait_for(host.close(), 5)
+        assert json.loads((store.path / "checkpoint.json").read_text())["status"] == "uncertain"
+        with pytest.raises(ValueError, match="uncertain/incomplete"):
+            ConversationStore(tmp_path, {}, store.identity)
+    finally:
+        await host.close()
 
 
 async def test_journal_ahead_of_checkpoint_and_changed_composition_fail_closed(prepared, tmp_path):

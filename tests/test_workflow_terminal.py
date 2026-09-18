@@ -67,7 +67,7 @@ def test_native_queue_remove_advance_and_stop(tmp_path):
         probe.wait("(paused)")
         action(probe, "Decisions", "Options (exact runtime scope)")
         probe.send(b"allow\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         assert len([e for e in events(tmp_path) if e["kind"] == "turn.accepted"]) == 1
         action(probe, "Pending follow-ups", "Pending follow-ups · paused")
         probe.send(b"Run pending\r")
@@ -87,7 +87,7 @@ def test_native_rename_find_copy_preserve_draft(tmp_path):
     try:
         probe.wait("Ready")
         probe.send(b"Unique orchard question\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"Keep my correction")
         action(probe, "Rename conversation", "New name (up to 100 characters)")
         probe.send(b"cancel this\x1b")

@@ -1,6 +1,6 @@
 """Run the functional Ratatui client with real Amplifier modules, not a design scene.
 
-Installed and workspace launch share composition policy; no implicit CLI migration.
+Installed and workspace launch share policy; existing conversations retain theirs.
 """
 
 import argparse
@@ -13,8 +13,45 @@ from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent
 FOUNDATION = (
-    "git+https://github.com/microsoft/amplifier-foundation@e210edabd947af82d5121a240d6934283ac540b9"
+    "git+https://github.com/microsoft/amplifier-foundation@8a8e4f11918afd38ea8fe8f69cbec002226324f7"
 )
+CLI_COMMANDS = frozenset(
+    {
+        "init",
+        "bundle",
+        "provider",
+        "routing",
+        "module",
+        "source",
+        "agents",
+        "allowed-dirs",
+        "denied-dirs",
+        "notify",
+        "session",
+        "sessions",
+        "resume",
+        "continue",
+        "tool",
+        "run",
+        "update",
+        "reset",
+        "version",
+    }
+)
+
+
+def cli_command(argv):
+    """Explicit CLI-owned workflows, before importing either runtime or settings.
+
+    Use argv, not a shell; keep cwd, environment, stdio and upstream safety gates.
+    No arguments still means the native TUI. `cli` is an escape hatch for future
+    CLI options; bare `cli` explains itself instead of starting another REPL.
+    """
+    if argv and argv[0] == "cli":
+        return [sys.executable, "-m", "amplifier_app_cli", *(argv[1:] or ["--help"])]
+    if argv and argv[0] in CLI_COMMANDS:
+        return [sys.executable, "-m", "amplifier_app_cli", *argv]
+    return None
 
 
 def state_directory():
@@ -34,7 +71,12 @@ def executable(workspace=None):
 
 
 def arguments(argv=None, workspace=None, require_terminal=False):
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="CLI-compatible administration and scripting: amplifier-tui cli --help. "
+        "Commands such as provider, bundle, routing, session, tool and run use the pinned CLI "
+        "with its existing settings and session store. No arguments opens the native TUI.",
+    )
     parser.add_argument(
         "--setup",
         action="store_true",
@@ -76,6 +118,16 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         help="Ordered overlays; default live preset uses examples/anthropic.yaml",
     )
     parser.add_argument("--sources", type=Path)
+    parser.add_argument(
+        "--settings-policy",
+        choices=("cli", "isolated"),
+        help="cli reads existing layered Amplifier settings; isolated uses only explicit presets/overlays",
+    )
+    parser.add_argument(
+        "--cli-home",
+        type=Path,
+        help="Explicit Amplifier configuration home for CLI-compatible policy",
+    )
     parser.add_argument("--cwd", type=Path)
     parser.add_argument(
         "--import-transcript",
@@ -97,12 +149,12 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         "--resume",
         nargs="?",
         const="picker",
-        help="Choose a saved conversation; optionally supply an ID or latest",
+        help="Choose a conversation from this directory; optionally supply an ID or latest",
     )
     parser.add_argument(
         "--list-sessions",
         action="store_true",
-        help="List saved conversation IDs and working directories",
+        help="List saved conversations from this working directory",
     )
     parser.add_argument(
         "--export",
@@ -176,7 +228,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
                     "native_binary": str(binary),
                     "native_available": binary.is_file() and os.access(binary, os.X_OK),
                     "state_directory": str(args.state_dir.resolve()),
-                    "shared_cli_state": "not imported",
+                    "shared_cli_state": "New ordinary launches read CLI settings; saved conversations retain their policy. Session import is explicit; diagnostics do not read shared settings/history.",
                     "source_policy": "explicit workspace overrides"
                     if workspace
                     else "remote bundle sources",
@@ -203,8 +255,11 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         or args.cwd
         or args.sources
         or args.no_questions
+        or args.settings_policy
+        or args.cli_home
     ):
         parser.error("--resume/--recover restores composition and cwd; omit composition overrides")
+    launch_cwd = (args.cwd or Path.cwd()).resolve()
     if args.export:
         from amplifier_tui.recovery import export
 
@@ -214,7 +269,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         from .resume_picker import choose
 
         try:
-            selected = choose(args.state_dir)
+            selected = choose(args.state_dir, cwd=launch_cwd)
         except ValueError as exc:
             parser.error(str(exc))
         if selected is None:
@@ -223,15 +278,20 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         if needs_recovery:
             args.recover, args.resume = args.resume, None
     if args.recover:
+        from amplifier_tui.conversations import resolve_resume
         from amplifier_tui.recovery import recover
 
         if args.resume:
             parser.error("Choose --resume or --recover")
-        args.resume = recover(args.state_dir, args.recover)
+        try:
+            resolve_resume(args.state_dir, args.recover, cwd=launch_cwd)
+            args.resume = recover(args.state_dir, args.recover)
+        except ValueError as exc:
+            parser.error(str(exc))
     if args.list_sessions:
         from amplifier_tui.conversations import catalog
 
-        for entry in catalog(args.state_dir):
+        for entry in catalog(args.state_dir, cwd=launch_cwd):
             print(f"{entry['id']}  {entry['launch']['cwd']}")
         parser.exit()
     if args.resume:
@@ -246,12 +306,14 @@ def arguments(argv=None, workspace=None, require_terminal=False):
             or args.sources
             or args.no_questions
             or args.import_transcript
+            or args.settings_policy
+            or args.cli_home
         ):
             parser.error(
                 "--resume restores composition and cwd; do not supply preset/bundle/overlay/cwd/sources"
             )
         try:
-            entry = resolve_resume(args.state_dir, args.resume)
+            entry = resolve_resume(args.state_dir, args.resume, cwd=launch_cwd)
         except ValueError as exc:
             parser.error(str(exc))
         saved = entry["launch"]
@@ -260,13 +322,31 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         args.overlay = saved["overlays"]
         args.cwd = Path(saved["cwd"])
         args.sources = Path(saved["sources"]) if saved["sources"] else args.sources
+        args.settings_policy = saved.get("settings_policy", "isolated")
+        args.cli_home = Path(saved["cli_home"]) if saved.get("cli_home") else None
     args.cwd = args.cwd or Path.cwd()
     args.sources = args.sources or (workspace.parent / "tui-sources.json" if workspace else None)
     if not args.cwd.is_dir():
         parser.error("Recorded/requested working directory does not exist")
     host = [sys.executable, "-m", "amplifier_tui", "--bridge"]
+    # Existing explicit compositions remain isolated; an ordinary new launch uses
+    # the user's CLI policy. Saved conversations always retain their recorded choice.
+    policy = args.settings_policy or (
+        "isolated" if args.fixture or args.bundle or args.preset or args.overlay else "cli"
+    )
+    if args.fixture and policy == "cli":
+        parser.error("--fixture requires isolated settings; no personal hooks may run")
+    if args.cli_home and policy != "cli":
+        parser.error("--cli-home requires --settings-policy cli")
+    if policy == "cli":
+        host += ["--settings-policy", "cli"]
+        if args.cli_home:
+            host += ["--cli-home", str(args.cli_home.resolve())]
     if args.fixture:
         host += ["--fixture"]
+    elif policy == "cli":
+        if args.bundle or args.preset:
+            host += ["--bundle", args.bundle or args.preset]
     else:
         bundle = args.bundle or (
             str(workspace.parent / "amplifier-foundation/bundles" / (args.preset or "anchors"))
@@ -309,6 +389,9 @@ def arguments(argv=None, workspace=None, require_terminal=False):
 
 
 def main(workspace=None):
+    command = cli_command(sys.argv[1:])
+    if command:
+        return os.execv(command[0], command)
     if "--bridge" in sys.argv or "--headless" in sys.argv:
         from .__main__ import main as host_main
 

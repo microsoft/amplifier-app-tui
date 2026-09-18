@@ -18,6 +18,155 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.mark.parametrize("size", [(175, 50), (40, 20), (32, 12)])
+def test_ctrl_c_stops_without_exiting_and_clean_interruption_resumes(tmp_path, size):
+    import json
+
+    overlay = tmp_path / "slow-provider.yaml"
+    overlay.write_text(
+        yaml.safe_dump(
+            {
+                "bundle": {"name": "cancellation-fixture"},
+                "providers": [{"module": "provider-fixture", "config": {"delay": 2}}],
+            }
+        )
+    )
+    state = tmp_path / "state"
+    base = [
+        sys.executable,
+        str(ROOT / "scripts/run.py"),
+        "--no-install",
+        "--state-dir",
+        str(state),
+    ]
+    probe = Probe(
+        [*base, "--fixture", "--overlay", str(overlay)],
+        cols=size[0],
+        rows=size[1],
+        cwd=tmp_path,
+    )
+    try:
+        wait_ready(probe)
+        probe.send(b"Begin controlled work\r")
+        probe.wait("Working")
+        probe.send(b"Retain draft")
+        draft_is(probe, "Retain draft")
+        probe.send(b"\x03")
+        probe.wait("Finishing current calls")
+        capture(probe, f"graceful-stopping-{size[0]}")
+        probe.wait("Stopped")
+        probe.wait("[ Send ]")  # A skipped tool can mention Stop before finalization finishes.
+        assert probe.process.poll() is None
+        draft_is(probe, "Retain draft")
+        assert "[ Send ]" in probe.text
+        capture(probe, f"cancel-retained-{size[0]}")
+    finally:
+        probe.close()
+    source = next((state / "conversations").iterdir())
+    checkpoint = json.loads((source / "checkpoint.json").read_text())
+    assert checkpoint["status"] == "ready"
+    before = [json.loads(line) for line in (source / "events.jsonl").read_text().splitlines()]
+    assert [r["payload"]["status"] for r in before if r["kind"] == "turn.ended"] == ["interrupted"]
+    probe = Probe([*base, "--resume", source.name], cols=size[0], rows=size[1], cwd=tmp_path)
+    try:
+        wait_ready(probe)
+        draft_is(probe, "Retain draft")
+        after = [json.loads(line) for line in (source / "events.jsonl").read_text().splitlines()]
+        assert not any(
+            r["kind"] == "turn.accepted" or r["kind"].startswith("tool.")
+            for r in after[len(before) :]
+        )
+        capture(probe, f"cancel-resumed-{size[0]}")
+        probe.send(b"\r")
+        probe.wait_idle(timeout=20)
+        final = [json.loads(line) for line in (source / "events.jsonl").read_text().splitlines()]
+        assert sum(r["kind"] == "turn.accepted" for r in final) == 2
+        # Native history can already be above the smallest viewport. The durable
+        # outcome, not continued visibility of the response, proves completion.
+        assert [r["payload"]["status"] for r in final if r["kind"] == "turn.ended"] == [
+            "interrupted",
+            "completed",
+        ]
+        assert (
+            sum(
+                r["kind"] == "tool.updated"
+                and r["payload"].get("status") == "running"
+                and r["turn_id"] != before[-1]["turn_id"]
+                for r in final
+            )
+            == 1
+        )
+    finally:
+        probe.close()
+
+
+def test_ctrl_c_press_only_and_caps_lock_stops_but_explicit_quit_exits():
+    import json
+
+    # Controlled transport isolates key decoding from module timing; the test
+    # above separately proves real cancellation/checkpoint/resume behavior.
+    program = r"""
+import json, sys
+stops = 0
+def emit(**value):
+ print(json.dumps({'version':1,'session_id':'cancel-key-fixture',**value}),flush=True)
+emit(type='snapshot',ready=True,mode='TRANSPORT FIXTURE',title='Cancel keys',items=[])
+emit(type='state',ready=True,busy=False,status='Ready')
+for line in sys.stdin:
+ r=json.loads(line)
+ if r['op']=='shutdown': break
+ if r['op']=='submit':
+  emit(type='reply',request_id=r['request_id'],accepted=True)
+  emit(type='state',ready=True,busy=True,status='Working')
+ if r['op']=='stop':
+  stops += 1
+  emit(type='state',ready=True,busy=False,status=f'Stopped {stops}')
+"""
+    command = [
+        str(ROOT / "frontends/ratatui/target/release/amplifier-ratatui"),
+        "--host-json",
+        json.dumps([sys.executable, "-u", "-c", program]),
+    ]
+    probe = Probe(command, cols=175, rows=50)
+    try:
+        probe.wait("Ready")
+        probe.send(b"Start\r")
+        probe.wait("Working")
+        probe.send(b"Keep this draft")
+        probe.wait("Keep this draft")
+        probe.send(b"\x1b[67;5u")  # Caps Lock Ctrl-C press (CSI-u)
+        probe.wait("Stopped 1")
+        probe.send(b"\x1b[99;5:2u\x1b[99;5:3u")  # repeat + release, now idle
+        probe.read(0.15)
+        assert probe.process.poll() is None
+        assert "Stopped 1" in probe.text and "Keep this draft" in probe.text
+        probe.send(b"\x03")
+        probe.wait("Quit Amplifier?")
+        assert "› No, stay here" in probe.text
+        capture(probe, "graceful-exit-default-no")
+        probe.send(b"\r")  # default No, never exit
+        probe.read(0.15)
+        assert probe.process.poll() is None and "Keep this draft" in probe.text
+        probe.send(b"\x03\x03")  # repeated Ctrl-C is not confirmation
+        probe.read(0.15)
+        assert probe.process.poll() is None
+        probe.send(b"\x03")
+        probe.wait("Quit Amplifier?")
+        probe.send(b"y")  # explicit Yes
+        probe.process.wait(timeout=4)
+    finally:
+        probe.close()
+    probe = Probe(command, cols=175, rows=50)
+    try:
+        probe.wait("Ready")
+        probe.send(b"Start\r")
+        probe.wait("Working")
+        probe.send(b"\x11")  # explicit Quit is distinct from Stop
+        probe.process.wait(timeout=4)
+    finally:
+        probe.close()
+
+
 def test_drag_selection_copy_does_not_quit_or_steal_draft(tmp_path):
     probe = scene(
         tmp_path,
@@ -91,7 +240,7 @@ def test_question_is_directly_answerable_and_exportable(tmp_path, width):
         probe.send(b"\r")
         probe.wait("Submit reviewed")
         probe.send(b"Submit reviewed\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         draft_is(probe, "Draft remains")
         action(probe, "Export conversation", "Private transcript saved")
         probe.wait("Private transcript saved")
@@ -139,6 +288,17 @@ def test_native_modes_catalog_change_and_restore_without_model_calls(tmp_path):
         probe.wait("Current: explore")
         probe.wait("Mode: explore")
         assert json.loads((path / "modes.json").read_text())["mode"] == "explore"
+        probe.send(b"\x1b")
+        probe.wait("Actions / choices", absent=True)
+        probe.send(b"\x1b[200~/mode off\x1b[201~\r")
+        probe.wait("Mode command finished · default")
+        probe.wait("Actions / choices", absent=True)
+        probe.send(b"\x1b[200~/mode explore on\x1b[201~\r")
+        probe.wait("Mode command finished · explore")
+        probe.wait("Actions / choices", absent=True)
+        probe.send(b"Draft after mode command")
+        draft_is(probe, "Draft after mode command")
+        capture(probe, "cli-controls-mode-no-focus-steal")
     finally:
         probe.close()
     probe = Probe([*command, "--resume", path.name], cols=100)
@@ -194,6 +354,13 @@ def test_native_recovery_is_explicit_and_preserves_original(tmp_path):
         source = state / "conversations" / resolve_resume(state, "latest")["id"]
     finally:
         probe.close()
+    # Model an older/uncertain checkpoint, not a clean newly drained Stop. New
+    # cancelled turns with valid context are now directly resumable.
+    from amplifier_tui.conversations import atomic_json
+
+    checkpoint = json.loads((source / "checkpoint.json").read_text())
+    checkpoint["status"] = "uncertain"
+    atomic_json(source / "checkpoint.json", checkpoint)
     before = {p.name: p.read_bytes() for p in source.iterdir() if p.is_file()}
     probe = Probe(command, cols=100)
     try:

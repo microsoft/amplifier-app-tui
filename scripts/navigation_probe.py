@@ -41,8 +41,8 @@ def main():
                 ).encode()
             )
             probe.send(b"\r")
-            probe.wait("Completed", timeout=60)
-            probe.wait("✓  read_file")
+            probe.wait_idle(timeout=60)
+            probe.wait("▸ Read · done")
             probe.send(
                 b"What marker did I give you? Reply with only that marker; do not use tools."
             )
@@ -74,7 +74,7 @@ def main():
             ]
             assert [e["kind"] for e in after_open] == ["session.ready"]
             probe.send(b"\r")
-            probe.wait("Completed", timeout=60)
+            probe.wait_idle(timeout=60)
             fresh = [e for e in read_events(record["path"]) if e["sequence"] > record["sequence"]]
             answers = [e["payload"]["text"] for e in fresh if e["kind"] == "text.final"]
             assert answers and record["marker"] in answers[-1]

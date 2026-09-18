@@ -33,6 +33,57 @@ def test_unsupported_provider_menu_is_explanatory_not_stuck_loading(tmp_path):
         probe.close()
 
 
+@pytest.mark.parametrize("cols,rows", [(175, 50), (40, 20)])
+def test_loaded_configuration_is_discoverable_and_never_submits_a_turn(tmp_path, cols, rows):
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=cols,
+        rows=rows,
+    )
+    try:
+        probe.wait("Ready")
+        action(probe, "Loaded configuration", "/config")
+        probe.wait("Actions / choices", absent=True)
+        draft_is(probe, "/config")
+        assert not any(e["kind"] == "turn.accepted" for e in events(tmp_path))
+        probe.send(b"\r")
+        probe.wait("Shared settings unchanged")
+        capture(probe, f"config-loaded-{cols}")
+        journal = events(tmp_path)
+        shown = "\n".join(e["payload"].get("text", "") for e in journal)
+        assert "Orchestrator: loop-streaming" in shown
+        assert "Available agent definitions" in shown
+        assert not any(e["kind"] in ("turn.accepted", "tool.started") for e in journal)
+        # Paste bypasses the slash-command suggestion menu; explicit Send is
+        # separate from accepting an automatically offered command choice.
+        query = "/config show providers fixture"
+        probe.send(b"\x1b[200~" + query.encode() + b"\x1b[201~")
+        draft_is(probe, query)
+        prior = sum(e["payload"].get("source") == "config" for e in events(tmp_path))
+        probe.send(b"\r")
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if sum(e["payload"].get("source") == "config" for e in events(tmp_path)) > prior:
+                break
+            probe.read(0.02)
+        else:
+            pytest.fail("Exact config inspection was not received")
+        probe.wait("fixture · enabled")
+        probe.send(b"Draft after configuration inspection")
+        draft_is(probe, "Draft after configuration inspection")
+        capture(probe, f"config-provider-{cols}")
+        assert not any(e["kind"] == "turn.accepted" for e in events(tmp_path))
+    finally:
+        probe.close()
+
+
 def test_stop_with_replacement_keeps_draft_and_never_submits(tmp_path):
     probe = start(tmp_path, approval=True)
     try:
@@ -139,9 +190,9 @@ def test_uncertain_correction_reuse_is_confirmed_unsent_and_preserves_source(tmp
         probe.wait("Waiting for your decision")
         action(probe, "Correct active turn", "Correction for this turn only")
         probe.send(text.encode() + b"\r")
-        probe.wait("your correction · pending")
+        probe.wait("Correction pending")
         action(probe, "Stop active", "Interrupted")
-        probe.wait("your correction · unconfirmed")
+        probe.wait("Correction unconfirmed")
         probe.send(b"Existing scratch")
         action(probe, "Corrections —", "Corrections · latest")
         probe.send(b"\r")
@@ -182,18 +233,18 @@ def test_native_correction_insertion_scope_copy_and_draft(tmp_path):
         probe.send(b"First work\r")
         probe.wait("Waiting for your decision")
         probe.send(b"Keep composer scratch")
-        click(probe, "[Steer]")
+        click(probe, "[Change task]")
         probe.wait("Correction for this turn only")
         probe.send(b"\x1b[200~Change direction\nSecond line\x1b[201~")
         probe.wait("Second line")
         assert not any(e["kind"] == "steering.updated" for e in events(tmp_path))
         capture(probe, "controls-correction-editor")
         probe.send(b"\r")
-        probe.wait("your correction · pending")
+        probe.wait("Correction pending")
         draft_is(probe, "Keep composer scratch")
         action(probe, "Decisions", "Options (exact runtime scope)")
         probe.send(b"allow\r")
-        probe.wait("your correction · applied")
+        probe.wait("Correction applied")
         until = time.monotonic() + 5
         while time.monotonic() < until:
             probe.read(0.02)
@@ -203,7 +254,7 @@ def test_native_correction_insertion_scope_copy_and_draft(tmp_path):
             raise AssertionError("Fixture continuation did not request its second tool")
         action(probe, "Decisions", "Options (exact runtime scope)")
         probe.send(b"allow\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         assert len([e for e in events(tmp_path) if e["kind"] == "turn.accepted"]) == 1
         action(probe, "Corrections —", "Corrections · latest")
         capture(probe, "controls-corrections")
@@ -249,7 +300,7 @@ def test_native_provider_select_and_resume(tmp_path):
         probe.wait("Conversation provider saved")
         draft_is(probe, "Retain provider draft")
         probe.send(b"\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         selected = [e for e in events(tmp_path) if e["kind"] == "provider.selected"]
         assert selected[-1]["payload"]["provider"] == "fixture-alternate"
     finally:
@@ -308,7 +359,7 @@ def test_finished_turn_rejects_open_correction_without_losing_editor(tmp_path):
         probe.send(b"Unchanged main draft")
         action(probe, "Correct active turn", "Correction for this turn only")
         probe.send(b"A correction written too late")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"\r")
         probe.wait("no longer active")
         probe.wait("A correction written too late")

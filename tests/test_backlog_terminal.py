@@ -101,7 +101,7 @@ def test_image_attachment_and_saved_content_search_are_explicit(tmp_path):
         probe.wait("[Image attached]")
         draft_is(probe, "Image prompt retained")
         probe.send(b"\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         root = next((tmp_path / "state/conversations").glob("*/metadata.json")).parent
         messages = json.loads((root / "checkpoint.json").read_text())["messages"]
         image = next(
@@ -189,7 +189,7 @@ def test_multiple_queued_images_and_stored_context_keep_native_intent(tmp_path):
         dismiss(probe, "Follow-up · inspect")
         action(probe, "Pending follow-ups", "Pending follow-ups · paused")
         probe.send(b"Run pending\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         root = next((tmp_path / "state/conversations").glob("*/metadata.json")).parent
         messages = json.loads((root / "checkpoint.json").read_text())["messages"]
         images = [
@@ -262,7 +262,7 @@ def test_semantic_file_reference_confirmation_queue_and_text_only_send(tmp_path)
         dismiss(probe, "Follow-up · inspect")
         action(probe, "Pending follow-ups", "Pending follow-ups · paused")
         probe.send(b"Run pending\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         root = next((tmp_path / "state/conversations").glob("*/metadata.json")).parent
         messages = json.loads((root / "checkpoint.json").read_text())["messages"]
         reference = next(

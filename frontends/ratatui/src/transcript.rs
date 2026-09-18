@@ -12,6 +12,8 @@ pub struct Anchor {
 pub struct Layout {
     width: usize,
     selected: bool,
+    joined_usage: bool,
+    live_second: Option<u64>,
     lines: Vec<Line<'static>>,
 }
 
@@ -123,25 +125,67 @@ impl App {
     fn layout(&mut self, index: usize) -> &Vec<Line<'static>> {
         let width = self.body.width as usize;
         let selected = index == self.selected;
-        if self.layouts[index]
-            .as_ref()
-            .is_none_or(|l| l.width != width || l.selected != selected)
-        {
+        let live_seconds = self.flow.clocks.seconds(&self.items[index].id);
+        let live_second = live_seconds.map(|seconds| seconds.floor() as u64);
+        let joined_usage = self.items[index].kind != "assistant"
+            && self
+                .items
+                .iter()
+                .skip(index + 1)
+                .find(|item| !native::hidden(item))
+                .is_some_and(native::is_usage);
+        if self.layouts[index].as_ref().is_none_or(|l| {
+            l.width != width
+                || l.selected != selected
+                || l.joined_usage != joined_usage
+                || l.live_second != live_second
+        }) {
             let item = &self.items[index];
-            let lines = if item.kind == "assistant" {
-                let mut lines = vec![Line::styled("amplifier", Style::default().fg(GREEN))];
-                lines.extend(markdown::render(&item.text, width));
-                lines.push(Line::default());
+            let mut lines = if item.kind == "assistant" {
+                let mut lines = markdown::render(&item.text, width);
+                if lines.last().is_some_and(|line| line.width() != 0) {
+                    lines.push(Line::default());
+                }
                 lines
             } else {
-                item_lines(item, width, selected)
-                    .into_iter()
-                    .map(|(s, c)| Line::styled(safe(&s), Style::default().fg(c)))
-                    .collect()
+                native::live_lines(item, width, live_seconds)
             };
+            if self.inline_open.contains(&item.id) && native::expandable(item) {
+                let detail: Value = serde_json::from_str(&item.detail).unwrap_or(Value::Null);
+                if native::usage_call(item) {
+                    lines.extend(
+                        wrap(detail["text"].as_str().unwrap_or(&item.text), width)
+                            .into_iter()
+                            .map(|s| Line::styled(s, Style::default().fg(palette().muted))),
+                    );
+                } else if let Some(rows) = native::todo_rows(&detail) {
+                    lines.extend(native::todo_checklist(rows, width));
+                } else if detail["source"] == "thinking" {
+                    lines.extend(markdown::render_secondary(
+                        detail["text"].as_str().unwrap_or(&item.text),
+                        width,
+                    ));
+                } else {
+                    lines.extend(tool_detail_lines(&detail, width));
+                }
+                lines.push(Line::styled(
+                    if native::usage_call(item) || native::todo_rows(&detail).is_some() {
+                        "[ Activity: full evidence ]"
+                    } else {
+                        "[ Activity: children and full evidence ]"
+                    },
+                    Style::default().fg(palette().green),
+                ));
+                lines.push(Line::default());
+            }
+            if joined_usage && lines.last().is_some_and(|line| line.width() == 0) {
+                lines.pop();
+            }
             self.layouts[index] = Some(Layout {
                 width,
                 selected,
+                joined_usage,
+                live_second,
                 lines,
             });
         }
@@ -150,19 +194,25 @@ impl App {
 
     fn preceding_item(&self, end: usize) -> Option<usize> {
         if self.view == 0 {
-            return end.checked_sub(1);
+            return (0..end).rev().find(|&i| !native::hidden(&self.items[i]));
         }
         let at = self.tool_indices.partition_point(|&i| i < end);
-        at.checked_sub(1).map(|i| self.tool_indices[i])
+        self.tool_indices[..at]
+            .iter()
+            .rev()
+            .copied()
+            .find(|&i| !native::hidden(&self.items[i]))
     }
 
     fn following_item(&self, start: usize) -> Option<usize> {
         if self.view == 0 {
-            return (start < self.items.len()).then_some(start);
+            return (start..self.items.len()).find(|&i| !native::hidden(&self.items[i]));
         }
         self.tool_indices
-            .get(self.tool_indices.partition_point(|&i| i < start))
+            .iter()
+            .skip(self.tool_indices.partition_point(|&i| i < start))
             .copied()
+            .find(|&i| !native::hidden(&self.items[i]))
     }
 
     pub fn tail(&mut self) -> Option<Anchor> {
@@ -258,6 +308,220 @@ impl App {
     }
 }
 
+fn tool_detail_lines(detail: &Value, width: usize) -> Vec<Line<'static>> {
+    let quiet = Style::default().fg(palette().muted);
+    let heading = Style::default()
+        .fg(palette().green)
+        .add_modifier(Modifier::BOLD);
+    let mut lines = Vec::new();
+    let name = safe(detail["name"].as_str().unwrap_or("unknown"));
+    let mut preview = detail.clone();
+    if preview["error"].is_null() && !detail["result"]["error"].is_null() {
+        preview["error"] = detail["result"]["error"].clone();
+    }
+    if detail["name"] == "bash"
+        && let Some(command) = detail["arguments"]["command"].as_str()
+    {
+        lines.extend(markdown::reflow(
+            vec![Line::styled(format!("Request · {name} command"), heading)],
+            width,
+        ));
+        let source = safe(&command.chars().take(2400).collect::<String>());
+        let mut budget = syntax::MAX_BYTES;
+        let mut command_lines = syntax::lines(&source, "bash", &mut budget);
+        // Syntax roles are useful here, but ordinary tool text isn't a response.
+        for line in &mut command_lines {
+            for span in &mut line.spans {
+                if span.style.fg == Some(palette().ink) {
+                    span.style = span.style.fg(palette().muted);
+                }
+                span.style.bg = None;
+            }
+        }
+        let rows = markdown::reflow(command_lines, width);
+        let clipped = rows.len() > 12 || command.chars().count() > 2400;
+        lines.extend(rows.into_iter().take(12));
+        if clipped {
+            lines.extend(
+                wrap("[command excerpt; full evidence in Activity]", width)
+                    .into_iter()
+                    .map(|s| Line::styled(s, quiet)),
+            );
+        }
+        if let Some(args) = preview["arguments"].as_object_mut() {
+            args.remove("command");
+        }
+    }
+    for (label, source) in tool_sections(&preview) {
+        let title = if lines.is_empty() {
+            format!("{label} · {name}")
+        } else {
+            label.to_owned()
+        };
+        lines.extend(markdown::reflow(
+            vec![Line::styled(
+                title,
+                if label == "Error" {
+                    Style::default()
+                        .fg(palette().red)
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    heading
+                },
+            )],
+            width,
+        ));
+        // Bound display rows AFTER wrapping: a long unbroken output must not
+        // monopolize the inspector at mobile widths. Activity retains the source.
+        let rows = wrap(&safe(&source), width);
+        let limit = if label == "Result" || label == "Agents" {
+            8
+        } else {
+            16
+        };
+        let clipped = rows.len() > limit;
+        lines.extend(rows.into_iter().take(limit).map(|s| Line::styled(s, quiet)));
+        if clipped {
+            lines.extend(
+                wrap("[preview excerpt; full evidence in Activity]", width)
+                    .into_iter()
+                    .map(|s| Line::styled(s, quiet)),
+            );
+        }
+        lines.push(Line::default());
+    }
+    if lines.is_empty() {
+        lines.extend(markdown::reflow(
+            vec![Line::styled(format!("Tool · {name}"), heading)],
+            width,
+        ));
+    }
+    lines
+}
+
+#[cfg(test)]
+fn tool_preview(detail: &Value) -> String {
+    tool_sections(detail)
+        .into_iter()
+        .map(|(label, source)| format!("{label}\n{source}"))
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+fn tool_sections(detail: &Value) -> Vec<(&'static str, String)> {
+    let mut parts = Vec::new();
+    for (key, label) in [
+        ("arguments", "Request"),
+        ("child_progress", "Agents"),
+        (
+            "child_progress_omitted",
+            "Earlier agents retained in Activity",
+        ),
+        ("result", "Result"),
+        ("error", "Error"),
+    ] {
+        if key == "child_progress_omitted" && detail[key].as_u64().unwrap_or(0) == 0 {
+            continue;
+        }
+        if !detail[key].is_null() {
+            let value = if key == "result" && !detail[key]["output"].is_null() {
+                &detail[key]["output"]
+            } else {
+                &detail[key]
+            };
+            let source = if let Some(value) = value.as_str() {
+                value.to_string()
+            } else if let Some(fields) = value.as_object() {
+                fields
+                    .iter()
+                    .filter(|(_, value)| !value.is_null())
+                    .map(|(key, value)| {
+                        format!(
+                            "{key}: {}",
+                            value.as_str().map(str::to_string).unwrap_or_else(|| {
+                                serde_json::to_string_pretty(value).unwrap_or_default()
+                            })
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            } else if key == "child_progress" {
+                value
+                    .as_array()
+                    .map(|rows| {
+                        rows.iter()
+                            .map(|row| {
+                                let warnings =
+                                    native::child_alerts(std::slice::from_ref(row)).join(" · ");
+                                let cost = row["cost_display"]
+                                    .as_str()
+                                    .map(str::to_owned)
+                                    .unwrap_or_else(|| "not reported".into());
+                                let task = row["task_title"].as_str().map(|title| {
+                                    format!("Task: {} ({})\n", title,
+                                        row["task_title_source"].as_str().unwrap_or("display title"))
+                                }).unwrap_or_default();
+                                format!(
+                                    "{}{} · {} · {}\n{} calls · {} tools · Cost: {}{}\nWarnings: {}",
+                                    task,
+                                    row["agent"].as_str().unwrap_or("Agent"),
+                                    match row["status"].as_str().unwrap_or("unknown") {
+                                        "waiting_capacity" => "waiting for capacity",
+                                        status => status,
+                                    },
+                                    row["activity"].as_str().unwrap_or(""),
+                                    row["calls"]
+                                        .as_u64()
+                                        .map(|v| v.to_string())
+                                        .unwrap_or_else(|| "Unknown".into()),
+                                    row["tools_completed"]
+                                        .as_u64()
+                                        .map(|v| v.to_string())
+                                        .unwrap_or_else(|| "unknown".into()),
+                                    cost,
+                                    if row["cost_partial"] == true {
+                                        " (partial)"
+                                    } else {
+                                        ""
+                                    },
+                                    if !warnings.is_empty() {
+                                        &warnings
+                                    } else if row["warnings"].is_object()
+                                        && row["notices"].is_object()
+                                    {
+                                        "none"
+                                    } else {
+                                        "not reported"
+                                    }
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n")
+                    })
+                    .unwrap_or_default()
+            } else {
+                serde_json::to_string_pretty(value).unwrap_or_default()
+            };
+            if source.trim().is_empty() {
+                continue;
+            }
+            let excerpt: String = source.chars().take(2400).collect();
+            parts.push((
+                label,
+                format!(
+                    "{excerpt}{}",
+                    if source.chars().count() > 2400 {
+                        "\n[preview excerpt; full evidence in Activity]"
+                    } else {
+                        ""
+                    }
+                ),
+            ));
+        }
+    }
+    parts
+}
+
 fn reanchor(old: &[String], new: &[String], offset: usize) -> Option<usize> {
     if old.concat() != new.concat() {
         return None;
@@ -318,6 +582,70 @@ fn cell_anchor(old: &[String], new: &[String], row: usize) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expanded_commands_keep_source_roles_and_bound_wrapped_output() {
+        let command = "printf '%s\\n' '界面 é 👩‍💻'\n  echo done";
+        let detail = json!({"name":"bash","arguments":{"command":command,"timeout":30},
+            "result":{"output":"x".repeat(2000)}});
+        let original = detail.clone();
+        for width in [32, 40, 175] {
+            let rows = tool_detail_lines(&detail, width);
+            assert!(rows.iter().all(|r| r.width() <= width));
+            assert!(rows.len() < 40);
+            let content = rows
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(content.contains("Request · bash command"));
+            assert!(content.contains("timeout: 30"));
+            assert!(content.contains("[preview excerpt;"));
+            assert!(!content.contains(&"x".repeat(width + 1)));
+            if width == 175 {
+                assert!(content.contains(command));
+            }
+            if !matches!(palette().syntax_theme, SyntaxTheme::Plain) {
+                assert!(
+                    rows.iter()
+                        .flat_map(|r| &r.spans)
+                        .all(|s| s.style.fg != Some(palette().ink))
+                );
+            }
+        }
+        assert_eq!(detail, original);
+        let error = tool_detail_lines(
+            &json!({"name":"bash","result":{"output":"partial", "error":{"message":"fixture failure"}}}),
+            175,
+        );
+        assert!(error.iter().any(|r| r.to_string() == "Error"));
+        assert!(
+            error
+                .iter()
+                .any(|r| r.to_string() == "message: fixture failure")
+        );
+        assert_eq!(
+            tool_detail_lines(&json!({"name":"fixture.empty"}), 175)[0].to_string(),
+            "Tool · fixture.empty"
+        );
+        let unknown = tool_detail_lines(
+            &json!({"name":"fixture.external","arguments":{"raw":"payload"}}),
+            175,
+        );
+        assert!(unknown.iter().any(|r| r.to_string() == "raw: payload"));
+    }
+    #[test]
+    fn task_titles_are_marked_as_display_excerpts_without_replacing_the_request() {
+        let detail = serde_json::json!({
+            "arguments": {"instruction":"Task: Review file tools\nDo not change any files."},
+            "child_progress":[{"task_title":"Review file tools", "task_title_source":"instruction heading",
+                "agent":"explorer #2", "status":"running", "activity":"read_file"}]
+        });
+        let preview = tool_preview(&detail);
+        assert!(preview.contains("instruction: Task: Review file tools\nDo not change any files."));
+        assert!(preview.contains("Task: Review file tools (instruction heading)"));
+        assert!(preview.contains("explorer #2 · running · read_file"));
+    }
     #[test]
     fn structural_table_resize_retains_unique_cell_but_refuses_ambiguity() {
         let source = "| Name | Value |\n|---|---|\n| Alpha | 12 |\n| Beta | 34 |";

@@ -22,8 +22,8 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
 
 ## The promises
 
-1. **Retain identity.** Resume restores conversation, working directory, composition identity, explicit conversation-provider selection and canonical context before accepting work; incompatible or uncertain checkpoints or control state refuse execution explicitly.
-   Explicit completed-child continuation verifies its parent, reconstructed composition, routing and inherited mode; inspection never starts it and unsupported/interrupted records refuse execution. Nested continuation requires its actual parent active and never starts ancestors implicitly.
+1. **Retain identity.** Resume restores conversation, working directory, composition identity, explicit conversation-provider selection and canonical context before accepting work; incompatible or uncertain checkpoints or control state refuse execution explicitly. A drained interrupted turn with validated canonical state can resume under the same identity without claiming completion or replaying work; unverified execution or missing tool outcomes still require explicit recovery.
+   Explicit child continuation verifies its parent, reconstructed non-routing composition and inherited mode; completed or drained interrupted canonical state may continue, while uncertain state refuses. Explicit routing changes follow CLI preference precedence, retain identity and expose unresolved fallback; inspection never starts work. Nested continuation requires its actual parent active and never starts ancestors implicitly.
    Broken: Resuming into an unintended directory breaks the returning person's task.
    Affected: the boundary's clients and the person relying on them.
 
@@ -33,6 +33,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: the boundary's clients and the person relying on them.
 
 3. **Replay only observations.** History reconstruction never invokes a tool, provider or approval.
+   Explicit CLI-session discovery/import preserves source bytes and distinguishes historical reference from supported executable adoption; neither silently replays tools or changes the original session's policy. Structured public adoption validates tool pairing and exact context readback under a new identity; it never claims original private-state continuation.
    Broken: A repeated external effect during replay violates recovery.
    Affected: the boundary's clients and the person relying on them.
 
@@ -64,6 +65,8 @@ How does a replacement context manager preserve canonical history independently 
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-17 | Distinguish P1's safe root/child interruption from uncertain persistence and permit explicit routing-aware child continuation. | The CLI parity audit identifies refusals based solely on child outcome or changed routing; execution ownership, canonical validation and non-routing policy must decide resumability. |
+| 2026-09-15 | Clarify P3's cross-application continuity. | Steward approved CLI migration work; a separate TUI catalog and text import are not equivalent resume. |
 | 2026-09-15 | Distinguish explicitly reparented nested public adoption from same-identity continuation in P5. | Steward authorized deeper recovery; a captured nested self-agent can have root-equivalent policy without requiring ancestor execution. |
 | 2026-09-15 | Clarify P5's fresh-store persistent public-context adoption. | Inspected persistent module intentionally ignores set_messages after loading its own transcript; changing an existing store would not implement recovery. |
 | 2026-09-15 | Clarify P5's explicit executable public-context child recovery. | Steward requested actual interrupted-work recovery; historical inspection remains distinct from a newly authorized execution. |

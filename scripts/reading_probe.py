@@ -36,8 +36,8 @@ def exercise(preset):
             ).encode()
         )
         probe.send(b"\r")
-        probe.wait("Completed", timeout=60)
-        probe.wait("✓  read_file")
+        probe.wait_idle(timeout=60)
+        probe.wait("▸ Read · done")
         probe.send(
             b"What exact marker did I give you previously? Reply with only the marker; do not use tools."
         )
@@ -56,7 +56,7 @@ def exercise(preset):
         replay_events = [e for e in events if e["sequence"] > previous["sequence"]]
         assert [e["kind"] for e in replay_events] == ["session.ready"]
         probe.send(b"\r")
-        probe.wait("Completed", timeout=60)
+        probe.wait_idle(timeout=60)
         # Do not mistake the first turn's visible marker for a remembered answer.
         deadline = time.monotonic() + 3
         while time.monotonic() < deadline:

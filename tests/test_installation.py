@@ -12,14 +12,170 @@ from amplifier_tui.conversations import ConversationStore
 from amplifier_tui.delivery import EventDelivery
 from amplifier_tui.events import Event
 from amplifier_tui.host import SessionHost
-from amplifier_tui.launcher import PACKAGE, arguments, state_directory
+from amplifier_tui.launcher import CLI_COMMANDS, PACKAGE, arguments, cli_command, state_directory
+
+
+def test_cli_compatibility_entrypoint_preserves_argv_and_default_tui(monkeypatch):
+    from amplifier_tui import launcher
+
+    assert cli_command([]) is None
+    assert cli_command(["--resume"]) is None
+    assert cli_command(["--headless", "--prompt", "run"]) is None
+    assert cli_command(["cli"])[-1] == "--help"
+    for name in CLI_COMMANDS:
+        assert cli_command([name, "--help"])[3:] == [name, "--help"]
+    args = ["run", "literal $(no-shell) ; && `no-execution`", "--output-format", "json"]
+    assert cli_command(args) == [sys.executable, "-m", "amplifier_app_cli", *args]
+    invoked = []
+    monkeypatch.setattr(sys, "argv", ["amplifier-tui", "cli", *args])
+    monkeypatch.setattr(
+        launcher.os, "execv", lambda executable, argv: invoked.append((executable, argv))
+    )
+    launcher.main()
+    assert invoked == [(sys.executable, cli_command(args))]
+
+
+def test_real_cli_help_through_entrypoint_has_no_native_or_session_start(tmp_path):
+    import os
+    import subprocess
+
+    home = tmp_path / "home"
+    home.mkdir()
+    root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "AMPLIFIER_HOME": str(home / ".amplifier"),
+        "PYTHONDONTWRITEBYTECODE": "1",
+    }
+    for command in (
+        ["cli", "--help"],
+        ["run", "--help"],
+        ["provider", "--help"],
+        ["session", "--help"],
+    ):
+        result = subprocess.run(
+            [sys.executable, str(root / "scripts/run.py"), *command],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Usage:" in result.stdout
+        assert "Native binary" not in result.stderr
+    assert not list(home.rglob("transcript.jsonl"))
+    assert not list(home.rglob("events.jsonl"))
+
+
+def test_launcher_resume_and_listing_never_fall_back_to_another_directory(
+    tmp_path, monkeypatch, capsys
+):
+    state, work, foreign = tmp_path / "state", tmp_path / "work", tmp_path / "elsewhere"
+    work.mkdir()
+    foreign.mkdir()
+    saved = []
+    for directory in (work, foreign):
+        store = ConversationStore(
+            state,
+            {
+                "fixture": True,
+                "bundle": None,
+                "overlays": [],
+                "sources": None,
+                "cwd": str(directory),
+            },
+        )
+        saved.append(store.identity)
+        store.close()
+    monkeypatch.chdir(work)
+    base = ["--state-dir", str(state), "--no-install"]
+    for identity in ("latest", saved[0]):
+        _, command = arguments([*base, "--resume", identity])
+        assert command[command.index("--resume") + 1] == saved[0]
+        assert command[command.index("--cwd") + 1] == str(work)
+    with pytest.raises(SystemExit) as listed:
+        arguments([*base, "--list-sessions"])
+    assert listed.value.code == 0
+    output = capsys.readouterr().out
+    assert saved[0] in output and saved[1] not in output
+    before = {p: p.read_bytes() for p in state.rglob("*") if p.is_file()}
+    for op in ("--resume", "--recover"):
+        with pytest.raises(SystemExit) as rejected:
+            arguments([*base, op, saved[1]])
+        assert rejected.value.code == 2
+        assert "not found in this working directory" in capsys.readouterr().err
+    monkeypatch.chdir(tmp_path)  # Parent is a different workspace, not a recursive scope.
+    for resume in (["latest"], []):
+        with pytest.raises(SystemExit) as rejected:
+            arguments([*base, "--resume", *resume])
+        assert rejected.value.code == 2
+        assert "this working directory" in capsys.readouterr().err
+    assert before == {p: p.read_bytes() for p in state.rglob("*") if p.is_file()}
+
+
+def test_resolved_launch_directory_matches_cli_project_identity(tmp_path, monkeypatch):
+    import amplifier_app_cli.session_store as cli_store
+    from amplifier_app_cli.project_utils import get_project_slug
+    from amplifier_app_cli.session_store import SessionStore
+
+    monkeypatch.setattr(cli_store, "get_amplifier_home", lambda: tmp_path / "cli-home")
+    work = tmp_path / "project"
+    work.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(work, target_is_directory=True)
+    monkeypatch.chdir(work)
+    slug, directory = get_project_slug(), SessionStore().base_dir
+    monkeypatch.chdir(alias)
+    assert get_project_slug() == slug and SessionStore().base_dir == directory
+    monkeypatch.chdir(tmp_path)
+    assert get_project_slug() != slug and SessionStore().list_sessions() == []
+
+
+def test_candidate_fingerprints_include_fixture_policy_and_native_source(monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    from release_wheel import source_fingerprints
+
+    fields = source_fingerprints()
+    assert "src/amplifier_tui/fixtures/bundle.yaml" in fields
+    assert "src/amplifier_tui/assets/user-questions.yaml" in fields
+    assert "frontends/ratatui/src/native.rs" in fields
+    assert all(
+        not Path(name).is_absolute() and len(digest) == 64 for name, digest in fields.items()
+    )
+
+
+def test_candidate_fingerprint_rejects_symlinked_source(monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    import release_wheel
+
+    root = tmp_path / "candidate"
+    source = root / "src/amplifier_tui"
+    source.mkdir(parents=True)
+    (source / "module.py").symlink_to(tmp_path / "outside.py")
+    (tmp_path / "outside.py").write_text("outside = True\n")
+    native = root / "frontends/ratatui/src"
+    native.mkdir(parents=True)
+    for path in (
+        root / "pyproject.toml",
+        root / "uv.lock",
+        root / "README.md",
+        root / "hatch_build.py",
+        root / "frontends/ratatui/Cargo.toml",
+        root / "frontends/ratatui/Cargo.lock",
+    ):
+        path.write_text("fixture\n")
+    monkeypatch.setattr(release_wheel, "ROOT", root)
+    with pytest.raises(RuntimeError, match="not a regular file"):
+        release_wheel.source_fingerprints()
 
 
 def test_default_remote_launch_and_packaged_overlays(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "fixture-value-not-a-credential")
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
-    _, command = arguments([])
+    _, command = arguments(["--settings-policy", "isolated"])
     assert command[command.index("--bundle") + 1].startswith("git+https://")
     assert "#subdirectory=bundles/anchors" in command[command.index("--bundle") + 1]
     assert "--sources" not in command
@@ -27,6 +183,17 @@ def test_default_remote_launch_and_packaged_overlays(monkeypatch, tmp_path):
     assert str(PACKAGE / "assets/anthropic.yaml") in command
     assert state_directory() == tmp_path / "data/amplifier-tui"
     assert not (tmp_path / "data").exists()
+
+
+def test_ordinary_launch_uses_cli_policy_without_reading_or_copying_settings(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _, command = arguments([])
+    assert command[command.index("--settings-policy") + 1] == "cli"
+    assert "--bundle" not in command
+    assert str(PACKAGE / "assets/anthropic.yaml") not in command
+    assert str(PACKAGE / "assets/user-questions.yaml") in command
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_doctor_does_not_write_state_or_reveal_credentials(monkeypatch, tmp_path, capsys):
@@ -142,8 +309,9 @@ asyncio.run(serve(lambda emit: RuntimeBridge(SessionHost(), open_host, emit, Tru
     try:
         async with asyncio.timeout(5):
             output, error = await asyncio.gather(process.stdout.read(), process.stderr.read())
-            assert await process.wait() == 0
+            assert await process.wait() != 0
         assert b"Source event delivery exceeded" in error
+        assert b"Runtime event delivery failed; no work retried" in error
         assert b"snapshot" in output
     finally:
         if process.returncode is None:

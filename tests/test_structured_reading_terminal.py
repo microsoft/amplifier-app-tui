@@ -108,7 +108,7 @@ def test_real_fixture_tables_code_copy_and_resume(tmp_path):
     try:
         wait_ready(probe)
         probe.send(b"Show the reading fixture\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"Keep my draft")
         probe.send(b"\x1b[5~" * 8)
         probe.wait("Structured reading fixture")
@@ -263,8 +263,8 @@ def test_real_git_hunks_are_coloured_copyable_and_stable_snapshots(tmp_path):
         coloured = [
             (cell.data, cell.fg) for row in probe.screen.buffer.values() for cell in row.values()
         ]
-        assert any(fg == "8ed5b7" for _, fg in coloured)
-        assert any(fg == "f3a3ae" for _, fg in coloured)
+        assert any(fg == "00d9f5" for _, fg in coloured)
+        assert any(fg == "f85149" for _, fg in coloured)
         probe.send(b"Copy this hunk\r")
         probe.wait("Source copied")
         content = copied(probe)

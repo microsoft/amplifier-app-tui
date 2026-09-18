@@ -23,12 +23,12 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
 ## The promises
 
 1. **Keep both presets meaningful.** anchors and anchors-amp-dev resolve their recursive definitions and expose the capabilities the host actually supports.
-   Supported release wheels include the native client without requiring a local compiler. Launch resolves presets without workspace checkouts, names version/storage, and never silently substitutes the historical UI or imports shared CLI state. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
+   Supported release wheels include the native client without requiring a local compiler. Launch resolves presets without workspace checkouts, names version/storage and selected settings policy, and never silently substitutes the historical UI or migrates saved conversations. Explicit CLI-compatible policy reads layered settings without rewriting them; isolated policy remains available. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
    Broken: A preset name loads a hard-coded lookalike, or agent instructions imply a running external service.
    Affected: people selecting bundles and authors composing them.
 
 2. **Honor composition policy.** Selected sources, overlays, provider selection and effective configuration remain attributable; exclusions and incompatibilities are explicit. Conversation-provider changes use a supported module capability while idle, retain its compatibility guards, and disclose whether other routing is unaffected.
-   Mode changes retain transition/tool guards and their durable state. Explicit model discovery is advisory, never an implicit selection or credential-validity claim. Local capture, remote dispatch, observed context usage and unavailable diagnostics are disclosed separately.
+   Mode changes retain transition/tool guards and durable state; model discovery is advisory, not selection or credential validation. CLI-compatible composition preserves app behaviors, root instructions, named providers, module overrides, permissions and declared service/storage policy; terminal-only exclusions name replacements. Provider-owned authentication is reused without copying credentials. Local capture, remote dispatch, usage, public effective budget and unavailable occupancy remain distinct.
    Broken: A replacement silently omits a policy hook, treats offline credential checks as remote validation, or bypasses compatibility guards; explicit conversion must preserve the original and require adoption.
    Affected: operators relying on the configured behavior and its provenance.
 
@@ -36,16 +36,16 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
    Broken: An otherwise conforming module needs a screen-specific wrapper to express its ordinary results or policy.
    Affected: module authors and people assembling their own runtimes.
 
-4. **Keep generic modules useful.** Unknown tools retain structured arguments, results and failures through the generic presentation path.
+4. **Keep generic modules useful.** Unknown tools retain structured arguments, results and failures through the generic presentation path. Legacy terminal output has bounded, redacted private inspection without interpreting escape controls, guessing child ownership or promoting logs to tool outcomes; retention, redaction limits and unavailable capture are explicit.
    Broken: A tool without a custom renderer disappears, loses its error, or becomes an unsupported operation solely for its appearance.
    Affected: authors extending the ecosystem independently of this project.
 
-5. **Do not trade policy for speed.** Replacements preserve approvals, cancellation semantics, context obligations and state isolation on the supported path.
+5. **Do not trade policy for speed.** Replacements preserve approvals, cancellation semantics, context obligations, host goal-loop safety backstops and state isolation on the supported path. Interactive approval uses actual host capability, not terminal-stdin heuristics; diagnostics cover every configured provider through bounded explicit operations.
    Broken: A faster benchmark skips enforcement, loses conversation context or shares another session's state.
    Affected: people trusting the runtime with real work.
 
 6. **Prove the replacement, not just the mount.** Conformance includes an exercised swap at each extension seam and live-provider evidence separate from deterministic fixtures.
-   Supported delegation and agent-bearing recipes expose real child progress, waiting reasons and inspectable scoped evidence with inherited policy, cancellation and cleanup; restored observations never imply a live child.
+   Supported delegation and agent-bearing recipes, including explicit subprocess children, preserve approvals, questions, scoped progress, nested work, cancellation and cleanup; lost workers never imply safe continuation. Display/context cache limits do not cap execution counts; capacity waits are cancellable and independent across parent branches, preserving module-owned self-delegation depth.
    Broken: Import success or a returned string is presented as full compatibility, or a test double is called an independently implemented alternative.
    Affected: maintainers deciding whether a replacement can ship.
 
@@ -64,12 +64,15 @@ Record exclusions, unsupported paths and untested modules rather than upgrading 
 ## Open questions
 
 Which independent context/orchestrator implementations best probe the first replacement host?
-Which authored CLI policies need explicit TUI equivalents rather than configuration reuse?
+Existing CLI administration, scripting and continuation use pinned policy adapters; incompatible private state requires explicit adoption, not a false resume claim.
 
 ## Changelog
-
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-17 | Specify P4's legacy terminal-output compatibility seam. | Source audit found redirected print/Rich/log output discarded; private bounded inspection preserves it without leaking raw logs into conversation history. |
+| 2026-09-17 | Clarify P6's admission/retention boundary and preserve interactive obligations across child processes. | CLI comparison found extra host depth/concurrency/retained-record and subprocess refusals; its headless subprocess helper alone does not carry approvals, questions or live observations. |
+| 2026-09-17 | Extend P5 to CLI host safety and complete bounded diagnostics. | Steward approved implementing CLI capabilities and required bundle/module host support after the source audit. |
+| 2026-09-15 | Extend P1/P2 to deliberate layered CLI policy compatibility. | Steward approved closing settings, identity-backed provider and remote-dispatch gaps found in current CLI source. |
 | 2026-09-14 | Distinguish explicit remote validation and deliberate composition conversion in P2. | Steward authorized remaining newcomer/provider work; offline checks cannot validate credentials and existing pins intentionally preserve vendor guards. |
 | 2026-09-14 | Clarify advisory model discovery in P2. | Steward authorized provider/model setup; module catalogs must not bypass selection guards or imply a successful model request. |
 | 2026-09-14 | Specify compiler-free supported release wheels in P1. | Steward authorized the installation backlog; source installation currently requires Rust/Cargo and a linker. Source builds remain explicit. |

@@ -7,6 +7,11 @@ use ratatui::widgets::Clear;
 pub struct Workflow {
     pub queued_requests: std::collections::HashSet<String>,
     pub busy: bool,
+    pub cancellation: String,
+    pub quit_confirmation: Option<bool>,
+    pub quit_buttons: Vec<(Rect, bool)>,
+    pub meter: native::TurnMeter,
+    pub clocks: native::ActivityClocks,
     pub rows: Vec<Value>,
     pub paused: bool,
     pub prompt: Option<Prompt>,
@@ -31,6 +36,97 @@ fn choice(label: impl Into<String>, action: Action, detail: impl Into<String>) -
 }
 
 impl App {
+    pub fn quit_key(&mut self, key: crossterm::event::KeyEvent) -> Option<bool> {
+        let yes = self.flow.quit_confirmation?;
+        match key.code {
+            KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                return Some(false);
+            }
+            KeyCode::Char(c)
+                if c.eq_ignore_ascii_case(&'c')
+                    && key.modifiers.contains(KeyModifiers::CONTROL) =>
+            {
+                self.flow.quit_confirmation = None;
+            }
+            KeyCode::Esc | KeyCode::Char('n' | 'N') => self.flow.quit_confirmation = None,
+            KeyCode::Enter => {
+                self.flow.quit_confirmation = None;
+                return Some(!yes);
+            }
+            KeyCode::Char('y' | 'Y') => return Some(false),
+            KeyCode::Up
+            | KeyCode::Down
+            | KeyCode::Left
+            | KeyCode::Right
+            | KeyCode::Tab
+            | KeyCode::BackTab => {
+                self.flow.quit_confirmation = Some(!yes);
+            }
+            _ => (),
+        }
+        Some(true)
+    }
+
+    pub fn draw_quit_confirmation(&mut self, f: &mut Frame) {
+        self.flow.quit_buttons.clear();
+        let Some(yes) = self.flow.quit_confirmation else {
+            return;
+        };
+        let outer = f.area();
+        let width = outer.width.min(54);
+        let height = outer.height.min(8);
+        let area = Rect::new(
+            (outer.width - width) / 2,
+            (outer.height - height) / 2,
+            width,
+            height,
+        );
+        f.render_widget(Clear, area);
+        f.render_widget(
+            Block::bordered()
+                .title(" Quit Amplifier? ")
+                .style(Style::default().fg(palette().green).bg(palette().panel)),
+            area,
+        );
+        let inner = Rect::new(
+            area.x + 1,
+            area.y + 1,
+            width.saturating_sub(2),
+            height.saturating_sub(2),
+        );
+        for (offset, label, selected) in [(1, "No, stay here", false), (2, "Yes, quit", true)] {
+            if offset >= inner.height {
+                continue;
+            }
+            let row = Rect::new(inner.x, inner.y + offset, inner.width, 1);
+            self.flow.quit_buttons.push((row, selected));
+            f.render_widget(
+                Paragraph::new(format!(
+                    "{} {label}",
+                    if yes == selected { "›" } else { " " }
+                ))
+                .style(
+                    Style::default()
+                        .fg(if yes == selected {
+                            palette().green
+                        } else {
+                            palette().muted
+                        })
+                        .bg(palette().panel),
+                ),
+                row,
+            );
+        }
+        if inner.height > 4 {
+            text(
+                f,
+                Rect::new(inner.x, inner.y + 4, inner.width, 1),
+                "Enter choose · Esc stay",
+                palette().muted,
+            );
+        }
+    }
+
     pub fn prompt(&mut self, kind: &str) {
         let mut input = editor();
         input.set_placeholder_text(match kind {
@@ -389,7 +485,14 @@ impl App {
             return;
         }
         let w = outer.width.saturating_sub(4).min(100);
-        let area = Rect::new((outer.width - w) / 2, 5, w, 5);
+        let correction = prompt.kind == "Correct active turn";
+        let height = if correction { 7 } else { 5 };
+        let area = Rect::new(
+            (outer.width - w) / 2,
+            5.min(outer.height.saturating_sub(height)),
+            w,
+            height,
+        );
         f.render_widget(Clear, area);
         f.render_widget(
             Block::bordered()
@@ -406,12 +509,24 @@ impl App {
                         "Enter apply · Esc cancel"
                     }
                 ))
-                .style(Style::default().fg(GREEN).bg(PANEL)),
+                .style(Style::default().fg(palette().green).bg(palette().panel)),
             area,
         );
         f.render_widget(
             &prompt.editor,
             Rect::new(area.x + 1, area.y + 1, area.width - 2, 3),
         );
+        if correction {
+            text(
+                f,
+                Rect::new(area.x + 1, area.y + 4, area.width - 2, 2),
+                if area.width < 60 {
+                    "Waits for tool return.\nStop requests cancellation."
+                } else {
+                    "Correction waits for the next input boundary.\nStop requests cancellation; nothing is undone."
+                },
+                palette().muted,
+            );
+        }
     }
 }

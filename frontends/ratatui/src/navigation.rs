@@ -48,7 +48,14 @@ impl App {
             self.menu("Saved conversations · loading…", vec![]);
         }
         self.status = "Looking up local choices…".into();
-        self.send(json!({"op": if span.is_some() { "complete_path" } else { "conversations" }, "query":query, "offset":offset}));
+        let op = if span.is_none() {
+            "conversations"
+        } else if query.starts_with('/') {
+            "complete_command"
+        } else {
+            "complete_path"
+        };
+        self.send(json!({"op": op, "query":query, "offset":offset, "cursor":cursor.1}));
     }
 
     pub fn receive_lookup(&mut self, value: &Value) {
@@ -74,31 +81,54 @@ impl App {
             if self.ui.menu.is_some() || self.ui.focus.is_some() {
                 return;
             }
+            let arguments = value["command_arguments"] == true;
             let choices: Vec<_> = value["candidates"]
                 .as_array()
                 .unwrap_or(&vec![])
                 .iter()
-                .filter_map(|s| s.as_str())
-                .map(|s| Choice {
+                .filter_map(|s| {
+                    Some((
+                        s.as_str().or_else(|| s["value"].as_str())?,
+                        s["description"].as_str().unwrap_or(""),
+                    ))
+                })
+                .map(|(s, detail)| Choice {
                     label: safe(s),
                     action: Action::Complete(row, start, end, s.into()),
-                    detail: String::new(),
+                    detail: safe(detail),
                 })
                 .collect();
             match choices.len() {
                 0 => {
-                    self.status =
-                        "No matching workspace paths; start with ./ and narrow the directory".into()
+                    self.status = if arguments {
+                        "No matching command arguments · free-form text stays editable"
+                    } else {
+                        "No matching workspace paths; start with ./ and narrow the directory"
+                    }
+                    .into()
                 }
                 1 if value["truncated"] != true => {
                     self.activate(choices[0].action.clone());
                 }
                 _ => {
-                    self.menu("Workspace paths · names only; Tab/Enter inserts", choices);
-                    self.status =
-                        "Choose a workspace path · no file content has been loaded".into();
+                    self.menu(
+                        if arguments {
+                            "Command arguments · Tab/Enter inserts; Send runs"
+                        } else {
+                            "Workspace paths · names only; Tab/Enter inserts"
+                        },
+                        choices,
+                    );
+                    self.status = if arguments {
+                        "Cached local choices · nothing sent"
+                    } else {
+                        "Choose a workspace path · no file content has been loaded"
+                    }
+                    .into();
                     if value["truncated"] == true {
-                        self.ui.menu.as_mut().unwrap().detail = "Partial results (2000 names / 80 matches maximum). Narrow the path and retry.".into();
+                        self.ui.menu.as_mut().unwrap().detail =
+                            "Partial results (80 matches maximum). Narrow the input and retry."
+                                .into();
                     }
                 }
             }
@@ -112,7 +142,8 @@ impl App {
                 action: Action::Switch("new".into()),
                 detail: String::new(),
             }];
-            choices.push(Choice { label: "Search saved conversation content…".into(), action: Action::FindSaved, detail: "Search locally across saved message text; does not call a model or open a conversation.".into() });
+            choices.push(Choice { label: "Search saved conversation content…".into(), action: Action::FindSaved, detail: "Search saved messages in this launch directory only; does not call a model or open a conversation.".into() });
+            choices.push(Choice { label: "CLI sessions — import a historical reference…".into(), action: Action::Inspect("cli_sessions".into(), None), detail: "Browse the configured CLI home's sessions in this directory. Separate from TUI resume; original sources remain unchanged.".into() });
             let search = string(value, "query");
             let offset = value["offset"].as_u64().unwrap_or(0) as usize;
             if offset > 0 {
@@ -144,7 +175,7 @@ impl App {
                 });
             }
             self.menu(
-                "Saved conversations · choose explicitly; Esc keeps draft",
+                "Saved conversations · this directory · Esc keeps draft",
                 choices,
             );
             let menu = self.ui.menu.as_mut().unwrap();

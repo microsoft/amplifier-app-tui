@@ -2,7 +2,230 @@
 
 import json
 import math
-from collections import OrderedDict
+from collections import OrderedDict, deque
+from datetime import datetime
+from decimal import Decimal
+
+from amplifier_foundation import sum_cost_usd
+
+USAGE_FIELDS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+    "cost_usd",
+)
+
+
+def usage_values(value):
+    if not isinstance(value, dict):
+        return {}
+    result = {}
+    for key in USAGE_FIELDS:
+        aliases = {
+            "cache_read_input_tokens": "cache_read_tokens",
+            "cache_creation_input_tokens": "cache_write_tokens",
+        }
+        raw = value.get(key, value.get(aliases.get(key)))
+        if key == "cost_usd":
+            try:
+                raw = Decimal(str(raw))
+            except (ArithmeticError, ValueError):
+                continue
+            if raw.is_finite() and 0 <= raw < 2**53:
+                result[key] = raw
+        elif type(raw) is int and 0 <= raw < 2**53:
+            result[key] = raw
+        elif type(raw) is float and math.isfinite(raw) and 0 <= raw < 2**53:
+            result[key] = raw
+    return result
+
+
+def usage_totals():
+    """Constant-space summary; individual observations stay in the event journal."""
+    return {"requests": 0, "reported": {}, "totals": {}}
+
+
+def add_usage(total, values):
+    """Add one provider response without retaining all prior usage dictionaries."""
+    total["requests"] += 1
+    for key, value in values.items():
+        total["reported"][key] = total["reported"].get(key, 0) + 1
+        if key == "cost_usd":
+            total["totals"][key] = sum_cost_usd(
+                [{"cost_usd": total["totals"].get(key)}, {"cost_usd": value}]
+            )
+        else:
+            total["totals"][key] = total["totals"].get(key, 0) + value
+
+
+def usage_summary(total, provider, elapsed):
+    parts = [
+        "Root request totals; last reported "
+        + (
+            " / ".join(str(provider[k])[:120] for k in ("provider", "model") if provider.get(k))
+            or "provider/model unknown"
+        )
+    ]
+    for key, label in (
+        ("input_tokens", "input"),
+        ("output_tokens", "output"),
+        ("cache_read_input_tokens", "cache read"),
+        ("cache_creation_input_tokens", "cache write"),
+        ("cost_usd", "cost USD"),
+    ):
+        if key in total["totals"]:
+            value = total["totals"][key]
+            formatted = f"{value:.6f}" if key == "cost_usd" else f"{value:,}"
+            parts.append(
+                f"{label} {formatted}"
+                + (" (partial)" if total["reported"][key] != total["requests"] else "")
+            )
+    if "cost_usd" not in total["totals"]:
+        parts.append("cost not reported")
+    parts.append(f"{elapsed:.1f}s")
+    return " · ".join(parts)
+
+
+class CallUsage:
+    """App-owned accounting of identified responses, including children, never estimates.
+
+    The journal owns individual calls. A bounded recent identity window deduplicates
+    delivery/replay retries; totals remain constant-space.
+    """
+
+    MAX_SEEN = 1024
+
+    def __init__(self, events=()):
+        self.seen = OrderedDict()
+        self.session = usage_totals()
+        self.turn = usage_totals()
+        self.turn_id = None
+        self.legacy = False
+        for event in events:
+            if event.kind == "display.message" and isinstance(
+                event.payload.get("usage_call"), dict
+            ):
+                self.add(
+                    event.item_id,
+                    event.turn_id,
+                    event.payload["usage_call"],
+                    session_only=event.payload.get("usage_scope") == "session",
+                )
+            elif event.kind == "context.observed" and event.payload.get("event") == "llm:response":
+                identity = (
+                    event.payload.get("usage_id")
+                    or f"{event.turn_id}:usage:root:{event.payload.get('request_index', 0)}"
+                )
+                self.legacy |= identity not in self.seen
+
+    def add(self, identity, turn_id, values, *, session_only=False):
+        if identity in self.seen:
+            return False
+        self.seen[identity] = None
+        if len(self.seen) > self.MAX_SEEN:
+            self.seen.popitem(last=False)
+        if not session_only and self.turn_id != turn_id:
+            self.turn_id, self.turn = turn_id, usage_totals()
+        normalized = usage_values(values)
+        add_usage(self.session, normalized)
+        if not session_only:
+            add_usage(self.turn, normalized)
+        return True
+
+    def costs(self, *, session_only=False):
+        def cost(total):
+            value = total["totals"].get("cost_usd")
+            if value is None:
+                return "not reported"
+            return f"${value:.2f}" + (
+                " (partial)" if total["reported"]["cost_usd"] != total["requests"] else ""
+            )
+
+        return (
+            ("" if session_only else f"Turn: {cost(self.turn)} · ")
+            + f"Session: {cost(self.session)}"
+            + (" (earlier usage unavailable)" if self.legacy else "")
+        )
+
+    def progress(self, turn_id):
+        """Constant-size, JSON-safe view of reported calls, not in-flight estimates."""
+
+        def scope(total):
+            requests, values, reported = total["requests"], total["totals"], total["reported"]
+            token_fields = ("input_tokens", "output_tokens")
+            tokens = (
+                sum(values.get(key, 0) for key in (*token_fields, "cache_creation_input_tokens"))
+                if any(key in values for key in token_fields)
+                else None
+            )
+            cost = values.get("cost_usd")
+            return {
+                "calls": requests,
+                "tokens": tokens,
+                "tokens_partial": any(reported.get(key, 0) != requests for key in token_fields),
+                "cost": ("pending" if not requests else "not reported")
+                if cost is None
+                else (
+                    ("<$0.01" if 0 < cost < Decimal("0.01") else f"${cost:.2f}")
+                    + (" (partial)" if reported["cost_usd"] != requests else "")
+                ),
+            }
+
+        return {
+            "turn": scope(self.turn if self.turn_id == turn_id else usage_totals()),
+            "session": scope(self.session),
+            "earlier_usage_unavailable": self.legacy,
+        }
+
+
+def call_usage_text(values, provider, *, agent="", duration_ms=None, timestamp=None):
+    """Match provider cache semantics: writes add input, reads are already in input."""
+    model = (
+        "/".join(str(provider[k])[:120] for k in ("provider", "model") if provider.get(k))
+        or "model not reported"
+    )
+    basis = provider.get("basis")
+    routing = f" · {'pinned' if basis == 'pinned' else basis}" if basis else ""
+    duration = (
+        f" · {duration_ms / 1000:.1f}s"
+        if isinstance(duration_ms, (int, float)) and math.isfinite(duration_ms) and duration_ms >= 0
+        else ""
+    )
+    stamp = (timestamp or datetime.now().astimezone()).strftime("%Y-%m-%d %H:%M:%S %Z")
+    title = f"Usage · {agent + ' · ' if agent else ''}{model}{routing}{duration} · {stamp}"
+    input_count = values.get("input_tokens")
+    if input_count is not None:
+        input_count += values.get("cache_creation_input_tokens", 0)
+    output = values.get("output_tokens")
+
+    def tokens(n):
+        return f"{n:,}" if n is not None else "not reported"
+
+    cached = values.get("cache_read_input_tokens")
+    cache = f" ({cached / input_count:.0%} cached)" if cached is not None and input_count else ""
+    if values.get("cache_creation_input_tokens") and not cached:
+        cache = " (caching)"
+    cost = f"${values['cost_usd']:.6f}" if "cost_usd" in values else "not reported"
+    total = input_count + output if input_count is not None and output is not None else None
+    return f"{title}\nInput: {tokens(input_count)}{cache} · Output: {tokens(output)} · Total: {tokens(total)} · Cost: {cost}"
+
+
+def activity_task_title(payload):
+    """Use observed display metadata, never guess a child's task from its role."""
+    title = payload.get("task_title")
+    children = payload.get("child_progress")
+    if isinstance(children, list):
+        if len(children) == 1 and isinstance(children[0], dict):
+            title = children[0].get("task_title")
+        elif len(children) > 1 and any(
+            isinstance(row, dict) and row.get("task_title") for row in children
+        ):
+            count = payload.get("child_count", len(children))
+            title = (
+                f"{count if type(count) is int and count >= len(children) else len(children)} tasks"
+            )
+    return " ".join(title[:160].split()) if isinstance(title, str) and title.strip() else None
 
 
 def bounded(value, limit=16384):
@@ -10,6 +233,218 @@ def bounded(value, limit=16384):
     if len(text.encode()) <= limit:
         return text, False
     return text.encode()[:limit].decode("utf-8", errors="ignore") + "\n[excerpt: size limit]", True
+
+
+def bounded_projection(value, limit=16384):
+    """Make a bounded JSON-safe projection before Activity serializes hot-path data."""
+    remaining, nodes, partial = max(limit - 1024, 0), 2000, False
+
+    def project(item, depth=0):
+        nonlocal remaining, nodes, partial
+        if nodes <= 0 or depth > 12 or remaining <= 0:
+            partial = True
+            return "[omitted: projection bound]"
+        nodes -= 1
+        if isinstance(item, dict):
+            result = {}
+            for key, child in item.items():
+                if not isinstance(key, str):
+                    partial = True
+                    continue
+                key = key[:160]
+                key_cost = len(key.encode("utf-8")) + 4
+                if remaining <= key_cost:
+                    partial = True
+                    break
+                remaining -= key_cost
+                result[key] = project(child, depth + 1)
+            return result
+        if isinstance(item, list):
+            result = []
+            for child in item:
+                if remaining <= 4:
+                    partial = True
+                    break
+                remaining -= 2
+                result.append(project(child, depth + 1))
+            return result
+        if isinstance(item, str):
+            encoded = item.encode("utf-8")
+            allowed = min(len(encoded), remaining, 4096)
+            excerpt = encoded[:allowed].decode("utf-8", errors="ignore")
+            remaining -= len(excerpt.encode("utf-8"))
+            partial |= len(excerpt) != len(item)
+            return excerpt
+        if item is None or type(item) is bool:
+            return item
+        if type(item) is int and -(2**63) <= item < 2**63:
+            encoded = str(item).encode("ascii")
+            if len(encoded) > remaining:
+                partial = True
+                return "[omitted: oversized integer]"
+            remaining -= len(encoded)
+            return item
+        if type(item) is float and math.isfinite(item):
+            encoded = repr(item).encode("ascii")
+            if len(encoded) > remaining:
+                partial = True
+                return "[omitted: projection bound]"
+            remaining -= len(encoded)
+            return item
+        partial = True
+        return f"[omitted: {type(item).__name__}]"
+
+    result = project(value)
+    if partial:
+        if isinstance(result, dict):
+            result["_excerpt"] = "[excerpt: projection limit]"
+        else:
+            result = {"value": result, "_excerpt": "[excerpt: projection limit]"}
+    return result, partial
+
+
+def recipe_files(host):
+    """Names only in declared local recipe folders; never parse or execute a file."""
+    import os
+    import time
+    from pathlib import Path
+
+    roots = getattr(host, "recipe_roots", [])
+    rows, seen, examined, partial = [], set(), 0, len(roots) > 32
+    deadline = time.monotonic() + 0.1
+    pending = deque((Path(root).absolute(), 0) for root in roots[:32])
+    while pending:
+        directory, depth = pending.popleft()
+        if time.monotonic() >= deadline or examined >= 2000 or len(rows) >= 100:
+            partial = True
+            break
+        try:
+            descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                entries = os.scandir(descriptor)
+            except BaseException:
+                os.close(descriptor)
+                raise
+            try:
+                with entries:
+                    for entry in entries:
+                        examined += 1
+                        if examined > 2000 or time.monotonic() >= deadline or len(rows) >= 100:
+                            partial = True
+                            break
+                        path = directory / entry.name
+                        if entry.is_symlink() or not str(path).isprintable():
+                            continue
+                        if entry.is_dir(follow_symlinks=False):
+                            if depth < 2:
+                                pending.append((path, depth + 1))
+                            else:
+                                partial = True
+                        elif entry.is_file(follow_symlinks=False) and path.suffix in (
+                            ".yaml",
+                            ".yml",
+                        ):
+                            identity = str(path.absolute())
+                            if identity in seen:
+                                continue
+                            seen.add(identity)
+                            rows.append(
+                                {
+                                    "id": identity,
+                                    "label": f"{path.name} — {path.parent}",
+                                    "status": "file candidate",
+                                    "recipe_file": identity,
+                                    "detail": f"Path: {identity}\nLocal filename only: contents and dependencies have not been validated. Select to append an unsent request to read/validate and explain effects; not permission to execute.",
+                                }
+                            )
+            finally:
+                os.close(descriptor)
+        except FileNotFoundError:
+            continue
+        except OSError:
+            partial = True
+    return {
+        "rows": sorted(rows, key=lambda r: r["label"]),
+        "partial": partial,
+        "scope": "Recipe FILE candidates, not active sessions or past activity. Names only; no contents read, no tool/model call. Selected working directory and composed bundle recipe folders only; remote/unresolved sources excluded. Limits: 32 roots, 2 subdirectory levels, 2000 entries, 100 files, 100 ms. Empty does not mean no recipes exist elsewhere. A file candidate does not establish that the recipes tool is mounted or its dependencies are available.",
+    }
+
+
+def safe_destination(value):
+    """Forward only configured destination IDs, never a URL or arbitrary detail."""
+    import re
+
+    return (
+        value
+        if isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,159}", value)
+        else None
+    )
+
+
+def forwarding_observations(host):
+    """Bounded, session-filtered public diagnostic files; never copy URLs/tokens."""
+    import os
+    import stat
+    from datetime import datetime, timezone
+
+    resolver = host.session.coordinator.get_capability("context_intelligence.hook_config_resolver")
+    result = {
+        "observations": [],
+        "partial": False,
+        "scope": "Today's bounded forwarding diagnostics for this root session only. No diagnostic is not proof of delivery. HTTP acceptance does not prove remote indexing; child sessions and previous days are not included. URLs, credentials and raw error details are omitted.",
+    }
+    if resolver is None:
+        result["status"] = "No mounted intelligence diagnostic resolver"
+        return result
+    path = getattr(resolver, "forwarding_log_dir", None)
+    if path is None:
+        result["status"] = "Forwarding diagnostics disabled; remote delivery unknown"
+        return result
+    try:
+        directory = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            name = "forwarding-" + datetime.now(timezone.utc).strftime("%Y-%m-%d") + ".jsonl"
+            fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+        finally:
+            os.close(directory)
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("Not a regular diagnostic file")
+            start = max(0, info.st_size - 65536)
+            stream.seek(start)
+            raw = stream.read(65536)
+        result["partial"] = start > 0
+        lines = raw.splitlines()[1:] if start else raw.splitlines()
+        for line in lines:
+            try:
+                row = json.loads(line)
+                if not isinstance(row, dict) or row.get("session_id") != host.session_id:
+                    continue
+                observation = {
+                    key: row[key]
+                    for key in ("kind", "ts")
+                    if isinstance(row.get(key), str)
+                    and row[key].isprintable()
+                    and len(row[key]) <= 160
+                }
+                if destination := safe_destination(row.get("destination")):
+                    observation["destination"] = destination
+                if type(row.get("http_status")) is int and 100 <= row["http_status"] <= 599:
+                    observation["http_status"] = row["http_status"]
+                result["observations"].append(observation)
+            except (ValueError, TypeError):
+                result["partial"] = True
+        if len(result["observations"]) > 20:
+            result["partial"] = True
+        result["observations"] = result["observations"][-20:]
+        result["status"] = "Observed diagnostics; not a delivery certificate"
+    except FileNotFoundError:
+        result["status"] = "No diagnostic file observed today; delivery unknown"
+    except (OSError, ValueError):
+        result["status"] = "Diagnostics unavailable; delivery unknown"
+        result["partial"] = True
+    return result
 
 
 class Inspection:
@@ -20,6 +455,26 @@ class Inspection:
         self.request_preview = None
         for event in events:
             self.observe(event)
+
+    @staticmethod
+    def context_budget(data):
+        result = {}
+        for key in (
+            "effective_budget",
+            "derived_budget",
+            "max_tokens",
+            "max_tokens_fallback",
+            "context_window",
+            "output_reservation",
+        ):
+            value = data.get(key)
+            if type(value) is int and 0 <= value <= 2**53:
+                result[key] = value
+        for key in ("source", "capped"):
+            value = data.get(key)
+            if type(value) is bool or isinstance(value, str) and len(value) <= 120:
+                result[key] = value
+        return result
 
     @staticmethod
     def request_budget(data):
@@ -150,10 +605,19 @@ class Inspection:
         }
 
     def observe(self, event):
+        if event.kind == "display.message" and event.payload.get("source") not in (
+            "thinking",
+            "usage",
+        ):
+            return
         if event.kind not in {
+            "display.message",
             "tool.updated",
+            "tool.progress",
+            "activity.progress",
             "tool.ended",
             "child.observed",
+            "activity.observed",
             "context.observed",
             "change.observed",
             "question.updated",
@@ -168,6 +632,10 @@ class Inspection:
         if old and not old["partial"]:
             previous = json.loads(old["detail"])
         payload = {**previous, **{k: v for k, v in event.payload.items() if v is not None}}
+        title = activity_task_title(payload)
+        if title:
+            # Keep this small projection across output truncation and final status events.
+            payload["task_title"] = title
         if event.kind == "approval.resolved":
             payload["status"] = "resolved"
         if payload.get("name") == "recipes" and isinstance(payload.get("result"), dict):
@@ -190,8 +658,9 @@ class Inspection:
                 if status == "paused_for_approval"
                 else "Inspect the runner's recorded completed and unfinished steps before explicit resume. Unfinished steps may have partial effects; neither inspection nor reopening authorizes retry."
             )
-        text, partial = bounded(payload)
-        partial = partial or old.get("partial", False)
+        projection, limited = bounded_projection(payload)
+        text, partial = bounded(projection)
+        partial = partial or limited or old.get("partial", False)
         recipe_ids = []
         result = payload.get("result")
         if payload.get("name") == "recipes" and isinstance(result, dict):
@@ -211,27 +680,312 @@ class Inspection:
                     and all(c.isalnum() or c in "_-" for c in s)
                 ]
         # Retain structured identity/status, not an unbounded second copy of tool output.
+        from .events import tool_text
+
+        block = payload.get("block")
+        block = block if isinstance(block, dict) else {}
+        thinking = payload.get("source") == "thinking" or block.get("type") in (
+            "thinking",
+            "reasoning",
+        )
+        public_text = (
+            payload.get("text")
+            if event.kind == "display.message" and payload.get("source") in ("thinking", "usage")
+            else block.get("text") or block.get("thinking")
+        )
+        public_text = public_text if isinstance(public_text, str) else None
         self.rows[key] = {
             "id": key,
             "turn": event.turn_id,
             "sequence": event.sequence,
             "first_sequence": old.get("first_sequence", event.sequence),
-            "kind": event.kind,
-            "event": payload.get("event"),
+            "kind": old.get(
+                "kind", "tool.updated" if event.kind == "tool.progress" else "child.observed"
+            )
+            if event.kind in ("tool.progress", "activity.progress")
+            else event.kind,
+            "event": payload.get("event", event.kind),
             "source": event.session_id,
             "child": payload.get("child_id"),
-            "label": payload.get("name", payload.get("event", event.kind)),
+            "parent": payload.get("parent_item_id"),
+            "public_text": public_text[:8192] if public_text is not None else None,
+            "thinking": thinking,
+            "preview_partial": public_text is not None and len(public_text) > 8192,
+            "tool_preview": tool_text(payload),
+            "label": (f"{title} · " if title else "")
+            + payload.get("name", payload.get("event", event.kind)),
             "status": payload.get("status", "observed"),
             "detail": text,
             "partial": partial,
             "recipe_ids": list(dict.fromkeys(recipe_ids)),
-            "payload": {k: payload[k] for k in ("name", "child_id", "status") if k in payload},
+            "payload": {
+                k: payload[k]
+                for k in ("name", "child_id", "status", "parent_item_id", "task_title")
+                if k in payload
+            },
         }
         while len(self.rows) > 256:
             self.rows.popitem(last=False)
             self.partial = True
 
+    def activity_tree(self, node=None):
+        """One bounded, stable sibling page. No context construction or execution."""
+        rows = sorted(
+            (
+                r
+                for r in self.rows.values()
+                if r["kind"]
+                in (
+                    "tool.updated",
+                    "tool.ended",
+                    "child.observed",
+                    "activity.observed",
+                    "display.message",
+                )
+            ),
+            key=lambda r: r["first_sequence"],
+        )
+        index = {r["id"]: r for r in rows}
+        parent = index.get(node)
+        selected = (
+            [r for r in rows if r.get("parent") == node]
+            if node
+            else [r for r in rows if not r.get("parent") or r["parent"] not in index]
+        )
+        output = []
+        for row in selected[:100] + ([parent] if parent else []):
+            value = {
+                k: v for k, v in row.items() if k not in ("payload", "public_text", "tool_preview")
+            }
+            try:
+                payload = json.loads(row["detail"])
+            except ValueError:
+                payload = row["payload"]
+            thinking = row["thinking"]
+            text = row["public_text"]
+
+            value["label"] = (
+                "Usage"
+                if payload.get("source") == "usage"
+                else "Thinking"
+                if thinking
+                else "Response"
+                if text and row.get("event") != "display.message"
+                else row["label"]
+            )
+            if payload.get("recipe_step"):
+                value["label"] += f" · step {str(payload['recipe_step'])[:120]}"
+            value["preview"] = text if isinstance(text, str) else row["tool_preview"]
+            if row["preview_partial"]:
+                value["preview"] += "\n\n[Public text excerpt: 8192 character limit]"
+            value["markdown"] = isinstance(text, str)
+            value["thinking"] = thinking
+            children = [r for r in rows if r.get("parent") == row["id"]]
+            descendants, seen = list(children), {row["id"]}
+            counts = {}
+            while descendants:
+                child = descendants.pop()
+                if child["id"] in seen:
+                    continue
+                seen.add(child["id"])
+                state = "waiting" if child["status"].startswith("waiting") else child["status"]
+                counts[state] = counts.get(state, 0) + 1
+                descendants.extend(r for r in rows if r.get("parent") == child["id"])
+            value["children"] = len(children)
+            value["summary"] = " · ".join(
+                f"{n} {state}"
+                for state, n in counts.items()
+                if state
+                in ("running", "waiting", "failed", "interrupted", "unknown", "warning", "error")
+            )
+            if row.get("child") and row.get("parent") not in index:
+                value["preview"] += "\nOriginating call unavailable; not inferred from timing."
+            output.append(value)
+        focus = output.pop() if parent else None
+        budget = 1024 * 1024 - len(json.dumps(focus, ensure_ascii=False).encode())
+        bounded_output = []
+        for row in output:
+            size = len(json.dumps(row, ensure_ascii=False).encode())
+            if size > budget:
+                break
+            bounded_output.append(row)
+            budget -= size
+        trail, seen = [], set()
+        cursor = parent
+        while cursor and cursor["id"] not in seen:
+            seen.add(cursor["id"])
+            trail.append(cursor["label"])
+            cursor = index.get(cursor.get("parent"))
+        return {
+            "rows": bounded_output,
+            "node": node,
+            "parent": parent.get("parent") if parent else None,
+            "breadcrumb": " / ".join(reversed(trail)),
+            "focus": focus,
+            "partial": self.partial or len(selected) > len(bounded_output),
+            "scope": "Read-only observations · Enter/click opens detail · no replay. Latest 256 identities, 100 siblings / 1 MiB, 16 KiB detail and 8192-character public text excerpts; full root evidence remains in Review/export. Unobserved child conversation and private reasoning are unavailable."
+            + (" Selected node is unavailable or evicted." if node and not parent else ""),
+        }
+
+    @staticmethod
+    def journal_version(path):
+        """Identify a regular journal without following links or reading its contents."""
+        import os
+        import stat
+
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("Activity journal is not a regular file")
+            return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns
+
+    @staticmethod
+    def journal_activity(path, node=None, offset=0):
+        """One read-only sibling page from retained events, not the hot cache.
+
+        Run off the input/event loop. Snapshot the file size; append-only arrivals
+        belong to the next refresh. Bound reads, identities, time and page memory.
+        Never read child private context or recover pre-policy tool output.
+        """
+        import os
+        import stat
+        import time
+
+        from .events import Event
+
+        index, headers, selected = Inspection(), {}, set()
+        count, read, partial = 0, 0, False
+        deadline = time.monotonic() + 2
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, "rb") as stream:
+            info = os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode):
+                raise ValueError("Activity journal is not a regular file")
+            journal_version = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+            limit = min(info.st_size, 64 * 1024 * 1024)
+            while read < limit:
+                raw = stream.readline(min(limit - read, 8 * 1024 * 1024) + 1)
+                read += len(raw)
+                if not raw.endswith(b"\n") or read > limit or time.monotonic() > deadline:
+                    partial = True
+                    break
+                event = Event(**json.loads(raw))
+                payload, key = event.payload, event.item_id
+                if event.kind not in {
+                    "tool.updated",
+                    "tool.progress",
+                    "tool.ended",
+                    "child.observed",
+                    "activity.observed",
+                    "activity.progress",
+                    "display.message",
+                }:
+                    continue
+                if event.kind == "display.message" and payload.get("source") not in (
+                    "usage",
+                    "thinking",
+                ):
+                    continue
+                if key not in headers:
+                    if len(headers) >= 10000:
+                        partial = True
+                        break
+                    headers[key] = {
+                        "parent": payload.get("parent_item_id"),
+                        "label": payload.get("name", payload.get("source", event.kind)),
+                        "name": payload.get("name", payload.get("source", event.kind)),
+                        "task_title": None,
+                        "status": payload.get("status", "observed"),
+                    }
+                    if headers[key]["parent"] == node:
+                        if offset <= count < offset + 100:
+                            selected.add(key)
+                        count += 1
+                header = headers[key]
+                if payload.get("status") is not None:
+                    header["status"] = payload["status"]
+                if payload.get("name") is not None:
+                    header["name"] = payload["name"]
+                title = activity_task_title(payload)
+                if title:
+                    header["task_title"] = title
+                header["label"] = (
+                    f"{header['task_title']} · " if header["task_title"] else ""
+                ) + header["name"]
+                if key in selected or key == node:
+                    index.observe(event)
+            partial |= read < info.st_size
+        result = index.activity_tree(node)
+        # The page is deliberately not a complete in-memory descendant index.
+        # Derive counts/breadcrumbs from bounded lightweight observed identities.
+        adjacency = {}
+        for key, header in headers.items():
+            adjacency.setdefault(header["parent"], []).append(key)
+        for row in result["rows"] + ([result["focus"]] if result["focus"] else []):
+            children = adjacency.get(row["id"], [])
+            row["children"] = len(children)
+            pending, seen, counts = list(children), set(), {}
+            while pending:
+                key = pending.pop()
+                if key in seen:
+                    continue
+                seen.add(key)
+                status = headers[key]["status"]
+                counts[status] = counts.get(status, 0) + 1
+                pending.extend(adjacency.get(key, []))
+            row["summary"] = " · ".join(
+                f"{n} {status}"
+                for status, n in counts.items()
+                if status
+                in ("running", "waiting", "failed", "unknown", "interrupted", "warning", "error")
+            )
+            row["preview"] = row["preview"].removesuffix(
+                "\nOriginating call unavailable; not inferred from timing."
+            )
+            if row.get("child") and row.get("parent") not in headers:
+                row["preview"] += "\nOriginating call unavailable; not inferred from timing."
+        trail, seen, cursor = [], set(), node
+        while cursor in headers and cursor not in seen:
+            seen.add(cursor)
+            trail.append(headers[cursor]["label"])
+            cursor = headers[cursor]["parent"]
+        returned = len(result["rows"])
+        result.update(
+            breadcrumb=" / ".join(reversed(trail)),
+            partial=partial,
+            offset=offset,
+            next_offset=offset + returned if offset + returned < count and returned else None,
+            _journal_version=journal_version,
+            scope="Read-only saved activity · 100 siblings per page / 1 MiB; detail excerpts up to 16 KiB. "
+            "No model request or tool replay. Scan limits: 64 MiB, 10,000 identities, 2 seconds; "
+            "limits are disclosed. Full events remain in the private journal; Export includes usage.",
+        )
+        return result
+
     def catalog(self, host, category, child=None):
+        if category == "activity_tree":
+            return self.activity_tree(child)
+        if category == "recipe_files":
+            return recipe_files(host)
+        if category == "cli_sessions":
+            from .cli_compat import session_catalog
+
+            launch = host.store.metadata["launch"] if host.store else {}
+            if launch.get("settings_policy") != "cli":
+                return {
+                    "rows": [],
+                    "partial": False,
+                    "scope": "Launch with --settings-policy cli to browse that configured home's CLI sessions. Isolated mode does not inspect shared history.",
+                }
+            try:
+                return session_catalog(launch["cli_home"], launch["cwd"])
+            except (OSError, ValueError):
+                return {
+                    "rows": [],
+                    "partial": True,
+                    "scope": "CLI history unavailable or unsafe to read; check the selected home's permissions. No transcript imported.",
+                }
         if category == "recovery":
             from .recovery import recovery_catalog
 
@@ -241,6 +995,19 @@ class Inspection:
             rows = [r for r in rows if r["id"].startswith("child:") and r["kind"] == "tool.updated"]
         elif category == "context":
             rows = [r for r in rows if r["kind"] == "context.observed"]
+            delivery = forwarding_observations(host)
+            rows.append(
+                {
+                    "id": "intelligence-forwarding",
+                    "label": "Intelligence forwarding · observed diagnostics",
+                    "kind": "context.observed",
+                    "child": None,
+                    "source": host.session_id,
+                    "status": delivery["status"],
+                    "detail": json.dumps(delivery, indent=2),
+                    "partial": delivery["partial"],
+                }
+            )
             # Public configuration is not runtime occupancy. Never invoke context
             # preparation/compaction or read a module's private meter to paint this.
             section = (host.session.config or {}).get("session", {}).get("context", {})

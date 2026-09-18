@@ -78,7 +78,7 @@ def test_native_questions_review_dismiss_free_text_and_resume(tmp_path):
             if e["kind"] == "question.updated"
         )
         probe.send(b"Submit reviewed\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         draft_is(probe, "Keep main draft")
         rows = [e for e in events(tmp_path) if e["kind"] == "question.updated"]
         assert [e["payload"]["status"] for e in rows] == ["waiting", "answered"]
@@ -135,7 +135,7 @@ def test_native_question_cancel_or_stop_does_not_answer(tmp_path, stop):
             probe.send(b"\r")
             probe.wait("Cancel this question")
             probe.send(b"Cancel this\r")
-            probe.wait("Completed")
+            probe.wait_idle()
         draft_is(probe, "Unsent draft")
         rows = [e for e in events(tmp_path) if e["kind"] == "question.updated"]
         assert rows[-1]["payload"]["status"] == ("stopped" if stop else "cancelled")

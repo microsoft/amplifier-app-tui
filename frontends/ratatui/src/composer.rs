@@ -142,6 +142,40 @@ mod tests {
     use super::*;
 
     #[test]
+    fn word_first_wrapping_preserves_source_selection_and_visual_navigation() {
+        let source = "alpha beta gamma delta";
+        let mut draft = editor();
+        draft.insert_str(source);
+        let area = Rect::new(0, 0, 12, 4);
+        let mut buffer = Buffer::empty(area);
+        render_fitted(&mut draft, area, &mut buffer);
+        let rows: Vec<_> = buffer
+            .content
+            .chunks(12)
+            .map(|r| {
+                r.iter()
+                    .map(|c| c.symbol())
+                    .collect::<String>()
+                    .trim_end()
+                    .to_owned()
+            })
+            .collect();
+        assert_eq!(rows, ["alpha beta", "gamma delta", "", ""]);
+        assert!(!at_vertical_boundary(&draft, true));
+        draft.move_cursor(CursorMove::Up);
+        assert!(at_vertical_boundary(&draft, true));
+        draft.start_selection();
+        draft.move_cursor(CursorMove::Down);
+        let intent = (draft.cursor(), draft.selection_range());
+        let area = Rect::new(0, 0, 32, 4);
+        render_fitted(&mut draft, area, &mut Buffer::empty(area));
+        assert_eq!(intent, (draft.cursor(), draft.selection_range()));
+        assert_eq!(draft.lines().join("\n"), source);
+        assert!(draft.undo());
+        assert!(draft.is_empty());
+    }
+
+    #[test]
     fn fitting_editor_growth_restores_top_without_changing_intent() {
         use ratatui::widgets::Widget;
         use ratatui_textarea::CursorMove;

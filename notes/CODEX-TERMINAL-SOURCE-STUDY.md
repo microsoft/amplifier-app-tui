@@ -7,6 +7,69 @@ submodule; the earlier supplied blueprint remains pinned to its historical sourc
 This is source analysis, not a run of that binary, an upstream test result, a
 benchmark, or acceptance of our UI. No runtime behavior or contract is changed here.
 
+## Action emphasis follow-up (2026-09-17)
+
+Re-read the same local pin, not newly fetched HEAD. `tui/styles.md` distinguishes
+primary/bold text, dim metadata and semantic accents. `exec_cell/render.rs` uses
+Read/Search/List verbs, small outcome markers, shell highlighting and output limits
+after wrapping. `history_cell/mcp.rs` separates cyan tool identity from dim arguments;
+`multi_agents.rs` distinguishes agent identity and outcome. `history_cell/plans.rs`
+emphasizes the active task over completed/pending entries. `status_indicator_widget.rs`
+and `summary_shimmer.rs` animate the live label while measures stay steady.
+
+READ-07 adapts that hierarchy, not Codex's exact colours: existing muxplex cyan
+actions/completion, amber running/unknown, red negative states and muted evidence.
+Structured spans survive width clipping and paint-time animation. A parent's success
+never paints child errors cyan. Known tools get concise action names; unfamiliar tools
+keep generic names and exact identity/arguments remain inspectable. Command previews
+reuse the existing bounded highlighter, with eight wrapped result rows and explicit
+full-evidence access. Active todo text is bold cyan; completed/pending remain muted.
+No command regrouping/reparenting, execution changes or animation of committed history
+is introduced. These are app presentation choices; source inspection alone is not a
+performance or visual-quality claim. Verification lives in ACCEPTANCE.
+
+## Ctrl-C follow-up (2026-09-17; recommendation, not adopted)
+
+Re-inspected the same local source pin above, not newly fetched remote HEAD.
+The [official command guide](https://learn.chatgpt.com/docs/developer-commands?surface=cli)
+describes basic exit shortcuts; source defines the state-dependent precedence below.
+This is source inspection, including upstream test cases, not an upstream test run.
+
+| State | Codex at this pin | Current TUI / recommended change |
+|---|---|---|
+| Dialog, question or search active | Offer cancellation to that surface first; some approval views interrupt work | Current global quit runs before dialog handling. Route local cancellation first, preserving the main draft and respecting actual decision semantics. |
+| Nonempty composer, idle or working | Clear into recallable history; stay open. This press does not also interrupt the turn. | Current shortcut quits. Adopt only with recoverable text, pending paste and attachment state; clearing text alone is insufficient. |
+| Empty composer, cancellable work active | Interrupt work and pause an active goal; stay open | Current shortcut quits and shuts down the host. Route to the existing Stop operation; keep interrupted/uncertain outcomes honest. |
+| Empty composer, idle | Shutdown-first quit | Same broad intent; retain our owned-process cleanup and native history. |
+| Repeated press while work is still active | Another interrupt, not immediate forced exit | Keep a distinct explicit quit escape for an uncooperative host. Do not infer that repeated Ctrl-C grants destructive cancellation. |
+
+`chatwidget/interaction.rs::handle_key_event` accepts Ctrl-C on **Press** only and
+normalizes the letter's case. `on_ctrl_c` delegates to `bottom_pane::on_ctrl_c`
+before checking work. That pane cancels local views/search before clearing a draft.
+`chat_composer::clear_for_ctrl_c` flushes pending paste and records rich local history;
+`review_mode.rs::ctrl_c_cleared_prompt_is_recoverable_via_history` tests text plus
+image recovery. A separate persistent history entry carries text, not the whole
+attachment state. Our selected-text Ctrl-C copy behavior should remain an explicit
+exception, and native terminal copy must remain terminal-owned.
+
+Crucially, `bottom_pane/mod.rs::DOUBLE_PRESS_QUIT_SHORTCUT_ENABLED` is **false**.
+Nearby comments and unused arming paths still describe double-press behavior, so
+they are not evidence that this build requires two presses to exit. Tests exercise
+repeated interrupts without arming quit and Caps Lock handling.
+
+Our raw-key handler currently quits on Ctrl-C/Ctrl-Q before local dialogs (except
+selected-text copy); it also lacks the Ctrl-C Press-only/case-normalization guard.
+An OS-delivered SIGINT is a separate shutdown path, not a raw composer key. Adoption
+needs explicit startup/disconnection rules and real PTY tests for all table rows,
+draft/image recovery, key repeats, Caps Lock and cooperative versus blocked work.
+The startup transport repair does **not** change this keyboard policy.
+
+Sources: [routing and interrupt/quit policy](https://github.com/openai/codex/blob/2f8603f07547247e698748884542ba60a157621c/codex-rs/tui/src/chatwidget/interaction.rs#L551),
+[view/draft precedence](https://github.com/openai/codex/blob/2f8603f07547247e698748884542ba60a157621c/codex-rs/tui/src/bottom_pane/mod.rs#L862),
+[disabled double-press experiment](https://github.com/openai/codex/blob/2f8603f07547247e698748884542ba60a157621c/codex-rs/tui/src/bottom_pane/mod.rs#L206),
+[rich draft recovery](https://github.com/openai/codex/blob/2f8603f07547247e698748884542ba60a157621c/codex-rs/tui/src/bottom_pane/chat_composer.rs#L1756),
+[regression cases](https://github.com/openai/codex/blob/2f8603f07547247e698748884542ba60a157621c/codex-rs/tui/src/chatwidget/tests/review_mode.rs#L1007).
+
 ## Finding: inline is the right category, not the complete implementation
 
 Codex uses Ratatui 0.30.2, a pinned fork of Crossterm, and its own terminal driver

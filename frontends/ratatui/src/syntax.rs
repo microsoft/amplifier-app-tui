@@ -1,7 +1,11 @@
 //! Local, bounded syntax colour. Source/clipboard ownership stays with the caller.
 use super::*;
 use std::{cell::RefCell, collections::VecDeque, sync::OnceLock};
-use syntect::{easy::HighlightLines, highlighting::ThemeSet, parsing::SyntaxSet};
+use syntect::{
+    easy::HighlightLines,
+    highlighting::{StyleModifier, Theme, ThemeItem},
+    parsing::SyntaxSet,
+};
 
 pub const MAX_BYTES: usize = 16 * 1024;
 const MAX_LINES: usize = 256;
@@ -12,12 +16,45 @@ thread_local! {
     static CACHE: RefCell<VecDeque<Cached>> = const { RefCell::new(VecDeque::new()) };
 }
 static SYNTAXES: OnceLock<SyntaxSet> = OnceLock::new();
-static THEMES: OnceLock<ThemeSet> = OnceLock::new();
+static THEME: OnceLock<Theme> = OnceLock::new();
+
+fn theme() -> Theme {
+    let colour = |value| match value {
+        Color::Rgb(r, g, b) => syntect::highlighting::Color { r, g, b, a: 255 },
+        _ => unreachable!("plain themes never initialize the syntax theme"),
+    };
+    let mut theme = Theme::default();
+    theme.settings.foreground = Some(colour(palette().ink));
+    theme.settings.background = Some(colour(palette().panel));
+    for (scope, value) in [
+        ("comment, punctuation.definition.comment", palette().muted),
+        (
+            "keyword, storage, entity.name, support.function",
+            palette().green,
+        ),
+        ("string, constant, support.constant", palette().amber),
+        ("invalid", palette().red),
+    ] {
+        theme.scopes.push(ThemeItem {
+            scope: scope.parse().expect("static syntax selectors"),
+            style: StyleModifier {
+                foreground: Some(colour(value)),
+                ..Default::default()
+            },
+        });
+    }
+    theme
+}
 
 pub fn plain(source: &str) -> Vec<Line<'static>> {
     source
         .split_terminator('\n')
-        .map(|line| Line::styled(line.to_owned(), Style::default().fg(INK).bg(PANEL)))
+        .map(|line| {
+            Line::styled(
+                line.to_owned(),
+                Style::default().fg(palette().ink).bg(palette().panel),
+            )
+        })
         .collect()
 }
 
@@ -47,7 +84,7 @@ pub fn eligible(source: &str) -> bool {
 
 pub fn lines(source: &str, language: &str, budget: &mut usize) -> Vec<Line<'static>> {
     let language = token(language);
-    if std::env::var_os("NO_COLOR").is_some()
+    if matches!(palette().syntax_theme, SyntaxTheme::Plain)
         || matches!(
             language.as_str(),
             "" | "text" | "txt" | "plaintext" | "indented"
@@ -71,8 +108,7 @@ pub fn lines(source: &str, language: &str, budget: &mut usize) -> Vec<Line<'stat
     let Some(syntax) = syntaxes.find_syntax_by_token(&language) else {
         return plain(source);
     };
-    let themes = THEMES.get_or_init(ThemeSet::load_defaults);
-    let mut highlighter = HighlightLines::new(syntax, &themes.themes["base16-ocean.dark"]);
+    let mut highlighter = HighlightLines::new(syntax, THEME.get_or_init(theme));
     let mut result = Vec::new();
     for line in source.split_inclusive('\n') {
         let Ok(tokens) = highlighter.highlight_line(line, syntaxes) else {
@@ -91,7 +127,7 @@ pub fn lines(source: &str, language: &str, budget: &mut usize) -> Vec<Line<'stat
                         token.to_owned(),
                         Style::default()
                             .fg(Color::Rgb(colour.r, colour.g, colour.b))
-                            .bg(PANEL),
+                            .bg(palette().panel),
                     ))
                 })
                 .collect::<Vec<_>>(),
@@ -139,8 +175,19 @@ mod tests {
                 .flat_map(|r| &r.spans)
                 .map(|s| s.style.fg)
                 .collect();
-            if std::env::var_os("NO_COLOR").is_none() {
+            if !matches!(palette().syntax_theme, SyntaxTheme::Plain) {
                 assert!(colours.len() > 1, "{language}");
+                assert!(colours.iter().all(|c| {
+                    [
+                        palette().ink,
+                        palette().muted,
+                        palette().green,
+                        palette().amber,
+                        palette().red,
+                    ]
+                    .into_iter()
+                    .any(|p| *c == Some(p))
+                }));
             } else {
                 assert_eq!(rows, plain(source));
             }
@@ -172,7 +219,7 @@ mod tests {
         let rows = highlight(source, "python");
         let second = rows[1].spans[0].style.fg;
         let standalone = highlight("second\n", "python");
-        if std::env::var_os("NO_COLOR").is_none() {
+        if !matches!(palette().syntax_theme, SyntaxTheme::Plain) {
             assert_ne!(second, standalone[0].spans[0].style.fg);
         }
         assert_eq!(rows[1].to_string(), "second");

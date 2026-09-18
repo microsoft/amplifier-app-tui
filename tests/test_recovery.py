@@ -98,6 +98,45 @@ async def test_interrupted_recovery_preserves_original_and_replays_nothing(prepa
         await restored.close()
 
 
+async def test_legacy_uncertain_recovery_retains_exact_public_context_and_original(
+    prepared, tmp_path
+):
+    from amplifier_tui.events import Event
+
+    store = ConversationStore(tmp_path, {})
+    host = SessionHost(store)
+    await host.open(*prepared, tmp_path)
+    assert host.submit("Synthetic retained context " * 4000)[0]
+    await host.task
+    messages = await host.session.coordinator.get("context").get_messages()
+    # Explicit old-version fault shape: terminal checkpoint marked uncertain,
+    # followed by one display-only retry notice, not another admitted operation.
+    store.checkpoint(messages, host.sequence, host.fingerprint, False)
+    store.record(
+        Event(
+            store.identity,
+            host.sequence + 1,
+            host.turn_id,
+            "display.message",
+            "late",
+            {"text": "Synthetic late notice"},
+        )
+    )
+    await host.close()
+    before = {p.name: p.read_bytes() for p in store.path.iterdir() if p.is_file()}
+    identity = recover(tmp_path, store.identity)
+    assert before == {p.name: p.read_bytes() for p in store.path.iterdir() if p.is_file()}
+    restored = SessionHost(ConversationStore(tmp_path, {}, identity))
+    try:
+        assert restored.store.saved["messages"][: len(messages)] == messages
+        await restored.open(*prepared, tmp_path)
+        assert not restored.session.coordinator.get("providers")["fixture"].calls
+        assert restored.session.coordinator.get("tools")["fixture_probe"].calls == 0
+        assert restored.store.metadata["recovered_from"] == store.identity
+    finally:
+        await restored.close()
+
+
 async def test_recovery_refuses_open_or_malformed_history(prepared, tmp_path):
     store = ConversationStore(tmp_path, {})
     host = SessionHost(store)

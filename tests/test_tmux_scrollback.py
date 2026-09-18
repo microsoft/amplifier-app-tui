@@ -145,8 +145,8 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
                 actual == (height, width)
                 and len(headers) == 1
                 and headers[0].startswith("Message")
-                and "[ Actions ]" in lines[-2]
-                and ("Enter send" in lines[-2]) == (width >= 80)
+                and "[ Actions ]" in "\n".join(lines[-4:])
+                and ("Enter send" in "\n".join(lines[-4:])) == (width >= 80)
             ):
                 return
             time.sleep(0.02)
@@ -186,7 +186,7 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
             tmux("send-keys", "-X", "copy-selection-and-cancel")
             during_stream = tmux("show-buffer")
             assert "EARLY-TMUX-MARKER" in during_stream and "native row 040" in during_stream
-            wait("Completed", "capture-pane", "-p")
+            wait("Ready", "capture-pane", "-p")
             tmux("send-keys", "-l", "Unsent tmux draft")
             wait("Unsent tmux draft", "capture-pane", "-p")
         marker = "Short answer:" if short else "native row 149"
@@ -236,7 +236,7 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
             settled_draft("Unsent tmux draft\nSecond copy line 界\nThird copy line")
             retained = tmux("capture-pane", "-p", "-S", "-")
             assert retained.count(marker) == 1, retained
-            for width, height in [(60, 25), (160, 40), (80, 24), (120, 40)]:
+            for width, height in [(60, 25), (40, 20), (160, 40), (80, 24), (120, 40)]:
                 tmux("resize-window", "-x", str(width), "-y", str(height))
                 sized_frame(width, height)
                 tmux("send-keys", "-l", "z")
@@ -245,7 +245,7 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
                     current = tmux("capture-pane", "-p")
                     if (
                         "Third copy linez" in current
-                        and "[ Actions ]" in current.splitlines()[-2]
+                        and "[ Actions ]" in "\n".join(current.splitlines()[-4:])
                         and current.count("Message ·") == 1
                     ):
                         break
@@ -253,7 +253,11 @@ def test_primary_screen_reaches_real_tmux_history_and_copy_mode(tmp_path, case, 
                 tmux("send-keys", "BSpace")
                 settled_draft("Unsent tmux draft\nSecond copy line 界\nThird copy line")
                 assert current.count("Message ·") == 1
-                assert "[ Actions ]" in current.splitlines()[-2], (width, height, current)
+                assert "[ Actions ]" in "\n".join(current.splitlines()[-4:]), (
+                    width,
+                    height,
+                    current,
+                )
                 retained = tmux("capture-pane", "-p", "-S", "-")
                 assert retained.count("SHELL-BEFORE") == retained.count(marker) == 1
             tmux("send-keys", "C-q")

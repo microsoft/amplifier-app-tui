@@ -57,11 +57,22 @@ pub fn render_live(source: &str, width: usize) -> Vec<Line<'static>> {
     render_code(source, width, false)
 }
 
+pub fn render_secondary(source: &str, width: usize) -> Vec<Line<'static>> {
+    let mut lines = render(source, width);
+    for line in &mut lines {
+        line.style = line.style.fg(palette().muted);
+        for span in &mut line.spans {
+            span.style = span.style.fg(palette().muted);
+        }
+    }
+    lines
+}
+
 fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
     let source = safe(source);
     let mut lines = Vec::new();
     let mut current: Vec<Span<'static>> = Vec::new();
-    let mut styles = vec![Style::default().fg(INK)];
+    let mut styles = vec![Style::default().fg(palette().ink)];
     let mut lists: Vec<Option<u64>> = Vec::new();
     let mut links = Vec::new();
     let mut quote = 0;
@@ -81,12 +92,14 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
         match event {
             Md::Start(tag) => {
                 let next = match &tag {
-                    Tag::Heading { .. } => style.fg(GREEN).add_modifier(Modifier::BOLD),
+                    Tag::Heading { .. } => style.fg(palette().ink).add_modifier(Modifier::BOLD),
                     Tag::Strong | Tag::TableHead => style.add_modifier(Modifier::BOLD),
                     Tag::Emphasis => style.add_modifier(Modifier::ITALIC),
                     Tag::Strikethrough => style.add_modifier(Modifier::CROSSED_OUT),
-                    Tag::CodeBlock(_) => style.fg(AMBER).bg(PANEL),
-                    Tag::Link { .. } => style.fg(GREEN).add_modifier(Modifier::UNDERLINED),
+                    Tag::CodeBlock(_) => style.fg(palette().amber).bg(palette().panel),
+                    Tag::Link { .. } => {
+                        style.fg(palette().green).add_modifier(Modifier::UNDERLINED)
+                    }
                     _ => style,
                 };
                 match tag {
@@ -104,8 +117,10 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                             flush(&mut lines, &mut current);
                         }
                         if quote > 0 {
-                            current
-                                .push(Span::styled("│ ".repeat(quote), Style::default().fg(MUTED)));
+                            current.push(Span::styled(
+                                "│ ".repeat(quote),
+                                Style::default().fg(palette().muted),
+                            ));
                         }
                     }
                     Tag::BlockQuote(_) => {
@@ -127,7 +142,7 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                         };
                         current.push(Span::styled(
                             format!("{indent}{marker}"),
-                            Style::default().fg(GREEN),
+                            Style::default().fg(palette().green),
                         ));
                     }
                     Tag::CodeBlock(kind) => {
@@ -138,7 +153,7 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                         };
                         lines.push(Line::styled(
                             format!("── {language}"),
-                            Style::default().fg(MUTED),
+                            Style::default().fg(palette().muted),
                         ));
                         code = Some((language, String::new()));
                     }
@@ -200,7 +215,7 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                         if let Some(url) = links.pop() {
                             current.push(Span::styled(
                                 format!(" ({url})"),
-                                Style::default().fg(MUTED),
+                                Style::default().fg(palette().muted),
                             ));
                         }
                     }
@@ -221,20 +236,24 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
                     }
                 }
             }
-            Md::Code(value) => {
-                current.push(Span::styled(value.to_string(), style.fg(AMBER).bg(PANEL)))
-            }
+            Md::Code(value) => current.push(Span::styled(
+                value.to_string(),
+                style.fg(palette().amber).bg(palette().panel),
+            )),
             Md::SoftBreak => current.push(Span::raw(" ")),
             Md::HardBreak => {
                 lines.push(Line::from(std::mem::take(&mut current)));
             }
             Md::Rule => {
                 flush(&mut lines, &mut current);
-                lines.push(Line::styled("─".repeat(width), Style::default().fg(LINE)));
+                lines.push(Line::styled(
+                    "─".repeat(width),
+                    Style::default().fg(palette().line),
+                ));
             }
             Md::TaskListMarker(done) => current.push(Span::styled(
                 if done { "☑ " } else { "☐ " },
-                style.fg(GREEN),
+                style.fg(palette().green),
             )),
             _ => (),
         }
@@ -246,6 +265,33 @@ fn render_code(source: &str, width: usize, colour: bool) -> Vec<Line<'static>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn secondary_markdown_never_uses_conversation_white_or_syntax_colours() {
+        let source = "# Thought\n\n**consider** `code` [reference](https://example.test)\n\n```rs\nlet x = 1;\n```";
+        let lines = render_secondary(source, 80);
+        assert!(
+            lines
+                .iter()
+                .all(|line| line.style.fg == Some(palette().muted))
+        );
+        assert!(
+            lines
+                .iter()
+                .flat_map(|line| &line.spans)
+                .all(|span| span.style.fg == Some(palette().muted))
+        );
+        assert!(
+            lines
+                .iter()
+                .flat_map(|line| &line.spans)
+                .any(|span| span.style.add_modifier.contains(Modifier::BOLD))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.to_string().contains("let x = 1;"))
+        );
+    }
     #[test]
     fn table_columns_align_wrap_and_retain_inline_styles() {
         let source = "| Name | Count | Note |\n| :--- | ---: | :---: |\n| **界** | 12 | several words in this cell |\n| Beta | 3 | `code` |";
@@ -267,7 +313,7 @@ mod tests {
             assert!(
                 rows.iter()
                     .flat_map(|line| &line.spans)
-                    .any(|s| s.content == "code" && s.style.fg == Some(AMBER))
+                    .any(|s| s.content == "code" && s.style.fg == Some(palette().amber))
             );
         }
     }

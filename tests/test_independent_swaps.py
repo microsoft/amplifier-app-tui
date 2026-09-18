@@ -42,9 +42,11 @@ async def test_independent_swaps_preserve_approval_and_cancellation(
             "transcript_path": str(tmp_path / "isolated.jsonl"),
             "memory_files": [],
         }
-    host = SessionHost(ConversationStore(tmp_path / "state", {}))
+    value = replace(value, mount_plan=plan)
+    store = ConversationStore(tmp_path / "state", {})
+    host = SessionHost(store)
     try:
-        await host.open(replace(value, mount_plan=plan), report, tmp_path)
+        await host.open(value, report, tmp_path)
         tool = host.session.coordinator.get("tools")["fixture_probe"]
         tool.config["approval"] = True
         host.submit("Approval policy seam")
@@ -64,10 +66,22 @@ async def test_independent_swaps_preserve_approval_and_cancellation(
         assert not host.answer(event.item_id, "allow")
         assert tool.calls == (1 if decision == "allow" else 0)
         checkpoint = json.loads((host.store.path / "checkpoint.json").read_text())
-        assert (checkpoint["status"] == "ready") == (decision != "stop")
+        # Cancellation is an interrupted outcome, not automatically an invalid
+        # checkpoint. These loops record the denied/cancelled tool result.
+        assert checkpoint["status"] == "ready"
         assert not host._pending and not host.children.active
     finally:
         await host.close()
+    if decision == "stop":
+        restored = SessionHost(ConversationStore(tmp_path / "state", {}, store.identity))
+        try:
+            await restored.open(value, report, tmp_path)
+            assert restored.ready
+            assert not restored.session.coordinator.get("providers")["fixture"].calls
+            assert restored.session.coordinator.get("tools")["fixture_probe"].calls == 0
+            assert not restored._pending and not restored.children.active
+        finally:
+            await restored.close()
 
 
 @pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])
@@ -146,6 +160,37 @@ async def test_persistent_context_restoration_policy_is_not_generic_recovery(tmp
     assert path.read_bytes() == original
     assert "Module-owned original" in str(await second.get_messages())
     assert "Requested replacement" not in str(await second.get_messages())
+
+
+@pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])
+@pytest.mark.parametrize("context", ["context-simple", "context-persistent"])
+@pytest.mark.parametrize("force", [False, True])
+async def test_independent_modules_restore_drained_interrupted_child(
+    prepared, tmp_path, monkeypatch, loop, context, force
+):
+    from test_child_continuation import test_drained_child_continues_without_replaying_previous_tool
+
+    workspace = Path(
+        os.environ.get("AMPLIFIER_TUI_SOURCE_ROOT", Path(__file__).resolve().parents[2])
+    )
+    value, report = prepared
+    session = copy.deepcopy(value.mount_plan["session"])
+    for slot, module in (("orchestrator", loop), ("context", context)):
+        session[slot] = {
+            "module": module,
+            "source": str(workspace / f"amplifier-module-{module}"),
+            "config": {},
+        }
+    if context == "context-persistent":
+        session["context"]["config"] = {
+            "transcript_path": str(tmp_path / "root-messages.jsonl"),
+            "memory_files": [],
+        }
+    value.bundle.session = copy.deepcopy(session)
+    value.mount_plan["session"] = session
+    await test_drained_child_continues_without_replaying_previous_tool(
+        (value, report), tmp_path, monkeypatch, cold=True, force=force
+    )
 
 
 @pytest.mark.parametrize("loop", ["loop-streaming", "loop-basic"])

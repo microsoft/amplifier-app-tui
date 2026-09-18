@@ -138,6 +138,9 @@ class Probe:
         self.visible_deltas = {}
         self.observer_ns = []
         self.peak_rss_kib = 0
+        self.last_input_ns = 0
+        self.idle_transition_ns = 0
+        self.saw_work = False
 
     @property
     def text(self):
@@ -155,6 +158,17 @@ class Probe:
         self.raw.extend(data)
         self.stream.feed(self.decoder.decode(data))
         now = time.monotonic_ns()
+        footer = self.screen.display[-1].strip()
+        idle = footer == "Ready" or footer.startswith("Completed")
+        if (
+            footer.startswith(("Working", "Waiting", "Stopping"))
+            or "[ Queue ]" in self.text
+            or "● Working" in self.text
+        ):
+            self.saw_work = True
+        if idle and self.saw_work:
+            self.idle_transition_ns = now
+            self.saw_work = False
         self.observer_ns.append(now - before)
         for token in re.findall(r"delta-\d+(?=\s)", self.text):
             self.visible_deltas.setdefault(token, now)
@@ -169,8 +183,26 @@ class Probe:
 
     def send(self, data):
         start = time.monotonic_ns()
+        self.last_input_ns = start
         os.write(self.master, data)
         return start
+
+    def wait_idle(self, timeout=15):
+        """Observe current footer, never a completed message in old scrollback.
+
+        Native completion is quiet (Ready); the historical OpenTUI comparator
+        still says Completed. Call after observing the turn's expected content.
+        Execution-success assertions must independently check identified events.
+        """
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            self.read()
+            footer = self.screen.display[-1].strip()
+            if (
+                footer == "Ready" or footer.startswith("Completed")
+            ) and self.idle_transition_ns >= self.last_input_ns:
+                return time.monotonic_ns()
+        raise AssertionError(f"Terminal did not become idle\n{self.text}")
 
     def resize(self, cols, rows):
         self.cols, self.rows = cols, rows

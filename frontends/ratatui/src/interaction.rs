@@ -5,10 +5,17 @@ use ratatui::widgets::Clear;
 #[derive(Clone, Debug, PartialEq)]
 pub(super) enum Action {
     Menu,
+    Group(&'static str),
     Conversations,
+    CliImport(String),
+    CliImportConfirm(String),
+    CliAdoptConfirm(String),
     ConversationPage(usize, String),
     FindSaved,
     RecipeRequest(String),
+    RecipeFile(String),
+    CommandDraft(String),
+    AuthPrompt,
     StopForDraft,
     StopForDraftApply(String),
     Models,
@@ -25,6 +32,8 @@ pub(super) enum Action {
     CopyText(String),
     CopySelection,
     NativeScrollback,
+    Interact,
+    InlineToggle,
     Transcript,
     Export,
     Modes,
@@ -103,6 +112,8 @@ pub(super) enum Action {
     ExternalEditor,
     Inspect(String, Option<String>),
     Observation(Value),
+    ActivityPreview(Value),
+    ActivityPage(Option<String>, usize),
     LocalDraft(Value),
     RemoveDraft(String),
     Help,
@@ -118,9 +129,12 @@ pub(super) struct Choice {
 }
 
 pub(super) struct Menu {
+    pub prose: bool,
+    pub secondary: bool,
     pub title: String,
     pub detail: String,
     pub detail_scroll: usize,
+    detail_step: usize,
     pub query: String,
     pub selected: usize,
     pub choices: Vec<Choice>,
@@ -133,9 +147,40 @@ pub(super) struct Menu {
 
 impl Menu {
     pub fn filtered(&self) -> Vec<Choice> {
+        if self.title == "Actions · type to search" && self.query.is_empty() {
+            let mut rows = vec![choice(
+                "Getting started — Help for everyday tasks",
+                Action::Help,
+            )];
+            rows.extend(
+                [
+                    "Write and attach",
+                    "Current task",
+                    "Conversations",
+                    "Review and copy",
+                    "Tools and setup",
+                ]
+                .into_iter()
+                .map(|name| choice(format!("{name} →"), Action::Group(name))),
+            );
+            rows.extend(
+                self.choices
+                    .iter()
+                    .filter(|c| matches!(c.action, Action::Quit))
+                    .cloned(),
+            );
+            return rows;
+        }
+        let query = self.query.to_lowercase();
+        let query = match query.as_str() {
+            "change current task" | "change task" => "correct active turn",
+            "next tasks" => "pending follow-ups",
+            "conversations" => "resume",
+            _ => &query,
+        };
         self.choices
             .iter()
-            .filter(|c| c.label.to_lowercase().contains(&self.query.to_lowercase()))
+            .filter(|c| c.label.to_lowercase().contains(query))
             .cloned()
             .collect()
     }
@@ -153,8 +198,12 @@ pub(super) struct Interaction {
     pub history_legacy: bool,
     pub history_replace_count: Option<usize>,
     pub diagnostics: Vec<String>,
+    pub runtime_output_lines: u64,
+    pub runtime_output_omitted: u64,
+    pub runtime_output_failed: bool,
     pub diagnostic_view: bool,
     pub skills: Vec<String>,
+    pub commands: Vec<String>,
     pub recall: composer::Recall,
 }
 
@@ -184,12 +233,71 @@ fn choice(label: impl Into<String>, action: Action) -> Choice {
     }
 }
 
+fn action_group(action: &Action) -> &'static str {
+    match action {
+        Action::FileInput
+        | Action::ImageInput
+        | Action::ReferenceInput
+        | Action::ClipboardImage
+        | Action::ImageDraft
+        | Action::ExternalEditor
+        | Action::History
+        | Action::LocalDrafts => "Write and attach",
+        Action::CorrectActive
+        | Action::QueueList
+        | Action::QueueDraft
+        | Action::Stop
+        | Action::StopForDraft
+        | Action::Corrections
+        | Action::Questions
+        | Action::Decisions
+        | Action::Modes => "Current task",
+        Action::Conversations | Action::Switch(_) | Action::Rename | Action::FindSaved => {
+            "Conversations"
+        }
+        Action::Find
+        | Action::Replies
+        | Action::CopySelection
+        | Action::NativeScrollback
+        | Action::Interact
+        | Action::InlineToggle
+        | Action::Transcript
+        | Action::Export
+        | Action::CodeBlocks
+        | Action::WorkspaceChanges
+        | Action::Evidence
+        | Action::NextTool
+        | Action::Copy
+        | Action::View(1) => "Review and copy",
+        Action::Inspect(kind, _)
+            if ["children", "recipes", "recovery"].contains(&kind.as_str()) =>
+        {
+            "Current task"
+        }
+        Action::Inspect(kind, _)
+            if ["activity", "activity_tree", "changes"].contains(&kind.as_str()) =>
+        {
+            "Review and copy"
+        }
+        _ => "Tools and setup",
+    }
+}
+
 impl App {
     pub fn menu(&mut self, title: impl Into<String>, choices: Vec<Choice>) {
+        let title = title.into();
+        let detail = if title == "Actions · type to search" {
+            "Choose a task group, or type to search all actions. Nothing here sends your message; Escape returns to your draft.".into()
+        } else {
+            String::new()
+        };
         self.ui.menu = Some(Menu {
-            title: title.into(),
-            detail: String::new(),
+            prose: false,
+            secondary: false,
+            title,
+            detail,
             detail_scroll: 0,
+            detail_step: 1,
             query: String::new(),
             selected: 0,
             choices,
@@ -206,6 +314,7 @@ impl App {
             && !matches!(
                 action,
                 Action::Menu
+                    | Action::Group(..)
                     | Action::Help
                     | Action::HelpTopic(..)
                     | Action::Quit
@@ -215,7 +324,7 @@ impl App {
                     | Action::CancelSwitch
             )
         {
-            self.status = "Session not ready · draft retained; send explicitly when ready".into();
+            self.not_ready();
             return true;
         }
         if self.nav.switching.is_some() && !matches!(action, Action::CancelSwitch | Action::Quit) {
@@ -225,6 +334,20 @@ impl App {
         self.ui.focus = None;
         self.review_request = None;
         match action {
+            Action::Group(group) => {
+                self.activate(Action::Menu);
+                let menu = self.ui.menu.as_mut().unwrap();
+                menu.title = format!("Actions · {group}");
+                menu.choices.retain(|c| action_group(&c.action) == group);
+                menu.choices.push(choice("All actions — search everything", Action::Menu));
+                menu.detail = match group {
+                    "Current task" => "Change current task = steer this response. Pending follow-ups = separate next tasks. Stop never undoes effects.",
+                    "Write and attach" => "Build your message here; adding text or an attachment never sends it. Escape returns to your draft.",
+                    "Conversations" => "Find or return to saved work. Opening history never repeats tools or sends your draft.",
+                    "Review and copy" => "Inspect what happened, copy source or review workspace changes. Inspection does not run work.",
+                    _ => "Inspect available capabilities and change settings deliberately. Bundles and modules own their policies.",
+                }.into();
+            }
             Action::Menu => self.menu(
                 "Actions · type to search",
                 vec![
@@ -235,9 +358,20 @@ impl App {
                     choice("Assistant replies — inspect / copy Markdown", Action::Replies),
                     choice("Copy selection — selected visible text", Action::CopySelection),
                     choice("Native scrollback — return to normal terminal", Action::NativeScrollback),
+                    choice("Interact — click conversation details", Action::Interact),
                     choice("Transcript — inspect, reflow and select text", Action::Transcript),
                     choice("Export conversation — private Markdown file", Action::Export),
                     choice("Modes — choose session tool policy", Action::Modes),
+                    choice("Goal — set condition and turn limit (insert unsent)", Action::CommandDraft("/goal --max-turns 5 ".into())),
+                    choice("Goal status — inspect (insert unsent)", Action::CommandDraft("/goal".into())),
+                    choice("Goal clear — stop future continuation (insert unsent)", Action::CommandDraft("/goal clear".into())),
+                    choice("Loaded configuration — inspect without changing settings (insert unsent)", Action::CommandDraft("/config".into())),
+                    choice("Available agent definitions — inspect (insert unsent)", Action::CommandDraft("/config agents".into())),
+                    choice("Configure tools — root-session controls (insert unsent)", Action::CommandDraft("/config tools".into())),
+                    choice("Allowed directories — filesystem scope (insert unsent)", Action::CommandDraft("/allowed-dirs list".into())),
+                    choice("Denied directories — filesystem scope (insert unsent)", Action::CommandDraft("/denied-dirs list".into())),
+                    choice("Provider login — module-owned authentication (insert unsent)", Action::CommandDraft("/provider login ".into())),
+                    choice("Provider login prompt — view transient instructions", Action::AuthPrompt),
                     choice("Code blocks — inspect / copy without executing", Action::CodeBlocks),
                     choice("Rename conversation", Action::Rename),
                     choice("Queue current draft as a follow-up", Action::QueueDraft),
@@ -245,8 +379,12 @@ impl App {
                     choice("Insert text file — preview a workspace snapshot", Action::FileInput),
                     choice("Edit in external editor — return to unsent draft", Action::ExternalEditor),
                     choice("Delegated work — inspect agents and recipe children", Action::Inspect("children".into(), None)),
-                    choice("Activity evidence — tools and runtime observations", Action::Inspect("activity".into(), None)),
+                    choice("Activity — expand tools, agents and thinking", Action::Inspect("activity_tree".into(), None)),
+                    choice("Activity evidence — raw runtime observations", Action::Inspect("activity".into(), None)),
                     choice("Context intelligence — usage, compaction and logging", Action::Inspect("context".into(), None)),
+                    choice(format!("Runtime output — private module diagnostics · {} lines{}{}", self.ui.runtime_output_lines,
+                        if self.ui.runtime_output_omitted > 0 { " · limited" } else { "" },
+                        if self.ui.runtime_output_failed { " · capture failed" } else { "" }), Action::Inspect("runtime_output".into(), None)),
                     choice("Stored context — inspect current module messages", Action::Inspect("stored_context".into(), None)),
                     choice("Provider request diagnostic — explicit one-shot capture", Action::RequestDiagnostic),
                     choice("Instruction sources — inspect resolved context origins", Action::Inspect("instructions".into(), None)),
@@ -256,6 +394,7 @@ impl App {
                     choice("Attached images / references — inspect or remove", Action::ImageDraft),
                     choice("Search saved conversations — local content search", Action::FindSaved),
                     choice("Recipe activity — inspect runs and prepare a review request", Action::Inspect("recipes".into(), None)),
+                    choice("Recipe files — browse local definitions (not active runs)", Action::Inspect("recipe_files".into(), None)),
                     choice("Recovered work — historical child and action evidence", Action::Inspect("recovery".into(), None)),
                     choice("Change and command evidence — agent, call and source versions", Action::Inspect("changes".into(), None)),
                     choice("Model catalog — discover configured providers' model IDs", Action::Models),
@@ -301,8 +440,42 @@ impl App {
                     ),
                     choice("New conversation — save this draft and start fresh", Action::Switch("new".into())),
                     choice(if self.durable { "Quit — save draft and conversation" } else { "Quit — unsent draft is not saved" }, Action::Quit),
-                ],
+                ].into_iter().chain(self.ui.commands.iter().map(|name| choice(
+                    format!("/{name} — insert skill command; Send runs it"),
+                    Action::CommandDraft(format!("/{name} ")),
+                ))).collect(),
             ),
+            Action::AuthPrompt => {
+                let active = self.controls.auth_prompt.clone();
+                self.menu(
+                    "Provider login · transient",
+                    active
+                        .is_some()
+                        .then(|| choice("Stop login", Action::Stop))
+                        .into_iter()
+                        .collect(),
+                );
+                self.ui.menu.as_mut().unwrap().detail = active.unwrap_or_else(|| {
+                    "No login prompt active. Start explicitly with /provider login NAME.".into()
+                });
+            }
+            Action::CommandDraft(value) => {
+                if self.draft.lines().join("\n").is_empty() {
+                    let skill = self.ui.commands.iter().any(|name| value.trim_start_matches('/').split_whitespace().next() == Some(name.as_str()));
+                    self.draft.insert_str(value);
+                    self.status = if skill { "Skill command inserted · add arguments; Send invokes the skill" } else { "Command inserted · review arguments; Send explicitly applies the control" }.into();
+                } else {
+                    self.status = "Draft retained · clear or save it before inserting a command".into();
+                }
+            }
+            Action::RecipeFile(path) => {
+                self.draft.cancel_selection();
+                self.draft.move_cursor(ratatui_textarea::CursorMove::Bottom);
+                self.draft.move_cursor(ratatui_textarea::CursorMove::End);
+                if !self.draft.lines().join("\n").is_empty() { self.draft.insert_newline(); }
+                self.draft.insert_str(format!("Please read and validate the recipe at {}. Explain its inputs, steps, permissions and side effects. Do not execute it until I explicitly confirm. The recipes list operation lists active sessions, not available files.", serde_json::to_string(&path).unwrap()));
+                self.status = "Recipe file review added to draft · Send explicitly; execution not authorized".into();
+            }
             Action::Section(prefix) => {
                 self.view = 2;
                 self.expanded = false;
@@ -319,6 +492,20 @@ impl App {
                 self.expanded = false;
             }
             Action::Conversations => self.conversation_page(0, String::new()),
+            Action::CliImport(id) => {
+                self.menu("Import CLI reference · not executable resume", vec![choice("Confirm import into a NEW conversation", Action::CliImportConfirm(id.clone())), choice("Adopt paired public context into a NEW conversation", Action::CliAdoptConfirm(id))]);
+                self.ui.menu.as_mut().unwrap().detail = "Original files remain unchanged. Text reference omits tool structure. Public adoption preserves complete paired tool messages and refuses incomplete calls or incompatible context readback. Neither restores credentials, modes, provider pins, original identity or private state. No prompt is sent or historical tool replayed; configured session hooks still mount. Your next explicit Send can share the captured history with the selected provider. Escape cancels.".into();
+            },
+            Action::CliImportConfirm(id) => {
+                self.ui.menu = None;
+                self.nav.switching = Some((self.request + 1).to_string());
+                self.send(json!({"op":"switch", "target":"new", "cli_import":id, "confirm_import":true, "draft":self.draft.lines().join("\n")}));
+            },
+            Action::CliAdoptConfirm(id) => {
+                self.ui.menu = None;
+                self.nav.switching = Some((self.request + 1).to_string());
+                self.send(json!({"op":"switch", "target":"new", "cli_import":id, "structured_import":true, "confirm_import":true, "draft":self.draft.lines().join("\n")}));
+            },
             Action::ConversationPage(offset, query) => self.conversation_page(offset, query),
             Action::FindSaved => self.prompt("Search saved conversations"),
             Action::Models => {
@@ -389,6 +576,7 @@ impl App {
                 else { self.status="Drag over transcript text to select it; Export saves the whole conversation".into(); }
             }
             Action::NativeScrollback => {
+                self.interacting = false;
                 self.view = 0;
                 self.anchors = [None; 2];
                 self.expanded = false;
@@ -399,6 +587,27 @@ impl App {
                 self.view = 0;
                 self.expanded = false;
                 self.anchors[0] = self.tail();
+            }
+            Action::Interact => {
+                self.interacting = !self.interacting;
+                self.interaction_focus = self.interacting;
+                self.view = 0;
+                self.expanded = false;
+                self.anchors = [None; 2];
+                self.ui.focus = None;
+                self.status = if self.interacting { "Interact · click or ↑/↓ and Enter to expand · Esc for native copy" } else { "Native copy · terminal/tmux owns selection" }.into();
+                if self.interacting && let Some(index) = self.items.iter().rposition(native::expandable) {
+                        self.selected = index;
+                        self.reveal_item(index);
+                }
+            }
+            Action::InlineToggle => {
+                if let Some(item) = self.items.get(self.selected) {
+                    if !native::expandable(item) { return true; }
+                    if !self.inline_open.remove(&item.id) { self.inline_open.insert(item.id.clone()); }
+                    self.layouts[self.selected] = None;
+                    self.reveal_item(self.selected);
+                }
             }
             Action::Export => self.send(json!({"op":"export"})),
             Action::Modes => self.send(json!({"op":"modes"})),
@@ -655,6 +864,8 @@ impl App {
             }
             Action::Inspect(category, child) => self.inspect(category, child),
             Action::Observation(row) => self.observation(row),
+            Action::ActivityPreview(row) => self.activity_preview(row),
+            Action::ActivityPage(node, offset) => self.inspect_page(node, offset),
             Action::LocalDraft(row) => self.local_draft(row),
             Action::RemoveDraft(id) => {
                 self.send(json!({"op":"editor_draft","remove":id}));
@@ -667,7 +878,7 @@ impl App {
                 [
                     ("First conversation", "Describe one task, then Enter sends it. Alt+Enter adds a newline; paste stays text. No example here is sent automatically.\n\nLive presets can use file/shell tools and incur model charges; this is not a sandbox. A FIXTURE RUNTIME is a scripted demonstration, not an AI assistant.\n\nSystem shows mounted tools and authored definitions. An available definition is not proof that an external service is running."),
                     ("Editing and finding actions", "Tab completes ./paths, @skills and /commands; otherwise it focuses visible controls. Enter activates the focused control. Actions opens local search; Escape returns to your unchanged draft.\n\nUp/Down recalls sent messages at editor line boundaries. Returning past the newest recalled entry restores your draft. Insert text file previews captured bytes before insertion; Edit in external editor never sends them."),
-                    ("Queue or steer?", "Queue stores a follow-up for a later turn. Pending follow-ups lets you pause, edit, remove or explicitly run queued work.\n\nSteer opens a separate correction for the active turn when supported. Accepted is not yet inserted: inspect Corrections for the observed status.\n\nStop requests cancellation, holds pending follow-ups, and does not undo file or command effects."),
+                    ("Queue or steer?", "Queue stores a follow-up for a later task. Pending follow-ups lets you pause, edit, remove or explicitly run queued work.\n\nChange task (steer) opens a separate correction for current work when supported. Accepted is not yet inserted: inspect Corrections for the observed status.\n\nStop requests cancellation and holds pending follow-ups. It cannot undo file or command effects."),
                     ("When the assistant waits", "Review decision opens an actual permission request and its offered options. Answer question opens a clarification, where you choose or write information and explicitly submit after review. These are different controls.\n\nLook for the waiting card beside the composer. Escape preserves local intent; it does not answer or grant permission. Modes changes session policy; the mode badge stays visible."),
                     ("Copy and return later", "The normal conversation uses terminal selection and native history. In tmux, enter copy mode (normally prefix then [) and scroll. Menus and inspection temporarily own the mouse.\n\nTranscript offers reflowed source inspection; Export conversation writes private Markdown. Quit saves supported state; Resume offers a picker and never repeats old tool operations. Interrupted work may require an explicitly acknowledged historical recovery, not exact context repair."),
                     ("Understand what happened", "Delegated work shows child progress and historical receipts. Activity evidence and Review show source tool results; a completed turn does not prove every tool succeeded or tests passed.\n\nWorkspace changes is read-only Git inspection, not attribution. Context intelligence distinguishes observed usage, configured local capture and remote dispatch; unavailable is not zero."),
@@ -697,8 +908,12 @@ impl App {
             let count = menu.filtered().len();
             let mut picked = None;
             match key.code {
-                KeyCode::PageDown => menu.detail_scroll = menu.detail_scroll.saturating_add(3),
-                KeyCode::PageUp => menu.detail_scroll = menu.detail_scroll.saturating_sub(3),
+                KeyCode::PageDown => {
+                    menu.detail_scroll = menu.detail_scroll.saturating_add(menu.detail_step)
+                }
+                KeyCode::PageUp => {
+                    menu.detail_scroll = menu.detail_scroll.saturating_sub(menu.detail_step)
+                }
                 KeyCode::Esc => {
                     self.ui.menu = None;
                     self.ui.focus = None;
@@ -723,10 +938,33 @@ impl App {
                     menu.detail_scroll = 0;
                 }
                 KeyCode::Enter if key.kind == KeyEventKind::Press => {
+                    let command = menu.query.trim().trim_start_matches('/');
+                    let skill = command.split_whitespace().next().unwrap_or("");
                     picked = if menu.title == "Actions · type to search"
+                        && Self::local_action(&format!("/{}", command.to_lowercase())).is_some()
+                    {
+                        Self::local_action(&format!("/{}", command.to_lowercase()))
+                    } else if menu.title == "Actions · type to search"
                         && menu.query.starts_with("mode ")
+                        && menu.query.split_whitespace().count() == 2
                     {
                         Some(Action::ModeNamed(menu.query[5..].trim().into()))
+                    } else if menu.title == "Actions · type to search" && command == "recipes" {
+                        Some(Action::Inspect("recipe_files".into(), None))
+                    } else if menu.title == "Actions · type to search"
+                        && (self.ui.commands.iter().any(|name| name == skill)
+                            || self.controls.mode_names.iter().any(|name| name == skill)
+                            || [
+                                "goal",
+                                "config",
+                                "allowed-dirs",
+                                "denied-dirs",
+                                "provider",
+                                "mode",
+                            ]
+                            .contains(&skill))
+                    {
+                        Some(Action::CommandDraft(format!("/{command}")))
                     } else {
                         menu.filtered().get(menu.selected).map(|c| c.action.clone())
                     }
@@ -818,7 +1056,25 @@ impl App {
     }
 
     fn complete_token(&mut self) -> bool {
-        let Some((row, start, end, query)) = composer::token(&self.draft) else {
+        let cursor = self.draft.cursor();
+        let (row, column) = (cursor.0, cursor.1);
+        let chars: Vec<_> = self.draft.lines()[row].chars().collect();
+        let token = composer::token(&self.draft);
+        if row == 0
+            && chars.first() == Some(&'/')
+            && chars[..column].iter().any(|c| c.is_whitespace())
+            && !token
+                .as_ref()
+                .is_some_and(|(_, _, _, query)| query.starts_with("./") || query.starts_with('@'))
+        {
+            let start = chars[..column]
+                .iter()
+                .rposition(|c| c.is_whitespace())
+                .map_or(0, |p| p + 1);
+            self.lookup(Some((row, start, column)), self.draft.lines().join("\n"));
+            return true;
+        }
+        let Some((row, start, end, query)) = token else {
             return false;
         };
         if query.starts_with("./") {
@@ -842,8 +1098,14 @@ impl App {
                 "editor",
                 "review",
                 "system",
+                "config",
+                "status",
+                "tools",
+                "skill",
+                "cli-sessions",
                 "skills",
                 "providers",
+                "provider",
                 "questions",
                 "code",
                 "changes",
@@ -863,11 +1125,17 @@ impl App {
                 "replies",
                 "modes",
                 "mode",
+                "recipes",
+                "goal",
+                "allowed-dirs",
+                "denied-dirs",
                 "export",
                 "scrollback",
             ]
             .iter()
             .map(|s| format!("/{s}"))
+            .chain(self.ui.skills.iter().map(|s| format!("/skill {s}")))
+            .chain(self.ui.commands.iter().map(|s| format!("/{s}")))
             .collect()
         };
         let choices: Vec<_> = values
@@ -892,28 +1160,23 @@ impl App {
         true
     }
 
-    pub fn submit_draft(&mut self) -> bool {
-        if !self.ready {
-            self.status = "Session not ready · draft retained; send explicitly when ready".into();
-            return true;
-        }
-        let value = self.draft.lines().join("\n");
-        let action = match value.trim() {
-            v if v.starts_with("/mode ") => Some(Action::ModeNamed(v[6..].trim().into())),
+    pub(super) fn local_action(value: &str) -> Option<Action> {
+        match value.trim() {
             "/work" => Some(Action::View(0)),
             "/agents" => Some(Action::Inspect("children".into(), None)),
-            "/activity" => Some(Action::Inspect("activity".into(), None)),
+            "/activity" => Some(Action::Inspect("activity_tree".into(), None)),
+            "/interact" => Some(Action::Interact),
             "/context" => Some(Action::Inspect("context".into(), None)),
             "/drafts" => Some(Action::LocalDrafts),
             "/attach" => Some(Action::FileInput),
             "/editor" => Some(Action::ExternalEditor),
             "/review" => Some(Action::View(1)),
-            "/system" => Some(Action::View(2)),
+            "/system" | "/status" | "/tools" => Some(Action::View(2)),
             "/skills" => Some(Action::Section("Skills (".into())),
             "/providers" => Some(Action::Providers),
             "/questions" => Some(Action::Questions),
-            "/modes" | "/mode" => Some(Action::Modes),
-            "/export" => Some(Action::Export),
+            "/modes" => Some(Action::Modes),
+            "/export" | "/save" => Some(Action::Export),
             "/scrollback" => Some(Action::NativeScrollback),
             "/code" => Some(Action::CodeBlocks),
             "/changes" => Some(Action::WorkspaceChanges),
@@ -921,10 +1184,12 @@ impl App {
             "/history" => Some(Action::History),
             "/help" => Some(Action::Help),
             "/stop" => Some(Action::Stop),
-            "/quit" => Some(Action::Quit),
+            "/quit" | "/exit" => Some(Action::Quit),
             "/evidence" => Some(Action::Evidence),
             "/copy" => Some(Action::Copy),
             "/resume" => Some(Action::Conversations),
+            "/cli-sessions" => Some(Action::Inspect("cli_sessions".into(), None)),
+            "/recipes" => Some(Action::Inspect("recipe_files".into(), None)),
             "/new" => Some(Action::Switch("new".into())),
             "/pending" => Some(Action::QueueList),
             "/queue" => Some(Action::QueueList),
@@ -932,7 +1197,16 @@ impl App {
             "/rename" => Some(Action::Rename),
             "/replies" => Some(Action::Replies),
             _ => None,
-        };
+        }
+    }
+
+    pub fn submit_draft(&mut self) -> bool {
+        if !self.ready {
+            self.not_ready();
+            return true;
+        }
+        let value = self.draft.lines().join("\n");
+        let action = Self::local_action(&value);
         if let Some(action) = action {
             self.draft.select_all();
             self.draft.insert_str("");
@@ -949,22 +1223,29 @@ impl App {
         let label = label.into();
         let focused = self.ui.focus.as_ref() == Some(&action);
         let selected = action == Action::View(self.view);
+        let accent = if action == Action::Stop {
+            palette().red
+        } else {
+            palette().green
+        };
         f.render_widget(
             Paragraph::new(label.clone()).style(
                 Style::default()
                     .fg(if focused {
-                        BG
+                        palette().bg
                     } else if selected {
-                        GREEN
+                        palette().green
+                    } else if action == Action::Stop {
+                        accent
                     } else {
-                        MUTED
+                        palette().muted
                     })
                     .bg(if focused {
-                        GREEN
+                        accent
                     } else if selected {
-                        PANEL
+                        palette().panel
                     } else {
-                        BG
+                        palette().bg
                     }),
             ),
             rect,
@@ -978,7 +1259,11 @@ impl App {
             return;
         };
         let outer = f.area();
-        let width = outer.width.saturating_sub(4).min(100);
+        let width = if outer.width < 80 {
+            outer.width
+        } else {
+            outer.width.saturating_sub(4).min(120)
+        };
         let choices = menu.filtered();
         let detail = choices
             .get(menu.selected)
@@ -987,6 +1272,12 @@ impl App {
             .unwrap_or(&menu.detail);
         let has_detail = !detail.is_empty();
         let content_width = width.saturating_sub(4);
+        let preview = choices.get(menu.selected).and_then(|c| match &c.action {
+            Action::ActivityPreview(row) => Some(row),
+            _ => None,
+        });
+        let prose = menu.prose || preview.is_some_and(|row| row["markdown"] == true);
+        let secondary = menu.secondary || preview.is_some_and(|row| row["thinking"] == true);
         if menu
             .detail_cache
             .as_ref()
@@ -997,7 +1288,7 @@ impl App {
             let mut lines = if let Some(code) = &menu.code {
                 let mut lines = wrap(detail, content_width as usize)
                     .into_iter()
-                    .map(|s| Line::styled(s, Style::default().fg(INK)))
+                    .map(|s| Line::styled(s, Style::default().fg(palette().ink)))
                     .collect::<Vec<_>>();
                 let preview = safe(&code.content.chars().take(12000).collect::<String>());
                 let mut budget = syntax::MAX_BYTES;
@@ -1008,6 +1299,12 @@ impl App {
                 };
                 lines.extend(markdown::reflow(code_lines, content_width as usize));
                 lines
+            } else if prose {
+                if secondary {
+                    markdown::render_secondary(detail, content_width as usize)
+                } else {
+                    markdown::render(detail, content_width as usize)
+                }
             } else if menu.side_by_side {
                 workspace::side_by_side_lines(detail, content_width as usize)
             } else if menu.diff {
@@ -1015,7 +1312,7 @@ impl App {
             } else {
                 wrap(detail, content_width as usize)
                     .into_iter()
-                    .map(|s| Line::styled(s, Style::default().fg(INK)))
+                    .map(|s| Line::styled(s, Style::default().fg(palette().ink)))
                     .collect()
             };
             if let Some(image) = &menu.image {
@@ -1026,13 +1323,13 @@ impl App {
             menu.detail_cache = Some((content_width, menu.diff, detail.clone(), lines));
         }
         let lines = &menu.detail_cache.as_ref().unwrap().3;
-        let available = if outer.height >= 20 {
-            outer.height - if outer.height >= 30 { 7 } else { 5 } - 6
-        } else {
-            outer.height.saturating_sub(7)
-        };
+        let top = if outer.height >= 24 { 5 } else { 0 };
+        let available = outer
+            .height
+            .saturating_sub(top + if outer.height >= 24 { 7 } else { 0 });
         let help_topic = menu.title.starts_with("Help ·") && !menu.detail.is_empty();
         let roomy = help_topic
+            || menu.title.starts_with("Preview ·")
             || menu.image.is_some()
             || menu.title.starts_with("Questions · review")
             || menu.title.starts_with("Observed evidence")
@@ -1053,11 +1350,11 @@ impl App {
             (choices.len() as u16 + 5 + if has_detail { 9 } else { 0 })
                 .min(available)
                 .max(5)
-                .min(outer.height.saturating_sub(7))
+                .min(available)
         };
         let area = Rect::new(
             outer.x + (outer.width - width) / 2,
-            outer.y + 5,
+            outer.y + top,
             width,
             height,
         );
@@ -1069,19 +1366,26 @@ impl App {
             Block::bordered()
                 .border_type(BorderType::Rounded)
                 .title(" Actions / choices ")
-                .style(Style::default().fg(GREEN).bg(PANEL)),
+                .style(Style::default().fg(palette().green).bg(palette().panel)),
             area,
         );
         let x = area.x + 2;
         let w = area.width.saturating_sub(4);
-        text(f, Rect::new(x, area.y + 1, w, 1), safe(&menu.title), INK);
+        text(
+            f,
+            Rect::new(x, area.y + 1, w, 1),
+            safe(&menu.title),
+            palette().ink,
+        );
         let detail_h = if !has_detail {
             0
         } else if roomy {
             area.height.saturating_sub(5 + choices.len().min(6) as u16)
         } else {
-            (area.height / 3).max(1)
+            (area.height / 3).max(1).min(area.height.saturating_sub(6))
         };
+        // Short panes must not skip unseen detail rows between page steps.
+        menu.detail_step = usize::from(detail_h.clamp(1, 3));
         text(
             f,
             Rect::new(x, area.y + 2, w, 1),
@@ -1090,7 +1394,7 @@ impl App {
             } else {
                 format!("Search: {}", menu.query)
             },
-            GREEN,
+            palette().green,
         );
         if detail_h > 0 {
             menu.detail_scroll = menu
@@ -1120,8 +1424,16 @@ impl App {
                 ))
                 .style(
                     Style::default()
-                        .fg(if i == menu.selected { GREEN } else { INK })
-                        .bg(if i == menu.selected { LINE } else { PANEL }),
+                        .fg(if i == menu.selected {
+                            palette().green
+                        } else {
+                            palette().ink
+                        })
+                        .bg(if i == menu.selected {
+                            palette().line
+                        } else {
+                            palette().panel
+                        }),
                 ),
                 rect,
             );
@@ -1130,7 +1442,9 @@ impl App {
         text(
             f,
             Rect::new(x, area.bottom() - 2, w, 1),
-            if help_topic && w < 50 {
+            if w < 50 && !help_topic {
+                "↑↓ Enter · PgDn detail · Esc"
+            } else if help_topic && w < 50 {
                 "PgUp/PgDn scroll · Esc back"
             } else if help_topic {
                 "PgUp/PgDn scroll · Enter topics · Esc back"
@@ -1141,7 +1455,7 @@ impl App {
             } else {
                 "↑↓ choose · Enter select · Esc back (draft kept)"
             },
-            MUTED,
+            palette().muted,
         );
     }
 }

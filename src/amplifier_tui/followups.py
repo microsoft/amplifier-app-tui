@@ -66,6 +66,17 @@ class Followups:
 
     def command(self, request):
         op = request["op"]
+        text = request.get("text")
+        if (
+            op in ("queue", "queue_edit")
+            and isinstance(text, str)
+            and self.host.local_commands
+            and self.host.local_commands.recognizes(text)
+        ):
+            return (
+                False,
+                "Local controls require an explicit idle Send; draft retained, nothing queued",
+            )
         if op == "queue":
             text = request.get("text")
             if not isinstance(text, str) or not text.strip() or len(text) > 65536:

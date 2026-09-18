@@ -6,9 +6,16 @@ import asyncio
 import json
 import os
 import sqlite3
+from collections import OrderedDict
 from pathlib import Path
 
-from .conversations import ConversationStore, atomic_json, catalog, resolve_resume
+from .conversations import (
+    ConversationStore,
+    atomic_json,
+    catalog,
+    checkpoint_status,
+    resolve_resume,
+)
 from .followups import Followups
 from .host import RuntimeBridge, SessionHost
 
@@ -56,18 +63,18 @@ def file_candidates(cwd, query):
     return {"candidates": matches[:80], "truncated": truncated or len(matches) > 80}
 
 
-def session_choices(state_dir, current, *, offset=0, query=""):
+def session_choices(state_dir, current, *, cwd=None, offset=0, query=""):
     if type(offset) is not int or not 0 <= offset <= 100000:
         raise ValueError("Invalid conversation page")
     if not isinstance(query, str) or len(query) > 256 or (query and not query.isprintable()):
         raise ValueError("Search requires at most 256 printable characters")
-    entries = catalog(state_dir)
+    entries = catalog(state_dir, cwd=cwd)
     choices = []
     matches, partial = {}, False
     if query:
         from .history_index import search
 
-        matches, partial = search(state_dir, entries, query)
+        matches, partial = search(state_dir, entries, query, scoped=cwd is not None)
         entries = [
             entry
             for entry in entries
@@ -99,14 +106,10 @@ def session_choices(state_dir, current, *, offset=0, query=""):
         status = "current" if identity == current else "saved · validated when opened"
         if identity != current:
             try:
-                with (
+                status_hint = checkpoint_status(
                     Path(state_dir) / "conversations" / identity / "checkpoint.json"
-                ).open() as stream:
-                    raw = stream.read(65537)
-                # Large canonical checkpoints (including images) are validated on
-                # opening, not loaded wholesale just to populate a discovery menu.
-                checkpoint = json.loads(raw) if len(raw) <= 65536 else None
-                if checkpoint is not None and checkpoint.get("status") != "ready":
+                )
+                if status_hint is not None and status_hint != "ready":
                     status = "recovery required · original preserved"
             except (OSError, ValueError):
                 status = "unavailable · invalid checkpoint"
@@ -121,7 +124,8 @@ def session_choices(state_dir, current, *, offset=0, query=""):
         "next_offset": offset + 100 if offset + 100 < len(entries) else None,
         "query": query,
         "partial": partial,
-        "scope": "This app's state directory; 100 matching conversations per page. Private full-text index of submitted/final messages, not tool output. Refresh reads up to 16 MiB / 1 second; repeat search to continue incomplete indexing. Records over 1 MiB are skipped with partial disclosure; no context imported. Pages may shift as sources change.",
+        "scope": ("Launch directory only; " if cwd is not None else "This app's state directory; ")
+        + "100 matching conversations per page. Private full-text index of submitted/final messages, not tool output. Refresh reads up to 16 MiB / 1 second; repeat search to continue incomplete indexing. Records over 1 MiB are skipped with partial disclosure; no context imported. Pages may shift as sources change.",
     }
 
 
@@ -130,6 +134,7 @@ class WorkspaceBridge(RuntimeBridge):
         super().__init__(*args, **kwargs)
         self.navigation_enabled = True
         self.state_dir, self.open_launch = state_dir, open_launch
+        self.resume_cwd = Path(self.cwd).resolve()
         self.switch_task = None
         self.lookup_task = None
         self.switch_committing = False
@@ -139,6 +144,7 @@ class WorkspaceBridge(RuntimeBridge):
         self.review_mutating = False
         self.history_loading = True
         self.history_state = None
+        self.activity_pages = OrderedDict()
         self.transport_emit = self.emit
         self.emit = self.publish
 
@@ -204,7 +210,9 @@ class WorkspaceBridge(RuntimeBridge):
         if self.review_mutating and op not in ("draft", "editor_draft", "stop"):
             return False, "Conflict review operation is in progress; draft retained"
         if self.host.validation_active and op == "stop":
-            if self.lookup_task:
+            if self.host.task and not self.host.task.done():
+                self.host.stop()
+            elif self.lookup_task:
                 self.lookup_task.cancel()
             return (
                 True,
@@ -281,6 +289,16 @@ class WorkspaceBridge(RuntimeBridge):
                 }
             )
             return True, "Inspecting memory-only provider observation; no model request"
+        if op == "inspect" and request.get("category") == "activity_tree" and self.host.store:
+            if identity != self.host.session_id:
+                return False, "Activity belongs to another conversation"
+            offset = request.get("offset", 0)
+            if type(offset) is not int or not 0 <= offset <= 10000:
+                return False, "Invalid activity page"
+            if self.lookup_task and not self.lookup_task.done():
+                return False, "A lookup is still running"
+            self.lookup_task = asyncio.create_task(self.inspect_activity(request))
+            return True, "Reading saved activity; no execution"
         if op == "inspect" and request.get("category") == "stored_context":
             if (
                 identity != self.host.session_id
@@ -336,6 +354,15 @@ class WorkspaceBridge(RuntimeBridge):
             "workspace_edit_prepare",
             "workspace_edit_apply",
         ):
+            if (
+                op == "queue"
+                and isinstance(request.get("text"), str)
+                and request["text"].lstrip().startswith("/")
+            ):
+                return (
+                    False,
+                    "Local commands cannot be queued. Run them explicitly while idle; draft retained.",
+                )
             if identity != self.host.session_id:
                 return False, "Workspace review requires the current conversation identity"
             if self.review_task and not self.review_task.done():
@@ -361,10 +388,8 @@ class WorkspaceBridge(RuntimeBridge):
                 or not title.isprintable()
             ):
                 return False, "Use 1–100 printable characters for the name"
-            metadata = {**self.host.store.metadata, "title": title.strip()}
-            atomic_json(self.host.store.path / "metadata.json", metadata)
-            self.host.store.metadata = metadata
-            self.emit({"type": "title", "text": metadata["title"]})
+            self.host.store.set_title(title)
+            self.emit({"type": "title", "text": self.host.store.metadata["title"]})
             return True, "Conversation renamed"
         if op in (
             "queue",
@@ -390,7 +415,7 @@ class WorkspaceBridge(RuntimeBridge):
         if op == "stop":
             if self.followups is not None:
                 self.followups.hold()
-        if op in ("conversations", "complete_path"):
+        if op in ("conversations", "complete_path", "complete_command"):
             if self.lookup_task and not self.lookup_task.done():
                 return False, "Local lookup is still running; try again"
             self.lookup_task = asyncio.create_task(self.lookup(request))
@@ -402,6 +427,22 @@ class WorkspaceBridge(RuntimeBridge):
                 return False, "Switch requires the current draft"
             target = request.get("target")
             conversion = request.get("conversion_overlay")
+            cli_import = request.get("cli_import")
+            if request.get("structured_import") is not None and (
+                cli_import is None or type(request["structured_import"]) is not bool
+            ):
+                return False, "Structured adoption requires an explicit CLI source"
+            if cli_import is not None and (
+                target != "new"
+                or conversion is not None
+                or request.get("confirm_import") is not True
+                or self.host.report.get("settings_policy") != "cli"
+                or identity != self.host.session_id
+            ):
+                return (
+                    False,
+                    "CLI history import requires explicit confirmation in a CLI-configured conversation",
+                )
             if conversion is not None and (
                 target != "new"
                 or not isinstance(conversion, str)
@@ -428,6 +469,8 @@ class WorkspaceBridge(RuntimeBridge):
                     request["request_id"],
                     recover=bool(request.get("recover")),
                     conversion=conversion,
+                    cli_import=cli_import,
+                    structured_import=request.get("structured_import", False),
                 )
             )
             self.switch_task.add_done_callback(
@@ -564,6 +607,47 @@ class WorkspaceBridge(RuntimeBridge):
                 }
             )
 
+    async def inspect_activity(self, request):
+        host = self.host
+        path = host.store.path / "events.jsonl"
+        cache_key = (str(path), request.get("child"), request.get("offset", 0))
+        try:
+            version = await asyncio.to_thread(host.inspection.journal_version, path)
+            cached = self.activity_pages.get(cache_key)
+            if cached and cached[0] == version:
+                self.activity_pages.move_to_end(cache_key)
+                value = cached[1]
+            else:
+                value = await asyncio.to_thread(
+                    host.inspection.journal_activity,
+                    path,
+                    request.get("child"),
+                    request.get("offset", 0),
+                )
+                journal_version = value.pop("_journal_version", None)
+                if journal_version is not None:
+                    self.activity_pages[cache_key] = (journal_version, value)
+                    self.activity_pages.move_to_end(cache_key)
+                    while len(self.activity_pages) > 4:
+                        self.activity_pages.popitem(last=False)
+        except (OSError, ValueError, TypeError, KeyError):
+            value = host.inspection.activity_tree(request.get("child"))
+            value.update(
+                partial=True,
+                scope="Saved activity unavailable; showing bounded memory index. Export remains separate.",
+            )
+        if host is self.host:
+            self.emit(
+                {
+                    "type": "inspection",
+                    "session_id": host.session_id,
+                    "request_id": request.get("request_id"),
+                    "category": "activity_tree",
+                    "child": request.get("child"),
+                    **value,
+                }
+            )
+
     async def lookup(self, request):
         identity = self.host.session_id
         kind = "conversations" if request["op"] == "conversations" else "completion"
@@ -574,15 +658,21 @@ class WorkspaceBridge(RuntimeBridge):
                     session_choices,
                     self.state_dir,
                     identity,
+                    cwd=self.resume_cwd,
                     offset=request.get("offset", 0),
                     query=request.get("query", ""),
+                )
+            elif request["op"] == "complete_command":
+                result = self.host.local_commands.complete(
+                    request.get("query"), request.get("cursor")
                 )
             else:
                 result = await asyncio.to_thread(file_candidates, self.cwd, request.get("query"))
             value.update(result)
         except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
             value["error"] = "Local lookup unavailable or outside the working directory"
-        self.emit(value)
+        if identity == self.host.session_id:
+            self.emit(value)
 
     async def workspace_review(self, request):
         from .workspace_review import GitReview
@@ -616,11 +706,27 @@ class WorkspaceBridge(RuntimeBridge):
         if identity == self.host.session_id:
             self.emit(value)
 
-    async def switch(self, target, request_id, recover=False, conversion=None):
+    async def switch(
+        self,
+        target,
+        request_id,
+        recover=False,
+        conversion=None,
+        cli_import=None,
+        structured_import=False,
+    ):
         candidate = None
         committed = False
         self.switch_committing = False
         try:
+            if target != "new":
+                # A menu snapshot is not authority. Check before recovery writes
+                # or candidate mounting, including requests from stale clients.
+                resolve_resume(self.state_dir, target, cwd=self.resume_cwd)
+            if self.lookup_task and not self.lookup_task.done():
+                self.lookup_task.cancel()
+                await asyncio.gather(self.lookup_task, return_exceptions=True)
+            self.lookup_task = None
             if recover:
                 from .recovery import recover as recover_history
 
@@ -632,9 +738,30 @@ class WorkspaceBridge(RuntimeBridge):
             launch = (
                 self.host.store.metadata["launch"]
                 if target == "new"
-                else resolve_resume(self.state_dir, target)["launch"]
+                else resolve_resume(self.state_dir, target, cwd=self.resume_cwd)["launch"]
             )
+            current = self.host.store.metadata["launch"]
+            if (launch.get("settings_policy", "isolated"), launch.get("cli_home")) != (
+                current.get("settings_policy", "isolated"),
+                current.get("cli_home"),
+            ):
+                raise ValueError(
+                    "Settings policy/home differs; reopen this conversation with launcher --resume to isolate module environment"
+                )
             transferred = None
+            imported = None
+            if cli_import is not None:
+                from .cli_compat import import_session
+
+                imported = await asyncio.to_thread(
+                    import_session,
+                    launch["cli_home"],
+                    launch["cwd"],
+                    cli_import,
+                    structured=structured_import,
+                )
+                if structured_import:
+                    transferred, imported = imported, None
             if conversion is not None:
                 import copy
 
@@ -654,6 +781,9 @@ class WorkspaceBridge(RuntimeBridge):
             candidate = SessionHost(
                 ConversationStore(self.state_dir, launch, None if target == "new" else target)
             )
+            if imported:
+                atomic_json(candidate.store.path / "imported-reference.json", imported)
+                candidate.store.save_draft(self.host.store.draft)
             if transferred:
                 atomic_json(candidate.store.path / "imported-context.json", transferred)
                 candidate.store.save_draft(self.host.store.draft)
@@ -685,6 +815,8 @@ class WorkspaceBridge(RuntimeBridge):
             self.followups.close()
             self.host = candidate
             self.host.delivery_failed = self.failure
+            self.activity_pages.clear()
+            self.bind_host_observations()
             self.followups = next_followups
             committed = True
             self.switched = True

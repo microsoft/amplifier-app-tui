@@ -39,6 +39,7 @@ class Modes:
         self.path = host.store.path / "modes.json" if host.store else None
         self.failed = False
         self.lock = asyncio.Lock()
+        self.observation_revision = uuid.uuid4().hex
 
     def current(self):
         return self.coordinator.session_state.get("active_mode")
@@ -89,6 +90,28 @@ class Modes:
         elif self.host.store and self.host.store.metadata.get("mode_controls"):
             raise ValueError("Saved mode state missing; recovery required")
         if self.supported:
+
+            async def current_observation(_event, _data):
+                # Local controls are not model turns. Older tool results can still
+                # describe an earlier mode, so expose current module state at the
+                # request boundary without rewriting history or granting authority.
+                return HookResult(
+                    action="inject_context",
+                    context_injection=(
+                        "TUI current mode observation: "
+                        + (self.current() or "default (no named mode active)")
+                        + ". This is the current module state; earlier conversation mode "
+                        "statements may be historical. This observation grants no permissions "
+                        "and does not replace the module's tool/transition policy."
+                        f" Observation revision: {self.observation_revision}."
+                    ),
+                    context_injection_role="system",
+                    ephemeral=True,
+                )
+
+            self.coordinator.hooks.register(
+                "provider:request", current_observation, priority=99, name="tui-mode-observation"
+            )
             await self.coordinator.mount("tools", ModeToolAdapter(self, self.tool), name="mode")
             if self.host.store:
                 self.save("ready")
@@ -122,6 +145,14 @@ class Modes:
     async def execute(self, input, *, explicit=False):
         if input.get("operation") not in ("set", "clear"):
             return await self.tool.execute(input)
+        controls = self.host.local_commands
+        if controls and controls.state["disabled"]:
+            return ToolResult(
+                success=False,
+                error={
+                    "message": "Re-enable locally disabled tools before changing mode; mode transitions can restore their own tool policy"
+                },
+            )
         async with self.lock:
             if self.failed or self.host._stop_requested:
                 return ToolResult(
@@ -152,6 +183,10 @@ class Modes:
                 self.host.emit(
                     "display.message", uuid.uuid4().hex, text=f"Mode: {self.current() or 'default'}"
                 )
+                # Returning to a previous mode is a NEW observation. Content-only
+                # deduplication must not leave an older mode reminder last in context.
+                if result.success:
+                    self.observation_revision = uuid.uuid4().hex
                 return result
             except BaseException:
                 self.failed = True
@@ -168,13 +203,19 @@ class Modes:
         if name is not None and name not in {m.name for m in self.discovery.list_modes()}:
             return False, "Choose a discovered mode"
         host._stop_requested = False
-        host._execution_started = True
+        host._force_requested = False
+        self.coordinator.cancellation.reset()
+        host._execution_started = False
         host._finalizing = False
         host.task = asyncio.create_task(self.change(name, request.get("request_id")))
         return True, "Applying your mode choice through module policy"
 
     async def change(self, name, request_id):
         try:
+            self.host._execution_started = True
+            self.host.emit("control.started", "mode-control", message="Applying mode policy")
+            if self.host._stop_requested:
+                raise asyncio.CancelledError
             # Native user intent is explicit authorization, not an assistant retry.
             result = await self.execute(
                 {"operation": "set" if name else "clear", "name": name}, explicit=True
@@ -182,18 +223,41 @@ class Modes:
             self.host.emit(
                 "display.message",
                 uuid.uuid4().hex,
-                text=str(result.output if result.success else result.error or result.output),
+                text=(
+                    f"Mode: {self.current() or 'default'} · policy applied"
+                    if result.success
+                    else f"Mode change failed: {result.error or result.output}"
+                ),
+                source="mode",
+                level="info" if result.success else "error",
+                observation=result.output if result.success else result.error or result.output,
             )
         except Exception as exc:
             self.host.show_message(f"Mode change failed: {exc}")
         finally:
             self.host._finalizing = True
             self.host.emit("modes.updated", "modes", **self.catalog(), request_id=request_id)
-            if self.host.store:
-                context = self.coordinator.get("context")
-                self.host.store.checkpoint(
-                    await context.get_messages(),
-                    self.host.sequence,
-                    self.host.fingerprint,
-                    self.host.ready,
+            try:
+                messages = (
+                    await self.coordinator.get("context").get_messages()
+                    if self.host.store
+                    else None
                 )
+                self.host.emit(
+                    "control.finished",
+                    "mode-control",
+                    message=f"Mode command finished · {self.current() or 'default'}",
+                )
+                # No await between the terminal observation and synchronous
+                # checkpoint: delivery cannot advertise completion early, and
+                # the final journal event must be included in the saved sequence.
+                if self.host.store:
+                    self.host.store.checkpoint(
+                        messages, self.host.sequence, self.host.fingerprint, self.host.ready
+                    )
+            except Exception:
+                self.host.ready = False
+                self.host.show_message(
+                    "Mode checkpoint failed; resume unavailable, no automatic retry"
+                )
+                raise

@@ -35,7 +35,7 @@ def test_task_help_preserves_draft_and_never_submits(tmp_path, width):
         for _ in range(6):
             probe.send(b"\x1b[6~")  # PageDown reaches the end even at narrow widths.
             probe.read(0.03)
-        probe.wait("does not undo")
+        probe.wait("undo file or command effects")
         capture(probe, f"onboarding-help-end-{width}")
         dismiss(probe, "Help · Queue or steer?")
         draft_is(probe, "Keep my 界 draft")

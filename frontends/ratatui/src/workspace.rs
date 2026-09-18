@@ -8,15 +8,17 @@ pub fn diff_lines(source: &str, width: usize) -> Vec<Line<'static>> {
             .split('\n')
             .map(|line| {
                 let style = if line.starts_with("diff --git ") || line.starts_with("@@ ") {
-                    Style::default().fg(GREEN).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(palette().green)
+                        .add_modifier(Modifier::BOLD)
                 } else if line.starts_with("--- ") || line.starts_with("+++ ") {
-                    Style::default().fg(AMBER)
+                    Style::default().fg(palette().amber)
                 } else if line.starts_with('+') {
-                    Style::default().fg(GREEN)
+                    Style::default().fg(palette().green)
                 } else if line.starts_with('-') {
-                    Style::default().fg(RED)
+                    Style::default().fg(palette().red)
                 } else {
-                    Style::default().fg(INK)
+                    Style::default().fg(palette().ink)
                 };
                 Line::styled(line.to_string(), style)
             })
@@ -62,14 +64,14 @@ pub fn side_by_side_lines(source: &str, width: usize) -> Vec<Line<'static>> {
                 let l = markdown::reflow(
                     vec![Line::styled(
                         left.get(index).cloned().unwrap_or_default(),
-                        Style::default().fg(RED),
+                        Style::default().fg(palette().red),
                     )],
                     column,
                 );
                 let r = markdown::reflow(
                     vec![Line::styled(
                         right.get(index).cloned().unwrap_or_default(),
-                        Style::default().fg(GREEN),
+                        Style::default().fg(palette().green),
                     )],
                     column,
                 );
@@ -79,7 +81,7 @@ pub fn side_by_side_lines(source: &str, width: usize) -> Vec<Line<'static>> {
                     let padding = " ".repeat(column.saturating_sub(a.width()));
                     let mut spans = a.spans;
                     spans.push(Span::raw(padding));
-                    spans.push(Span::styled(" │ ", Style::default().fg(MUTED)));
+                    spans.push(Span::styled(" │ ", Style::default().fg(palette().muted)));
                     spans.extend(b.spans);
                     output.push(Line::from(spans));
                 }
@@ -330,8 +332,8 @@ mod tests {
         let (rows, limited) = hunks(&text);
         assert!(limited && rows.len() == 100);
         let lines = diff_lines("-old\n+new\n context", 80);
-        assert_eq!(lines[0].spans[0].style.fg, Some(RED));
-        assert_eq!(lines[1].spans[0].style.fg, Some(GREEN));
+        assert_eq!(lines[0].spans[0].style.fg, Some(palette().red));
+        assert_eq!(lines[1].spans[0].style.fg, Some(palette().green));
         assert_eq!(lines[2].to_string(), " context");
     }
 }

@@ -9,6 +9,9 @@ pub struct Controls {
     pub ready_turn: String,
     pub providers: Value,
     pub observed: String,
+    pub auth_prompt: Option<String>,
+    pub goal: String,
+    pub mode_names: Vec<String>,
     pub lookup: Option<String>,
     pub requests: std::collections::HashSet<String>,
 }

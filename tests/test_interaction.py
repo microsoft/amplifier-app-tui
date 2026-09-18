@@ -103,7 +103,7 @@ def test_functional_launcher_two_turns_approval_evidence_history(tmp_path):
             click(probe, "Review decision")
             probe.wait("Compute the fixture digest?")
             probe.send(b"allow\r")
-            probe.wait("Completed")
+            probe.wait_idle()
             action(probe, "expand selected", "sha256")
             probe.wait("Keep this correction")
             probe.send(b"\x1b")
@@ -127,7 +127,7 @@ def test_launcher_configuration_is_explicit(monkeypatch):
 
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(SystemExit):
-        arguments([])
+        arguments(["--settings-policy", "isolated"])
     _, command = arguments(["--fixture", "--no-install"])
     assert "--fixture" in command and "--bridge" in command
     _, command = arguments(["--preset", "anchors-amp-dev", "--overlay", "custom.yaml"])
@@ -209,7 +209,7 @@ def test_keyboard_only_approval_and_actions(tmp_path):
         probe.send(b"Decisions\r")
         probe.wait("Options (exact runtime scope)")
         probe.send(b"allow\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"\t\r")
         probe.wait("Search:")
         probe.send(b"expand selected\r")

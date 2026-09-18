@@ -64,6 +64,8 @@ async def main():
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--sources", type=Path)
+    parser.add_argument("--settings-policy", choices=("isolated", "cli"), default="isolated")
+    parser.add_argument("--cli-home", type=Path, help="Existing app-owned isolated baseline home")
     parser.add_argument("--bundle", help="Explicit bundle URI; default is the controlled fixture")
     args = parser.parse_args()
     args.sources = args.sources.resolve() if args.sources else None
@@ -75,7 +77,10 @@ async def main():
     if not state.is_relative_to(root / ".state") or state == root / ".state":
         parser.error("Use a new isolated subdirectory of this checkout's .state")
     state.mkdir(mode=0o700, parents=True, exist_ok=False)
-    os.environ["AMPLIFIER_HOME"] = str(state)
+    home = args.cli_home.resolve() if args.cli_home else state
+    if not home.is_relative_to(root / ".state") or home == root / ".state":
+        parser.error("CLI home must be an app-owned isolated baseline, never the daily home")
+    os.environ["AMPLIFIER_HOME"] = str(home)
     os.chdir(state)
     source = args.bundle or (root / "src/amplifier_tui/fixtures/bundle.yaml").as_uri()
     if args.kind == "cli":
@@ -88,12 +93,25 @@ async def main():
         from amplifier_tui.composition import SourceMap, prepare
 
         sources = SourceMap.read(args.sources)
-        prepared, _ = await prepare(source, [], state, sources, install_deps=False)
+        overlays = (
+            [str(root / "src/amplifier_tui/assets/user-questions.yaml")]
+            if args.settings_policy == "cli"
+            else []
+        )
+        prepared, _ = await prepare(
+            source,
+            overlays,
+            state,
+            sources,
+            install_deps=False,
+            cli_policy={"cwd": state, "home": home} if args.settings_policy == "cli" else None,
+        )
         plan = prepared.mount_plan
         package = "amplifier-app-tui"
     result = {
         "scope": "Prepared policy only; no session, provider request or tool execution. No equivalence verdict.",
         "kind": args.kind,
+        "settings_policy": "cli" if args.kind == "cli" else args.settings_policy,
         "package_version": importlib.metadata.version(package),
         "core_version": importlib.metadata.version("amplifier-core"),
         "policy": policy(plan, prepared.bundle.instruction),

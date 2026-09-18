@@ -126,7 +126,7 @@ async def test_repeated_control_does_not_cancel_interrupted_checkpoint(
             else:
                 await closing
         saved = json.loads((store.path / "checkpoint.json").read_text())
-        assert saved["status"] == "uncertain"
+        assert saved["status"] == "ready"  # Interrupted execution, complete canonical state.
         rows = [json.loads(line) for line in (store.path / "events.jsonl").read_text().splitlines()]
         assert sum(row["kind"] == "turn.ended" for row in rows) == 1
         assert len(provider.calls) == 1
@@ -163,6 +163,75 @@ async def test_failed_cleanup_remains_observable_without_implicit_retry(prepared
         store.close()
 
 
+@pytest.mark.parametrize("close_during_work", [False, True])
+async def test_cancel_joins_native_dispatched_module_and_resumes_without_replay(
+    prepared, tmp_path, monkeypatch, close_during_work
+):
+    store = ConversationStore(tmp_path / "state", {})
+    host = SessionHost(store)
+    entered, drained = asyncio.Event(), asyncio.Event()
+    await host.open(*prepared, tmp_path)
+    provider = host.session.coordinator.get("providers")["fixture"]
+
+    async def blocked_provider(request, **kwargs):
+        entered.set()
+        try:
+            await asyncio.Future()
+        finally:
+            await asyncio.sleep(0.05)
+            host.show_message("Controlled provider cancellation drained", source="fixture")
+            drained.set()
+
+    monkeypatch.setattr(provider, "complete", blocked_provider)
+
+    async def cleanup_with_notice(event, data):
+        from amplifier_core import HookResult
+
+        host.show_message("Controlled cleanup notice", source="fixture")
+        return HookResult()
+
+    host.session.coordinator.hooks.register(
+        "session:end", cleanup_with_notice, name="fixture-cleanup"
+    )
+    try:
+        assert host.submit("Keep the original cancelled request as history")[0]
+        await asyncio.wait_for(entered.wait(), 5)
+        store.save_draft("Unsent draft survives cancellation")
+        if close_during_work:
+            await asyncio.wait_for(host.close(), 5)
+        else:
+            assert host.stop() and host.stop()
+            assert await asyncio.wait_for(host.task, 5) == "interrupted"
+            assert host.ready
+            await host.close()
+        assert drained.is_set(), "The actual callback must finish before checkpoint/close"
+        checkpoint = json.loads((store.path / "checkpoint.json").read_text())
+        rows = [json.loads(line) for line in (store.path / "events.jsonl").read_text().splitlines()]
+        assert checkpoint["status"] == "ready" and checkpoint["sequence"] == len(rows)
+        assert [r["payload"]["status"] for r in rows if r["kind"] == "turn.ended"] == [
+            "interrupted"
+        ]
+        before = len(rows)
+    finally:
+        await host.close()
+    restored = SessionHost(ConversationStore(tmp_path / "state", {}, store.identity))
+    try:
+        await restored.open(*prepared, tmp_path)
+        assert restored.session_id == store.identity
+        assert restored.store.draft == "Unsent draft survives cancellation"
+        assert not restored.session.coordinator.get("providers")["fixture"].calls
+        assert restored.session.coordinator.get("tools")["fixture_probe"].calls == 0
+        rows = [json.loads(line) for line in (store.path / "events.jsonl").read_text().splitlines()]
+        assert not any(
+            r["kind"] == "turn.accepted" or r["kind"].startswith("tool.") for r in rows[before:]
+        )
+        assert restored.submit("New instruction after cancellation")[0]
+        assert await restored.task == "completed"
+        assert restored.session.coordinator.get("tools")["fixture_probe"].calls == 1
+    finally:
+        await restored.close()
+
+
 async def test_stop_during_completed_checkpoint_preserves_completion(
     prepared, tmp_path, monkeypatch
 ):
@@ -181,7 +250,7 @@ async def test_stop_during_completed_checkpoint_preserves_completion(
             ended.set()
 
     async def checkpoint_messages():
-        if ended.is_set():
+        if host._finalizing:
             entered.set()
             await release.wait()
         return await original()
@@ -191,6 +260,7 @@ async def test_stop_during_completed_checkpoint_preserves_completion(
     try:
         assert host.submit("Complete this work")[0]
         await asyncio.wait_for(entered.wait(), 5)
+        assert not ended.is_set(), "Idle outcome must wait for canonical capture"
         assert not host.stop()  # Execution already ended; checkpoint is still owned.
         release.set()
         assert await host.task == "completed"
