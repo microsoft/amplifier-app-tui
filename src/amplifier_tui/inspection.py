@@ -729,7 +729,10 @@ class Inspection:
             if (event.kind == "display.message" and payload.get("source") in ("thinking", "usage"))
             or (
                 event.kind == "activity.observed"
-                and (payload.get("source") == "usage" or payload.get("accounting_snapshot"))
+                and (
+                    isinstance(payload.get("usage_call"), dict)
+                    or payload.get("accounting_snapshot")
+                )
             )
             else block.get("text") or block.get("thinking")
         )
