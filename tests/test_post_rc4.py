@@ -125,6 +125,13 @@ async def test_model_metadata_reports_limits_not_remaining_context(prepared, tmp
         assert result["rows"][1]["limits"] == {}
         assert "not the current request budget" in result["scope"]
         assert "private-field" not in json.dumps(result) and not provider.calls
+
+        def synchronous_models():
+            return [SimpleNamespace(id="synchronous-model")]
+
+        provider.list_models = synchronous_models
+        synchronous = await bridge.host.controls.discover_models()
+        assert synchronous["rows"][0]["model"] == "synchronous-model"
     finally:
         await bridge.close()
 

@@ -1,5 +1,440 @@
 # Verification guide
 
+Loaded configuration: run `tests/test_cli_controls.py` and native
+`tests/test_controls_terminal.py`. The catalog must use the same loaded Foundation
+inspector as the CLI, with cached completion only; it must not read source contents,
+dump arbitrary config values, call providers, change shared settings or alter model
+context. Distinguish available definitions from active agents, runtime tool toggles
+from persistent configuration, and context entries from token occupancy. Exercise
+32-item omission, exact-name access beyond that list, unavailable inspection without
+exception-value disclosure and post-toggle refresh. At 175×50 and 40×20, use Actions
+to insert `/config`, explicitly Send, inspect one item and preserve a subsequent
+draft. Wait for a new correlated observation, not an identical row from the earlier
+dashboard. Slash suggestion acceptance and command Send are separate actions; use
+an explicit paste for the exact-argument path. Inspect private `config-*` captures.
+
+Subprocess children: `tests/test_child_process.py` uses real kernel/modules in fresh
+interpreters, with deterministic providers. Check explicit/configured process mode,
+hot/cold continuation, environment filtering, attribution/accounting, nested local and
+process children at capacity one, Allow/Deny and actual question answers, graceful
+drain, emergency group termination, startup/crash failure and parent disappearance.
+The private RPC test holds one handler open while controls proceed, then checks
+oversized replies fail closed. A reset socket must not skip process reaping; interrupted
+or lost canonical capture must not authorize continuation. Linux /proc disappearance
+may surface as either ENOENT or ESRCH while reading a dying process.
+Run actual delegate/recipe and inherited-mode tests in both presets, then native
+`tests/test_child_process_terminal.py` at 175×50 and 40×20. Inspect private
+`child-process-*` approval/complete/stopping/stopped captures: the question precedes
+the full child identity, explicit Allow is still required, Stop retains the draft,
+and validated drained children remain resumable. Wait for the dialog to close before
+typing and for the full draft to repaint after a terminal update; a partial PTY frame
+is not evidence that input was discarded. These are offline module/terminal checks,
+not billed model-wire evidence or an operating-system sandbox certification.
+
+Legacy output: `tests/test_runtime_output.py` exercises actual descriptor capture,
+split controls/UTF-8, synthetic credentials, ring/line limits, a 20,000-line flood,
+decoder failure, restoration and joining. The real fixture host runs an ordinary hook
+using print, Rich, logging, native fd writes and inherited subprocess stdout; verify
+valid protocol, unchanged tool outcome, no journal pollution and explicitly process-
+scoped retention across conversation switching. These are fixtures, not a certification
+of an external pipeline's interactive UI or arbitrary secret detection.
+After rebuilding Ratatui, run `TUI_TEST_CANDIDATES=1` against
+`tests/test_runtime_output_terminal.py` alongside controls, Activity and graceful-stop
+regressions. Inspect private `runtime-output-{175,40}-{catalog,detail}` captures for
+readable scope/copy warnings, no null conversation fields, unchanged draft and return
+to native selection. Opening diagnostics must not submit or execute anything.
+Queue regression waiters must include runnable queued work, not merely absence of an
+active/dispatched task: a done callback can still be scheduled to admit the next row.
+The delayed-completion fixture in `test_followups.py` exercises that boundary explicitly.
+
+Child continuation: `tests/test_child_continuation.py` uses real fixture execution
+for hot/cold routing changes, saved preference precedence, scoped fallback warnings,
+cancelled admission and graceful/forced interrupted-child continuation. Tampered
+receipt fields, changed tool policy and unpaired outcomes must refuse without edits
+or execution; keep `tests/test_daily_replacement.py` in the gate. Run actual delegate
+resume and independent child/parent mode tests in both presets. With TUI_TEST_SWAPS=1,
+exercise both loops and both contexts through interrupted-child cold continuation.
+Keep canonical continuation distinct from public-context adoption and never count
+restored observations as execution. These deterministic runs are not provider-wire
+or arbitrary module-private-state certification.
+
+Delegation admission: `tests/test_child_admission.py` exercises forty real fixture
+children, cold continuation, ten concurrent requests, graceful/forced Stop, nested
+capacity and cancelled continuation receipt preservation. Run children, sustained-work,
+graceful-stop and actual delegate/recipe preset regressions too. The hot-context limit
+must never become a lifetime execution quota. Native sustained tests include bounded
+hundred-child observations at 175×50 and 40×20: inspect `admission-*` captures, omitted
+counts, full accounting/error badges and Activity access. Those terminal observations
+are synthetic transport fixtures, not a hundred live model calls. Module self-depth
+and parent ancestry are different; never substitute the latter for the former.
+
+CLI host parity: run `tests/test_cli_controls.py`, `tests/test_cli_compat.py`,
+`tests/test_installation.py` and the cancellation/ecosystem regressions. The goal test
+uses the actual loop with a scripted evaluator, verifies mechanical stopping and
+durable no-replay resume. Provider coverage includes more than eight named mounts.
+Computer-use tests use the actual upstream gate/core approval with counted fixture
+effects, never a personal desktop. Run that upstream repository's full offline suite
+too; these checks do not certify device injection or provider wire behavior.
+
+Build Ratatui, then run `TUI_TEST_CANDIDATES=1` against
+`tests/test_navigation_terminal.py`, `tests/test_controls_terminal.py` and
+`tests/test_graceful_terminal.py`. Inspect `cli-parity-arguments-*` and
+`cli-parity-models-*` captures at laptop/mobile widths. Completion Enter inserts;
+only subsequent explicit Send invokes the local command, not a model. Read-only
+model-menu queries must not emit unrelated transcript progress after their correlated
+result; command-owned progress is separate. CLI launcher tests isolate home/cwd and
+exercise actual help paths; they do not prove a billed single-shot run, account login,
+shell installer, or installed-wheel artifact. Keep those boundaries explicit.
+
+Action emphasis: `test_action_terminal.py` checks actual painted action/outcome/child
+badge roles, command expansion, draft retention and native/Interact round trips at
+175×50, 40×20 and 32×12. Inspect `actions-*` captures. Run readable-work, sustained,
+graceful-stop and real tmux scrollback regressions too. Test successful delegates
+with failed/unknown children: their badges must not inherit parent success colour.
+Only the state span shimmers; titles, warning badges and accounting stay steady.
+NO_COLOR retains explicit outcome labels and reduced motion disables shimmer.
+Expanded commands preserve syntax/source; output preview limits apply AFTER wrapping
+and disclose the full-evidence route. At tiny heights, navigate visual rows to inspect
+wrapped requests instead of assuming a multiword phrase fits one row. Scope colour
+sampling to the intended row: a command containing `done` is not a completion badge.
+Combine exact tool identity with the Request heading; an extra heading needlessly
+displaces actual evidence at minimum height. Unknown ecosystem tools keep their name.
+Keep standalone probe selectors aligned with the native action-first labels, without
+changing OpenTUI or Activity-menu vocabulary. Assert tool success from observed events;
+inspect detailed result markers through evidence, never by demanding that compact
+rows leak their output bodies. Fixture-only probe runs do not exercise billed presets.
+
+Stop presentation: `test_graceful_terminal.py` also checks red stop/hint/force/stopped
+cells and advancing quiet clocks at 175×50, 40×20 and 32×12, with motion, reduced
+motion and NO_COLOR. Inspect `stop-style-*` captures. Long turns retain seconds;
+delegated live durations advance in native and Interact views without source/tick
+events or extrapolated accounting. Repeated sibling snapshots must not reset a quiet
+child's clock; completion/disconnection stops it. A tiny view may replace the meter's
+bullet with an upward-history cue: sample the named state, not the bullet. Probe.read
+returns on data arrival, not after its timeout: prove passage of real time by a
+deadline or successive displayed seconds, never by two adjacent animation frames.
+
+Two-stage Stop: run `test_graceful_stop.py` with `TUI_TEST_SWAPS=1` and the actual
+delegate cases in `test_ecosystem_workflows.py` with `TUI_TEST_PRESETS=1`. Hold current
+model/tool/stream operations open beyond the force-drain allowance; first Stop must
+not cancel them or start any subsequent tool. Exercise asynchronous pre-policy and
+late approvals, nested parallel siblings, and Stop while a child is mounting. Release
+one branch while another stays active: no implicit force escalation or early root
+checkpoint. Then exercise explicit second Stop and joined cleanup. Verify public
+parent-child token propagation independently of the app's fallback child loop.
+Run `test_graceful_terminal.py` plus `test_session_repairs_terminal.py` serially with
+native candidates enabled. Inspect `graceful-*` captures at 175×50, 40×20 and 32×12:
+elapsed/accounting, the force hint, editable draft and default-No exit choices must
+remain visible together. Test repeat/release, Enter on No, Escape, repeated Ctrl-C,
+bracketed paste, actual choice clicks and OS SIGINT; none implicitly confirms exit.
+Force and graceful outcomes both retain validated same-identity resume without replay.
+Small-screen hint/button wording must not push the timer out of the live region.
+Mode fixtures must distinguish ephemeral user-role reminders from a new request.
+Assert the awaited turn's terminal status: wait_for can cancel a host task that
+returns an interrupted outcome, so an await returning is not proof of completion.
+Explicit later mode/local commands must reset both Stop stages and the public token.
+
+Cancellation/resume: run `test_lifecycle.py`, `test_owned_execution.py`,
+`test_conversations.py`, `test_recovery.py`, `test_navigation.py`, and native
+`test_session_repairs_terminal.py`. Hold an actual provider/tool callback open,
+cancel repeatedly, and observe its asynchronous finalizer before checkpointing.
+Stop and explicit Quit must retain valid interrupted context; resume executes
+nothing until a new explicit Send. Incomplete tool pairing must still refuse normal
+resume. Include a late cleanup display notice and exact checkpoint/journal sequence.
+In PTY tests, Ctrl-C stops/stays with the draft retained at 175×50, 40×20 and 32×12;
+Caps Lock Press works, Repeat/Release after Stop do not exit, selected text still
+copies, and explicit Ctrl-Q quits. Inspect `cancel-*` captures. Resume restores
+composition: do not pass `--fixture` or overlays again. Tiny native views can scroll
+completed responses away; assert the saved terminal outcome, not continued visibility.
+Legacy uncertainty needs a recovered copy with original hashes unchanged; complete
+public context is retained, never replayed. Test checkpoint previews above 64 KiB.
+Run independent loop/context swaps because cancellation wraps the public module
+mount, and check module-specific capability guards through that transparent adapter.
+
+Startup delivery: run `test_frontend_bridge.py` and the large saved-conversation
+resume in `test_everyday_terminal.py`. Replay must exceed 1 MiB and overlap actual
+pipe consumption with a synchronous preparation delay longer than the delivery
+deadline. Prove Ready, startup edits retained, zero resumed work before explicit
+Send and exactly one new fixture tool invocation afterward. A timer on the runtime
+event loop cannot distinguish a slow reader from blocked preparation; the writer's
+own progress clock must. Test genuinely stalled pipes, bounded records/bytes,
+immutable payloads, joined shutdown and nonzero failure exits with stdin still open.
+`test_flow_terminal.py` verifies Enter/editing after startup disconnect at 175×50,
+40×20 and 32×12: no stale Starting/Mode: loading, no lost draft, no automatic retry.
+Inspect `startup-*` captures. Observe a unique newly typed suffix, not the word
+"unsent" already present in the failure warning; wrapped source need not occupy
+one display row. Restore the fixture store before asserting its replay projection:
+the live store's restored-event list is intentionally empty on its first launch.
+
+Directory-local resume: compare exact resolved cwd with the CLI's project store.
+Test parent/child/sibling isolation, symlink equivalence, malformed metadata, empty
+scope and latest/explicit IDs; filter before paging and indexed message search.
+Seed foreign matches beyond the query limit: scoped search must neither consume its
+budget on those matches nor delete another directory's shared index rows.
+Revalidate direct switch/recovery requests before target writes, retaining source
+draft and zero provider calls. In PTY tests, restart from the intended actual cwd:
+an earlier `--cwd` option does not change a later test process's launch directory.
+Inspect `directory-resume-*` and `usage-spacing-*` captures. Usage joins tool/thinking
+rows in both native and Interact views, but retains a blank after assistant prose;
+test separately arriving committed rows, not just one buffered snapshot.
+
+Readable-work follow-up: `test_readable_work_terminal.py` drives word-wrapped paste,
+visual navigation, resize, todo/usage expansion and live tool/model-phase styling at
+175×50, 40×20 and 32×12. Assert exact submitted source, not reconstructed screen text.
+At minimum height use actual PageDown to read expanded source; allow its new frame
+to settle before scrolling, or the observer can skip the row it meant to inspect.
+Inspect `readable-*` captures. Compact usage is one row; exact numbers and timestamps
+remain in its expanded record. Run `test_flow.py` for actual core phase callbacks,
+deduplication and stale-host isolation, plus both-preset todo create/update/list in
+`test_usage_scope_recovery.py`. Count-only updates require validated original
+arguments; successful invocation must not paint every task done. Editor height must
+match the actual widget after changing its wrap policy. No user session is a fixture.
+When sampling waiting colours, identify the whole meter label: the ordinary footer
+also says Waiting in a different, static colour. Combining both is not motion.
+
+Brand/activity follow-up: `test_brand_terminal.py` checks actual painted cells,
+quiet startup/Working shimmer, static reduced-motion/NO_COLOR, editable drafts,
+Interact round trips and idle output silence at 175×50, 40×20 and 32×12. Animation
+must emit small buffer diffs, never new transcript/timer records or history purges.
+Close the actual host pipe during a turn: stale observations must not keep animating
+as live work; the disconnection warning and editable unsent draft remain.
+Inspect the captures as well as the assertions. Source images retain their pixels;
+syntax styles are restricted to palette roles. Waiting for a decision stays static.
+`test_usage_scope_recovery.py` uses both actual presets with a controlled provider:
+long inherited history must not supply a task title, mkdir must not unlock a denied
+write, and explicit allow/deny controls retain precedence across resume. Always test
+the actual delegate wrapper, not only hand-authored instructions. Cumulative turn
+tokens include repeated input across calls; do not replace them with last-call input.
+
+Task titles: `test_task_titles.py` exercises explicit headings, bounded excerpts,
+negation/Unicode, same-role parallel children, exact source, saved Activity and new
+tasks on resumed agents. Provider-call counts must remain unchanged. Verify nested
+titles independently of their parent's title. Keep display metadata through bounded
+output/finalization; a multi-child call must not inherit only its first child's job.
+`test_sustained_terminal.py` checks titles beside the working meter at 175×50, 40×20
+and 32×12, native/Interact/expanded source (`titles-*` private captures). Tiny expanded
+previews need multiple line/page movements to read the full request. Warnings take
+priority over a long title; the title must never replace the original instructions.
+Verify active rows and the meter together: testing either alone missed blank padding
+displacing the last task at the minimum size. Drop optional live-tail padding first;
+do not rewrite committed terminal history or hide an available accounting measure.
+
+Active-turn meter: `test_flow.py` checks reported root/child totals, cache semantics,
+utility-only session accounting, missing/partial costs, reset and persisted restore.
+`test_flow_terminal.py` holds the native host silent while elapsed time advances at
+175×50, 40×20 and 32×12; inspect the `meter-native-*` and `meter-interact-*` captures.
+Keep the unsent draft through Interact, Stop and next-turn reset; reject obsolete
+turn/session metric frames. Time ticks must never append journal/transcript rows.
+Reserve meter space when sizing the composer; tiny decision views retain an explicit
+answer action with the full question in its review dialog. Tokens sum repeated call
+inputs plus outputs/cache writes, not current context occupancy; cache reads are not
+added again. All money arithmetic stays in the host's Decimal ledger.
+
+Child ownership: exercise `ChildDisplay.show_message` before session mounting finishes
+and inside parallel actual tool invocations, including warning/error and thinking/usage
+source names. Preserve each public notice under its child/tool and verify the saved
+Activity projection too; root-only progress tests do not cover this adapter. Hook
+notices and tool failures have separate counters. Resume nested work with the SAME
+provider call ID and a restarted request counter: execution-qualified IDs, sibling
+filters and late-observation guards must prevent stale work appearing current. Forked
+skill metadata names actual execution, not just a file load; a review label is not
+read-only enforcement. Keep fixture evidence separate from real skill policy.
+
+Sustained delegated work: `test_sustained_work.py` runs four actual child sessions
+with a scripted provider (80 child model calls, 228 child tools), exact per-agent
+warning/accounting checks and saved-journal inspection. A separate 700-sibling
+fixture verifies pagination after the hot index evicts early identities. Read saved
+Activity off the event loop; disclose scan/excerpt bounds and reject stale lookup
+replies after switching conversations. A bounded recent cache is not full history.
+Truncation tests observe only invocation status before hooks; never retain raw output
+to repair an envelope, and never let fallback success override a valid policy error.
+The actual mode module must be exercised inside children, not just inherited at spawn.
+`test_sustained_terminal.py` checks 175×50, 40×20 and 32×12: compact parallel summaries,
+visible warnings (or disclosed above-viewport activity), initial Enter expansion,
+line scrolling and paste-then-Send. Do not navigate Up to compensate for a hidden
+initial selection. Await the expanded body before inspecting colour: the collapsed
+summary can already contain the same words. Native history remains terminal-owned.
+Preserve an anchored reader when new input is submitted; completion text can already
+be above a tiny visible viewport, so await a retained end-state rather than demanding
+that every completed row remain on screen. Resume a child with prior nested work:
+its new delegate summary must exclude that older work without dropping ledger costs.
+Historical summaries lacking counters must say unavailable, not zero or no warnings.
+
+Provider budget compatibility: `test_flow.py` holds an awaitable provider check
+pending through the actual host/core/streaming loop, verifies no generation
+dispatch occurs early, then completes the first turn. Check the installed module
+implementation, not just a neighboring checkout: a synchronous `request_budget`
+method can return an awaitable native count. Await the result before validating;
+do not disable the budget guard. The loop's own budget matrix covers immediate
+and deferred decisions, rebuilds, capability loss, errors and cancellation.
+
+Feedback follow-up: `test_flow.py` mounts the actual naming hook over a controlled
+provider, checks two-turn triggering, late utility usage/checkpoint restore and a
+manual rename racing generation. Do not treat `orchestrator:complete` as the app's
+`prompt:complete` lifecycle. The latter must be emitted explicitly like app-cli.
+The same test file holds a cooperative tool open: correction stays pending, Stop
+interrupts it, and drafts survive. This does not certify uncooperative modules:
+tool-search's synchronous subprocess/fallback work can block the host event loop.
+`test_flow_terminal.py` checks actual painted dim thinking/user correction cells and
+adjacent final usage at laptop/narrow widths. Completion is quiet Ready, not a visible
+Completed banner. Run `experience_journey.py --live --feedback-only --executable
+ABSOLUTE_DAILY_COMMAND --output NEW_PRIVATE_JSON` for two live turns per preset,
+generated naming, attributed utility usage and resume without re-execution.
+Naming can make the last provider request a utility call: request-policy assertions
+must select conversation calls without disabling the hook or dropping its evidence.
+Rebind transient observations on an in-app conversation switch and reject late source
+callbacks; process restart alone cannot test that seam. Do not interrupt an integrated
+gate with SIGINT: the runtime's handler can stop its current test turn instead of pytest.
+
+Continuous work/accounting: `test_flow.py` exercises actual core/loop execution with
+four concurrent children and synthetic provider usage, cache aliases, failed-attempt
+then successful-request accounting, replay deduplication and partial/legacy totals.
+`test_flow_terminal.py` drives inline expansion/collapse with real fixture runtime at
+175×50, 40×20 and 32×12, native mouse return and draft retention. A labelled transport
+fixture separately holds startup and a long stream for deterministic layout inspection.
+Run `experience_journey.py --live --flow-only --executable ABSOLUTE_DAILY_COMMAND
+--output NEW_PRIVATE_JSON` for both real presets: four parallel delegates, one recipe,
+inline/recursive inspection, attributed usage and resume without execution.
+Native history is immutable: only explicit interaction captures mouse input. Completed
+observations behind an unfinished call stay in order; a completed replay backlog must
+drain in bounded batches rather than being fully laid out on every frame. That backlog
+must not hide fresh streaming output: render the unfinished suffix while replay drains.
+Measure event-to-visible latency as well as typing; responsive edits alone missed this.
+Each response observation has its own journal identity, not just an orchestrator iteration:
+retries and parallel calls can share an iteration. Startup phases are transient wire state,
+never writes beyond a checkpoint during a refused reopen. Child labels must not rely
+on truncated IDs, whose prefixes may be identical. Preserve raw evidence independently.
+
+Conversation-first Activity: `test_activity_tree.py` exercises the actual streaming
+loop with two concurrent parent calls and nested children, plus unknown ancestry and
+bounded public-thinking excerpts. A ContextVar set inside a Rust hook callback does
+not return to the execution task: establish it at tool invocation using task-keyed
+dispatch observation, and restore it in `finally`. Missing dispatch stays uncorrelated.
+Preserve instance-bound execution guards: resolve a replacement class method only when
+the wrapped method originally belonged to that class. The actual-runtime denial test
+guards against silently bypassing an instance policy wrapper.
+`test_activity_terminal.py` uses actual fixture runtime, mouse/keyboard drill-down at
+175×50, 40×20 and 32×12, retained drafts and zero replay. Run real tmux tests serially.
+The shared observer's `wait_idle()` requires a NEW idle transition after input; an old
+Ready frame can otherwise make tests inspect unfinished attachments or quit mid-turn.
+New/Resume do not execute turns: await their context identity, not a turn transition.
+Provider adoption creates candidate files before initialization completes; wait for its
+new identity on screen before asserting checkpoint contents, not the source's Ready footer.
+Public-thinking Markdown and user/composer surfaces are projections, never source edits.
+The live experience journey now also opens Activity during work and traverses actual
+delegate/recipe ancestry after completion. No timing guesses or private-context reads.
+Use `--activity-only` for the bounded one-root/two-child journey per preset; it does not
+certify the full mode/question/queue journey. Build the release binary before PTY tests:
+building only Cargo's debug target does not update the executable those tests launch.
+
+Approachable-experience gates: `test_experience_terminal.py` covers eight grids from
+32×12 through 240×65, with 175×50 the primary TOTAL viewport, and four explicit colour
+treatments. Inspect the actual captures; a screenshot hash is not a usability score.
+Keep terminal-default and NO_COLOR syntax plain without changing source/copy bytes.
+PageDown detail steps must not exceed the visible detail height in a short menu.
+The question matrix checks local choice after resize, scrollable review, retained main
+draft and zero submitted answers. Initial light-theme paint must cover all owned live
+rows, not just the composer. Real attached tmux tests remain the native-copy authority.
+
+`scripts/experience_journey.py --live --executable ABSOLUTE_DAILY_COMMAND --output NEW_PRIVATE_JSON`
+runs a bounded whole-workflow probe on both presets: actual delegation/v2 recipe,
+mode approval, clarification, active correction, queued edit/pause/release, failed test,
+source fix and new test result, information-work comparison, completed resume and child
+interruption. It uses owned projects, never personal conversations/services. Eight root
+and three child turns per preset on the intended path; 240 seconds per turn. Preserve
+failed attempts and stop on unexpected policy decisions rather than auto-approving them.
+The reusable `Journey` observer records input byte counts instead of input bodies;
+observations and executable paths can still be sensitive, so step receipts remain private.
+Wait for the specific prompt title to disappear after an acknowledged edit: the absence
+of "Actions / choices" is not evidence that a separate edit prompt has closed. A normal
+scrollback action may replace the status message after completion; assert final content
+and Send availability, not a stale "Completed" label. Receipt counts remain independent.
+Successful `experience_journey.py` and `cli_compat_probe.py` runs remove their temporary
+private state by default; failures preserve it for diagnosis. Pass `--keep-artifacts` only
+when the retained state is needed for a specific review.
+
+Local mode commands do not create a model turn. The app exposes current module mode
+as an ephemeral provider-request observation so historical mode results are not mistaken
+for current policy. Test default after clear and named mode after activation through the
+actual ordered provider messages across default → explore → default, not just substring
+presence anywhere. Reminder deduplication can retain the original default observation
+before a later Explore reminder; a successful transition advances the observation's
+revision so returning to default is a new fact. Context modules may retain ephemeral reminders with metadata;
+do not promise they are absent from the journal. The observation changes no permissions.
+This app hook is a named request-policy difference in CLI comparisons.
+
+The runtime benchmark includes native edit/menu/inspection/selection/return and tool-success paint, bootstrap
+median intervals, and two Linux process-tree RSS snapshots including the host. Snapshots
+are not peak/PSS; shared pages can be counted twice and detached/remote work is excluded.
+Keep timing separate from builds, tests and provider runs; use 30 alternating pairs.
+Prepared skills configuration includes absolute installed package paths: compare the
+actual asset bytes before explaining that difference, without silently normalizing it.
+The question tool and app-owned request guidance remain real differences. No speed-parity
+claim follows from a favorable warm fixture measurement.
+`scripts/benchmark_experience.py --samples 30 --output NEW_PRIVATE_JSON` separately
+measures the simulated Decisions action and pending-dialog shrink/grow paint with draft
+and request retained, never submitting a permission. Search the actual Decisions action;
+Review decision is the normal view's button label, not that menu's search label.
+
+Clean tool installs use `uv tool install --no-sources`: the pinned CLI dependency's
+development `tool.uv.sources` follows Foundation main and conflicts with the app's exact
+Foundation URL. Preserve the exact pin and resolve packaged metadata; do not float the
+dependency or treat an already-populated development environment as install evidence.
+Doctor's CLI-state description now distinguishes ordinary configured launches from
+read-only diagnostics; check that boundary instead of the historical "not imported" label.
+Candidate receipts fingerprint packaged sources and native source in dirty checkouts.
+First isolated-state and resumed startup observations are not cold-cache benchmarks.
+
+Local CLI controls: `test_cli_controls.py` uses actual core/Foundation/streaming-loop
+mounts for goal caps, no-execution setup, durable restore, tool removal/remounting,
+uncertain-state refusal, directory enforcement and structured CLI adoption. Do not
+mistake Foundation `config_set` (a config dictionary mutation) for reconfiguration of
+tools that cache policy in constructors. The root filesystem adapter updates both
+supported write/edit instances and explicitly excludes bash/children from its scope.
+Mode policy and local disabled tools must not silently re-enable one another.
+Preset tests verify directory-policy restore and mode arguments/trailing prompts.
+Authentication uses the actual ChatGPT provider wrapper with a synthetic OAuth exchange;
+this is not real browser/account authorization. Verify cancellation before task startup,
+no secret prompt in journal/context, no focus stealing, explicit prompt reopening and
+clearing after Stop. Native captures live under `.evidence/interaction/cli-controls-*`.
+`test_service_delivery.py` uses actual memory save/inject code with an explicitly owned
+store (`timer=False`), plus actual intelligence fan-out and a loopback HTTP receiver.
+It verifies authenticated transport, exclude-wins routing, local JSONL and HTTP 401
+diagnostics. It never certifies personal services, installs timers or writes personal
+memories. Receivers register in the workspace manifest and close in `finally`; run
+these and PTY tests serially. Diagnostic inspection is bounded, root-session filtered,
+and excludes raw URLs/error detail; absence of failures never proves remote delivery.
+Optional filesystem/OAuth/memory/HTTP module cases require `TUI_TEST_PRESETS=1` and
+the ecosystem dependency setup; the ordinary minimal fixture suite does not require
+every optional service module. The all-enabled gate must run them without skips.
+Typed mode completion is not a menu request: unsolicited completion must not reopen
+the picker. Its final journal observation belongs inside the saved checkpoint sequence;
+await context collection first, then emit and checkpoint synchronously before delivery.
+Native exit/resume tests wait for the unique completion status, not historical mode text.
+Exact slash-command names must precede fuzzy action matching: adding “filesystem”
+otherwise steals `/system`. The functional launcher test covers that collision.
+`cli_compat_probe.py --controls --live --output NEW_PRIVATE_PATH` adds local goal/config/
+provider checks and read_file under an explicitly selected mode to both controlled
+live presets, without extra model turns. It does not authorize real OAuth or personal
+service probes. Keep failed and passing receipts distinct, and inspect final captures.
+
+Everyday CLI workflow gates: `test_cli_workflow_gaps.py` covers bounded JSON/Python
+literal envelopes, hostile/malformed/oversized refusal, actual root/child tool execution,
+cached skill aliases and turn-end catalog refresh. Original tool evidence stays intact;
+an ambiguous string is unknown, never success inferred from prose. Both preset recipe
+tests distinguish active sessions from local filenames and verify app-owned ephemeral
+discovery guidance reaches the actual provider request. This guidance is a named CLI
+policy difference, not a kernel change or proof of equivalent requests.
+Native `test_compact_terminal.py` disables cursor replies through F3, resize, F1 and F4;
+it also checks skill insertion versus Send, stale-session catalogs and sticky startup
+failure after Enter/late draft refusal. Ratatui `Terminal::clear()` (not its constructor)
+queries the cursor even on an owned alternate screen. Clear that owned screen directly;
+keep the separate bounded primary-screen resize strategy. Silent startup alone does
+not test the inspection transition. The configured `cli_compat_probe.py --live` now
+bills four read-only turns across both presets, including an actual discovered skill's
+arguments. It also selects a recipe filename without sending or running it. Use a new
+receipt filename; earlier receipts describe earlier code. Inspect the captures.
+
 rc5 gates: `test_rc5.py` uses real nested session mounts, validates cyclic/missing
 ancestry refusal and preserves original child/ancestor receipts. Nested adoption is
 explicit reparenting under a new identity, not resumed ancestor execution. Actual
@@ -706,3 +1141,25 @@ before execution, during a tool and during an approval. Windows/macOS and real I
 - A read-only Git command can invoke repository-configured clean/process filters.
   Disable those before both status and diff; --no-ext-diff/--no-textconv alone is insufficient.
   Use literal pathspecs and preserve opaque source identities even for lossy filename display.
+## Configured CLI compatibility gate
+
+Use synthetic global/project/local settings, never the developer's configured service
+destinations or personal transcripts. `tests/test_cli_compat.py` compares the actual
+pinned CLI resolver, tests settings/identity/destination preservation, and verifies
+unknown-command refusal and explicit source-preserving CLI import. With
+`TUI_TEST_PRESETS=1`, both presets use real CLI default behaviors plus a controlled
+configured behavior/provider and execute a shell tool and delegation.
+
+After the integrated suite, run `scripts/cli_compat_probe.py --output NEW_RECEIPT`
+serially, then `--live --output NEW_RECEIPT` (four billed read-only turns, explicitly
+supplied Anthropic key). Inspect `.evidence/interaction/cli-compatible-*` captures.
+The probe owns its home/workspace and exercises actual menus and command refusal;
+never substitute personal configured hooks for this fixture. Interactive module login
+and health of personal remote services remain unverified.
+
+For current runtime diagnostics, `capture_runtime_policy.py --settings-policy cli`
+captures the compatibility adapter and default question overlay. `--cli-home` may
+select only an app-owned isolated baseline home; use its owning CLI environment.
+`benchmark_runtime.py --native-only --cli-compatible` measures the actual configured
+native entrypoint alongside that CLI after a strict private comparison receipt exists.
+Prepared differences and missing request-time equivalence still prevent a parity claim.

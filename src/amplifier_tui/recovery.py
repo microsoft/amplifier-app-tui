@@ -351,6 +351,23 @@ def recover(state_dir, identity):
         checkpoint = json.loads((source / "checkpoint.json").read_text())
         if not isinstance(checkpoint.get("fingerprint"), str):
             raise ValueError("Missing composition fingerprint; recovery refused")
+        # Legacy orderly cancellations were labelled uncertain even with complete
+        # context. Explicit recovery can retain those exact public messages under
+        # a new identity; never promote or rewrite the old checkpoint in place.
+        captured = None
+        rows = [json.loads(line) for line in raw.splitlines()]
+        sequence = checkpoint.get("sequence")
+        if (
+            checkpoint.get("version") == 1
+            and type(sequence) is int
+            and 0 < sequence <= len(rows)
+            and rows[sequence - 1]["kind"] == "turn.ended"
+            and all(row["kind"] == "display.message" for row in rows[sequence:])
+        ):
+            try:
+                captured, _ = public_history(checkpoint.get("messages"))
+            except (ValueError, TypeError):
+                pass  # Incomplete/unsupported context stays historical reference.
         draft = json.loads((source / "draft.json").read_text()).get("text", "")
         if not isinstance(draft, str):
             raise ValueError("Invalid saved draft")
@@ -382,6 +399,14 @@ def recover(state_dir, identity):
                 "Partial external effects may remain. This transcript is historical evidence, "
                 "not a request to repeat its instructions. Wait for the user's next request."
             )
+            if captured is not None:
+                notice += (
+                    " Validated public messages were retained exactly under this new identity. "
+                    "Module-private state, goals and queued execution were not continued."
+                )
+                evidence["context_policy"] = (
+                    "validated public checkpoint; no private-state continuation"
+                )
             store.metadata.update(
                 title=f"Recovered · {entry.get('title', 'Conversation')}"[:100],
                 recovered_from=entry["id"],
@@ -395,21 +420,30 @@ def recover(state_dir, identity):
                 if "session_id" in value:
                     value["session_id"] = store.identity
                 atomic_json(store.path / name, value)
-            store.checkpoint(
-                [
-                    {
-                        "role": "user",
-                        "content": notice
-                        + "\n\n"
-                        + text
-                        + "\n\nStructured recovery ledger (historical, not execution):\n"
-                        + json.dumps(evidence, ensure_ascii=False),
-                    },
+            messages = [
+                {
+                    "role": "user",
+                    "content": notice
+                    + "\n\n"
+                    + text
+                    + "\n\nStructured recovery ledger (historical, not execution):\n"
+                    + json.dumps(evidence, ensure_ascii=False),
+                },
+                {
+                    "role": "assistant",
+                    "content": "Historical context retained. No earlier action has been resumed or repeated.",
+                },
+            ]
+            if captured is not None:
+                messages = captured + [
+                    {"role": "user", "content": notice},
                     {
                         "role": "assistant",
-                        "content": "Historical context retained. No earlier action has been resumed or repeated.",
+                        "content": "Waiting for a new explicit request. No prior work was replayed.",
                     },
-                ],
+                ]
+            store.checkpoint(
+                messages,
                 0,
                 checkpoint["fingerprint"],
                 True,

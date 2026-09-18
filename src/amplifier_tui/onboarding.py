@@ -93,8 +93,11 @@ GETTING_STARTED = """Amplifier TUI — your first conversation
 
 1. Check this installation: amplifier-tui --check
    Checks are local only; they do not validate credentials or download modules.
-2. Set ANTHROPIC_API_KEY in your environment for the default live provider.
-   Never paste a key into chat or a bug report. CLI credentials are not imported.
+2. Ordinary launch uses your existing Amplifier CLI settings, providers and behaviors.
+   Configured hooks may send notifications or dispatch to external services on launch.
+   Provider modules own authentication; no credential files are copied or rewritten.
+   Use --settings-policy isolated for the explicit preset/overlay path instead.
+   That default isolated preset requires ANTHROPIC_API_KEY. Never paste keys into chat.
    Another provider/model? amplifier-tui --setup creates a reviewed overlay without
    storing a key or changing shared settings. Custom modules use --bundle / --overlay.
 3. Open a project directory, then run amplifier-tui.
@@ -104,7 +107,7 @@ GETTING_STARTED = """Amplifier TUI — your first conversation
    Try: Explain this project's structure without editing files or running commands.
    This is an instruction, not a permission restriction.
 5. Tab to Actions and press Enter, then search Help for the local task guide.
-   Queue = a later turn; Steer = a correction to current work. Stop is not undo.
+   Queue = a later task; Change task (steer) corrects current work. Stop is not undo.
    Review decision grants scoped permission; Answer question supplies information.
 6. Quit through Actions. Return with amplifier-tui --resume and choose a conversation.
    Resume does not replay work. Use your terminal's selection and tmux copy mode
@@ -134,7 +137,12 @@ def storage_available(path):
 
 
 def local_checks(args, binary):
-    default_provider = not (args.fixture or args.bundle or args.overlay)
+    policy = getattr(args, "settings_policy", None) or (
+        "isolated"
+        if args.fixture or args.bundle or args.overlay or getattr(args, "preset", None)
+        else "cli"
+    )
+    default_provider = policy == "isolated" and not (args.fixture or args.bundle or args.overlay)
     key_present = bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
     checks = []
 
@@ -166,7 +174,13 @@ def local_checks(args, binary):
         if storage
         else "State location is blocked or inaccessible. Choose a writable directory with --state-dir.",
     )
-    if default_provider:
+    if policy == "cli":
+        add(
+            "provider",
+            "info",
+            "CLI-compatible settings policy: existing providers/behaviors and their authentication apply. This offline check does not read settings, mount hooks or validate credentials. Use --settings-policy isolated to opt out.",
+        )
+    elif default_provider:
         add(
             "provider",
             "ok" if key_present else "error",

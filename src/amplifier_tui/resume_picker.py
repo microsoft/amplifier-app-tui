@@ -4,18 +4,22 @@ import curses
 import sys
 
 
-def choose(state_dir):
+def choose(state_dir, *, cwd):
     from amplifier_tui.navigation import session_choices
 
-    rows = session_choices(state_dir, None)
+    rows = session_choices(state_dir, None, cwd=cwd)
     if not rows["sessions"]:
-        raise ValueError("No saved conversations in this state directory")
+        raise ValueError(
+            "No saved conversations in this working directory; start a new conversation"
+        )
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise ValueError("Resume picker needs a terminal; use --resume ID or --resume latest")
     return curses.wrapper(
         picker,
         rows,
-        lambda offset, query="": session_choices(state_dir, None, offset=offset, query=query),
+        lambda offset, query="": session_choices(
+            state_dir, None, cwd=cwd, offset=offset, query=query
+        ),
     )
 
 
@@ -46,8 +50,8 @@ def picker(screen, catalog, load_page=None):
             in f"{row['title']} {row['cwd']} {row['id']} {row.get('match', '')}".casefold()
         ]
         selected = min(selected, max(0, len(rows) - 1))
-        line(1, "Amplifier · Resume conversation")
-        line(2, "Type to filter · F3 search all saved messages · Enter open · Esc cancel")
+        line(1, "Amplifier · Resume conversation · this directory")
+        line(2, "Type to filter · F3 search this directory's messages · Enter open · Esc cancel")
         line(
             3,
             f"Page {catalog.get('offset', 0) // 100 + 1} · PgUp/PgDn pages · no work starts until selection",

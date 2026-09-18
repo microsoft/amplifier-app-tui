@@ -28,7 +28,7 @@ def main(argv=None):
     python = ROOT / ".venv/bin/python"
     if not python.is_file() or not os.access(python, os.X_OK):
         print(
-            "Development environment missing: run uv sync --inexact in the app checkout.",
+            "Development environment missing: run uv sync --inexact --no-sources in the app checkout.",
             file=sys.stderr,
         )
         return 1
@@ -36,7 +36,16 @@ def main(argv=None):
     env["PYTHONPATH"] = str(ROOT / "src") + (
         os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else ""
     )
-    if not NO_NATIVE_BUILD.intersection(args) and sys.stdin.isatty() and sys.stdout.isatty():
+    # Product CLI dispatch must not wait for a native renderer build. The
+    # product launcher still validates/owns the command; do not import its
+    # dependency graph into this system-Python bootstrap.
+    cli_workflow = bool(args and not args[0].startswith("-"))
+    if (
+        not cli_workflow
+        and not NO_NATIVE_BUILD.intersection(args)
+        and sys.stdin.isatty()
+        and sys.stdout.isatty()
+    ):
         # Cargo's dependency tracking catches edits, deletions, locks and build settings.
         # Never run a stale binary after a failed build. Keep tools in the caller's cwd.
         try:

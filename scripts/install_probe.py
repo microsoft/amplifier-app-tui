@@ -73,7 +73,7 @@ def main():
             action(probe, "Getting started", "Help · choose a topic")
             probe.send(b"Queue or steer\r")
             probe.wait("Help · Queue or steer?")
-            probe.wait("does not undo")
+            probe.wait("undo file or command effects")
             capture(probe, f"installed-{preset}-help")
             probe.send(b"\x1b")
             probe.wait("Actions / choices", absent=True)

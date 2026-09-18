@@ -10,7 +10,7 @@ provider requirements. No check proves the bundle, network or API account will w
 | Build asks for Cargo or a linker | Install a Rust/Cargo toolchain and your platform's C build tools, then reinstall |
 | Installed command not found | Follow uv's PATH instructions and open a new terminal |
 | Native binary missing or not executable | Reinstall; workspace developers must build Ratatui explicitly |
-| Default provider key missing | Supply ANTHROPIC_API_KEY through the environment; do not paste it into chat |
+| Provider authentication missing | CLI-policy uses the configured provider's credentials. Supported async modules expose `/provider login NAME`; open Provider login prompt. Other modules require external login. The isolated default needs ANTHROPIC_API_KEY. Never paste keys into chat |
 | Custom provider still fails despite passing checks | Local checks do not resolve custom configurations or validate credentials; review the trusted overlay and provider's error |
 | First startup is slow | It may be resolving sources/installing dependencies; cached starts differ from cold starts |
 | First launch after upgrade installs modules again | Reinstallation rebuilds the isolated tool environment; allow network access and omit --no-install for that launch |
@@ -19,6 +19,8 @@ provider requirements. No check proves the bundle, network or API account will w
 | Resume refuses changed/missing configuration | Preserve original state and recorded paths; do not edit checkpoint files to bypass validation |
 | Assistant appears to wait forever | Look for Review decision or Answer question; use the Help topic “When the assistant waits” |
 | Copy/scroll behaves differently in a menu | Escape to normal conversation for terminal-owned selection, or use Transcript inspection |
+| Light terminal looks too dark | Relaunch with AMPLIFIER_TUI_THEME=light or terminal; NO_COLOR=1 removes app colours |
+| Tool preview seems incomplete | Open Review / Activity evidence for original results; ordinary history deliberately uses bounded previews |
 
 ## A useful, limited report
 

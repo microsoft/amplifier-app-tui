@@ -38,8 +38,8 @@ def main():
         try:
             probe.wait("Ready", timeout=45)
             probe.send(prompt.encode() + b"\r")
-            probe.wait("Completed", timeout=60)
-            probe.wait("✓  read_file")
+            probe.wait_idle(timeout=60)
+            probe.wait("▸ Read · done" if frontend == "ratatui" else "▸ succeeded · read_file")
             probe.wait("amplifier-app-tui")
             receipts.append(
                 {

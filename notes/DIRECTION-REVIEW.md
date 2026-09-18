@@ -1,5 +1,25 @@
 # Direction review: experience first, measured responsiveness
 
+## Integrated approachable-experience plan — 2026-09-16
+
+The steward requests one comprehensive plan, informed by their approximately
+175-column by 50-row terminal including composer/status. Smaller mobile terminals
+and larger desktops remain in scope. They explicitly prioritize copy/paste without
+outer gutters, useful vertical separation, styling that explains the interface and
+information workers learning AI-assisted coding rather than terminal experts.
+VISION and presentation P6 / interaction P1 clarify that destination before deriving
+[the integrated plan](APPROACHABLE-EXPERIENCE-PLAN.md). Detailed sizes and design budgets
+there are proposed acceptance experiments, not new universal terminal guarantees.
+
+Current live captures expose verbose mode dictionaries, usage and tool previews among
+ordinary replies; source shows width-wrapped controls but no task-grouped action model.
+These observations justify a coherent review, not a claim that every surface is broken.
+Existing terminal-history ownership, source-copy fidelity, identified controls and
+Amplifier module policy remain mandatory. No kernel policy or alternate-screen reset.
+This turn authors direction and the execution plan only; it does not certify the new
+experience or authorize account login, personal-service writes or a new publication.
+All contract wording remains DRAFT. No formal Converge verdict is generated.
+
 ## Newcomer approachability amendment — 2026-09-14
 
 The steward requests the next batch to make the application approachable by others.

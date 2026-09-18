@@ -91,7 +91,10 @@ impl Selection {
             return;
         }
         f.render_widget(ratatui::widgets::Clear, self.area);
-        f.render_widget(Block::default().style(Style::default().bg(BG)), self.area);
+        f.render_widget(
+            Block::default().style(Style::default().bg(palette().bg)),
+            self.area,
+        );
         for (i, line) in self
             .snapshot
             .iter()
@@ -109,8 +112,16 @@ impl Selection {
                     Span::styled(
                         g.to_string(),
                         Style::default()
-                            .fg(if selected { BG } else { INK })
-                            .bg(if selected { GREEN } else { BG }),
+                            .fg(if selected {
+                                palette().bg
+                            } else {
+                                palette().ink
+                            })
+                            .bg(if selected {
+                                palette().green
+                            } else {
+                                palette().bg
+                            }),
                     )
                 })
                 .collect();

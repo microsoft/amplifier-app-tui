@@ -50,7 +50,7 @@ def test_file_preview_insertion_and_observed_activity(tmp_path):
         draft_is(probe, "Snapshot violet")
         assert "Changed after preview" not in probe.text
         probe.send(b"\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         action(probe, "Activity evidence", "Activity evidence · identified")
         probe.send(b"fixture_probe\r")
         probe.wait("Observed evidence")
@@ -58,7 +58,8 @@ def test_file_preview_insertion_and_observed_activity(tmp_path):
         capture(probe, "daily-activity")
         dismiss(probe, "Observed evidence")
         action(probe, "Context intelligence", "Context intelligence · observed")
-        probe.wait("means unavailable, not zero")
+        probe.wait("No observation means unavailable")
+        probe.wait("not zero")
         capture(probe, "daily-context")
     finally:
         probe.close()

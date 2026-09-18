@@ -12,6 +12,7 @@ pub struct Insights {
     pub external_editor: bool,
     pub image: Option<Value>,
     pub watching: Option<(String, Option<String>, Instant)>,
+    pub activity_offset: usize,
 }
 
 pub fn thumbnail_lines(value: &Value, width: usize) -> Vec<Line<'static>> {
@@ -286,6 +287,7 @@ impl App {
     }
 
     pub fn inspect(&mut self, category: String, child: Option<String>) {
+        self.insights.activity_offset = 0;
         if self.disconnected || self.mode == "SIMULATED" {
             self.status = "Observed-work inspection requires the runtime host".into();
             return;
@@ -294,6 +296,14 @@ impl App {
         self.insights.watching = Some((category.clone(), child.clone(), Instant::now()));
         self.menu("Observed work · loading", vec![]);
         self.send(json!({"op":"inspect","category":category,"child":child}));
+    }
+
+    pub fn inspect_page(&mut self, child: Option<String>, offset: usize) {
+        self.insights.activity_offset = offset;
+        self.insights.lookup = Some((self.request + 1).to_string());
+        self.insights.watching = Some(("activity_tree".into(), child.clone(), Instant::now()));
+        self.menu("Observed work · loading", vec![]);
+        self.send(json!({"op":"inspect","category":"activity_tree","child":child,"offset":offset}));
     }
 
     pub fn inspection_result(&mut self, value: Value) {
@@ -308,11 +318,17 @@ impl App {
         }
         self.insights.lookup = None;
         if self.ui.menu.as_ref().is_none_or(|m| {
-            m.title != "Observed work · loading" && !m.title.starts_with("Delegated work · scoped")
+            m.title != "Observed work · loading"
+                && !m.title.starts_with("Delegated work · scoped")
+                && !m.title.starts_with("Activity ·")
         }) {
             return;
         }
         let category = string(&value, "category");
+        if category == "activity_tree" {
+            self.activity_result(value);
+            return;
+        }
         let prior = self.ui.menu.as_ref().map(|menu| {
             let id = menu
                 .filtered()
@@ -336,7 +352,9 @@ impl App {
                 .map(|row| Choice {
                     label: format!(
                         "{} · {} · {}",
-                        if row["live"] == true {
+                        if row["recipe_file"].is_string() {
+                            "local filename"
+                        } else if row["live"] == true {
                             "live child"
                         } else {
                             "observed"
@@ -344,14 +362,27 @@ impl App {
                         safe(&string(row, "status")),
                         safe(&string(row, "label"))
                     ),
-                    action: Action::Observation(row.clone()),
-                    detail: format!(
-                        "Conversation {} · turn {} · sequence {}\n{}",
-                        string(row, "source"),
-                        string(row, "turn"),
-                        row["sequence"],
+                    action: if let Some(path) = row["recipe_file"].as_str() {
+                        Action::RecipeFile(path.into())
+                    } else if let Some(id) = row["cli_import"].as_str() {
+                        Action::CliImport(id.into())
+                    } else {
+                        Action::Observation(row.clone())
+                    },
+                    detail: if row["cli_import"].is_string()
+                        || row["recipe_file"].is_string()
+                        || category == "runtime_output"
+                    {
                         safe(&string(row, "detail"))
-                    ),
+                    } else {
+                        format!(
+                            "Conversation {} · turn {} · sequence {}\n{}",
+                            string(row, "source"),
+                            string(row, "turn"),
+                            row["sequence"],
+                            safe(&string(row, "detail"))
+                        )
+                    },
                 }),
         );
         self.menu(
@@ -360,9 +391,12 @@ impl App {
                 "context" => "Context intelligence · observed diagnostics",
                 "stored_context" => "Stored context · module snapshot, not wire request",
                 "wire_request" => "Provider request · memory-only projection",
+                "runtime_output" => "Runtime output · private diagnostics",
                 "instructions" => "Instruction sources · last observed resolution",
                 "recipes" => "Recipe activity · observed tool calls",
+                "recipe_files" => "Recipe files · local candidates, not active sessions",
                 "recovery" => "Recovered work · inspect before adopting",
+                "cli_sessions" => "CLI sessions · import historical reference",
                 "changes" => "Change and command evidence · tool-correlated source versions",
                 _ => "Activity evidence · identified runtime observations",
             },
@@ -383,6 +417,21 @@ impl App {
                 value["partial"]
             );
         }
+        if category == "runtime_output" {
+            self.ui.menu.as_mut().unwrap().detail = format!(
+                "{}\n{}\nPartial capture: {}",
+                string(&value, "scope"),
+                string(&value, "context_note"),
+                value["partial"]
+            );
+        }
+        if category == "cli_sessions" || category == "recipe_files" {
+            self.ui.menu.as_mut().unwrap().detail = format!(
+                "Partial catalog: {}\n{}",
+                value["partial"],
+                string(&value, "scope")
+            );
+        }
         if let Some((query, id, scroll)) = prior {
             let menu = self.ui.menu.as_mut().unwrap();
             menu.query = query;
@@ -397,11 +446,10 @@ impl App {
         if self.disconnected
             || self.insights.lookup.is_some()
             || self.flow.prompt.is_some()
-            || self
-                .ui
-                .menu
-                .as_ref()
-                .is_none_or(|m| !m.title.starts_with("Delegated work · scoped"))
+            || self.ui.menu.as_ref().is_none_or(|m| {
+                !m.title.starts_with("Delegated work · scoped")
+                    && !m.title.starts_with("Activity ·")
+            })
         {
             return;
         }
@@ -414,10 +462,187 @@ impl App {
         *last = Instant::now();
         let (category, child) = (category.clone(), child.clone());
         self.insights.lookup = Some((self.request + 1).to_string());
-        self.send(json!({"op":"inspect", "category":category, "child":child}));
+        self.send(json!({"op":"inspect", "category":category, "child":child,"offset":self.insights.activity_offset}));
+    }
+
+    pub fn activity_result(&mut self, value: Value) {
+        let prior = self.ui.menu.as_ref().map(|m| {
+            (
+                m.query.clone(),
+                m.filtered().get(m.selected).map(|c| c.action.clone()),
+                m.detail_scroll,
+            )
+        });
+        let mut choices = vec![];
+        let offset = value["offset"].as_u64().unwrap_or(0) as usize;
+        let node = value["node"].as_str().map(str::to_owned);
+        if offset > 0 {
+            choices.push(Choice {
+                label: "‹ Earlier activity".into(),
+                action: Action::ActivityPage(node.clone(), offset.saturating_sub(100)),
+                detail: String::new(),
+            });
+        }
+        if let Some(next) = value["next_offset"].as_u64() {
+            choices.push(Choice {
+                label: "More activity ›".into(),
+                action: Action::ActivityPage(node, next as usize),
+                detail: String::new(),
+            });
+        }
+        if value["node"].is_string() {
+            choices.push(Choice {
+                label: "‹ Back one level".into(),
+                action: Action::Inspect(
+                    "activity_tree".into(),
+                    value["parent"].as_str().map(str::to_owned),
+                ),
+                detail: String::new(),
+            });
+        }
+        let focus = &value["focus"];
+        if focus.is_object() {
+            choices.push(Choice {
+                label: "Preview · observed content".into(),
+                action: Action::ActivityPreview(focus.clone()),
+                detail: string(focus, "preview"),
+            });
+            choices.push(Choice {
+                label: if focus["partial"] == true {
+                    "Observed arguments / result · excerpt…"
+                } else {
+                    "Exact observed arguments / result…"
+                }
+                .into(),
+                action: Action::Observation(focus.clone()),
+                detail: "Read-only source evidence; partial excerpts are labelled. No tool is run."
+                    .into(),
+            });
+        }
+        for row in value["rows"].as_array().unwrap_or(&vec![]) {
+            choices.push(Choice {
+                label: format!(
+                    "▸ {}{} · {}{}{}",
+                    match row["status"].as_str() {
+                        Some("waiting_capacity") => "waiting".into(),
+                        _ => string(row, "status"),
+                    },
+                    if row["partial"] == true {
+                        " (excerpt)"
+                    } else {
+                        ""
+                    },
+                    native::one_line(&string(row, "label"), 64),
+                    if row["summary"].as_str().unwrap_or("").is_empty() {
+                        ""
+                    } else {
+                        " · "
+                    },
+                    string(row, "summary")
+                ),
+                action: Action::Inspect("activity_tree".into(), Some(string(row, "id"))),
+                detail: format!(
+                    "{}\n{}\n{} observed children · Enter/click to open",
+                    string(row, "label"),
+                    native::one_line(&string(row, "preview"), 220),
+                    row["children"]
+                ),
+            });
+        }
+        self.menu(
+            format!(
+                "Activity · {}{}",
+                if value["partial"] == true {
+                    "limited index · "
+                } else {
+                    ""
+                },
+                if value["node"].is_string() {
+                    native::one_line(&string(&value, "breadcrumb"), 80)
+                } else {
+                    "tools and thinking".into()
+                }
+            ),
+            choices,
+        );
+        let menu = self.ui.menu.as_mut().unwrap();
+        menu.detail = format!(
+            "{}\nPartial index: {}",
+            string(&value, "scope"),
+            value["partial"]
+        );
+        if focus.is_object() {
+            menu.selected = menu
+                .choices
+                .iter()
+                .position(|c| matches!(c.action, Action::ActivityPreview(_)))
+                .unwrap_or(0);
+        }
+        if let Some((query, Some(action), scroll)) = prior {
+            // Keep focus by identity, not a shifting row number, during updates.
+            menu.query = query;
+            if let Some(index) = menu
+                .filtered()
+                .iter()
+                .position(|c| match (&c.action, &action) {
+                    (Action::ActivityPreview(a), Action::ActivityPreview(b))
+                    | (Action::Observation(a), Action::Observation(b)) => a["id"] == b["id"],
+                    _ => c.action == action,
+                })
+            {
+                menu.selected = index;
+                menu.detail_scroll = scroll;
+            }
+        }
+    }
+
+    pub fn activity_preview(&mut self, row: Value) {
+        self.menu(
+            format!("Preview · {}", string(&row, "label")),
+            vec![
+                Choice {
+                    label: "‹ Back to activity".into(),
+                    action: Action::Inspect("activity_tree".into(), Some(string(&row, "id"))),
+                    detail: String::new(),
+                },
+                Choice {
+                    label: "Copy observed source text".into(),
+                    action: Action::CopyText(string(&row, "preview")),
+                    detail: String::new(),
+                },
+            ],
+        );
+        let menu = self.ui.menu.as_mut().unwrap();
+        menu.detail = string(&row, "preview");
+        menu.prose = row["markdown"] == true;
+        menu.secondary = row["thinking"] == true;
     }
 
     pub fn observation(&mut self, row: Value) {
+        if row["kind"] == "runtime_output" {
+            let text = format!(
+                "Received {}\n{}",
+                string(&row, "status"),
+                string(&row, "detail")
+            );
+            self.menu(
+                "Runtime output · private diagnostic",
+                vec![
+                    Choice {
+                        label: "Copy private diagnostic".into(),
+                        action: Action::CopyText(text.clone()),
+                        detail: String::new(),
+                    },
+                    Choice {
+                        label: "Back to runtime output".into(),
+                        action: Action::Inspect("runtime_output".into(), None),
+                        detail: String::new(),
+                    },
+                ],
+            );
+            self.ui.menu.as_mut().unwrap().detail = safe(&text);
+            return;
+        }
         if row["id"] == "context-policy" {
             let text = format!(
                 "Conversation: {}\n\n{}",
@@ -449,6 +674,28 @@ impl App {
             action: Action::CopyText(text.clone()),
             detail: String::new(),
         }];
+        if self
+            .insights
+            .watching
+            .as_ref()
+            .is_some_and(|(category, _, _)| category == "activity_tree")
+        {
+            choices.insert(
+                0,
+                Choice {
+                    label: "‹ Back to activity".into(),
+                    action: Action::Inspect("activity_tree".into(), Some(string(&row, "id"))),
+                    detail: String::new(),
+                },
+            );
+        }
+        if let Some(id) = row["cli_import"].as_str() {
+            choices.push(Choice {
+                label: "Import this CLI history into a NEW conversation…".into(),
+                action: Action::CliImport(id.into()),
+                detail: "Historical reference only; confirmation required; no tool replay.".into(),
+            });
+        }
         if row["recover_child"] == true && row["source_sha256"].is_string() {
             choices.push(Choice {
                 label: "Continue captured child under a NEW identity…".into(),

@@ -162,7 +162,7 @@ async def test_context_and_activity_are_read_only_and_scoped(host, tmp_path):
     observations = [
         json.loads(row["detail"])["observation"]
         for row in output[-1]["rows"]
-        if row["id"] != "context-policy"
+        if row["id"] not in ("context-policy", "intelligence-forwarding")
     ]
     assert output[-1]["rows"][0]["status"] == "configuration, not occupancy"
     assert {"input_tokens": 42, "output_tokens": 7} in observations

@@ -13,12 +13,78 @@ import platform
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
+MAX_SOURCE_FILES = 128
+MAX_SOURCE_FILE_BYTES = 4 * 1024 * 1024
+
+
+def source_fingerprint(path):
+    """Hash one stable regular source file without materializing it in memory."""
+    before = path.lstat()
+    if not stat.S_ISREG(before.st_mode):
+        raise RuntimeError(f"Candidate source is not a regular file: {path.relative_to(ROOT)}")
+    if before.st_size > MAX_SOURCE_FILE_BYTES:
+        raise RuntimeError(
+            f"Candidate source exceeds {MAX_SOURCE_FILE_BYTES} bytes: {path.relative_to(ROOT)}"
+        )
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        opened = os.fstat(stream.fileno())
+        if (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns) != (
+            before.st_dev,
+            before.st_ino,
+            before.st_size,
+            before.st_mtime_ns,
+        ):
+            raise RuntimeError(
+                f"Candidate source changed while fingerprinting: {path.relative_to(ROOT)}"
+            )
+        for chunk in iter(lambda: stream.read(65536), b""):
+            digest.update(chunk)
+    after = path.lstat()
+    if (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns) != (
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
+    ):
+        raise RuntimeError(
+            f"Candidate source changed while fingerprinting: {path.relative_to(ROOT)}"
+        )
+    return digest.hexdigest()
+
+
+def source_fingerprints():
+    """Identify a bounded regular dirty candidate without claiming HEAD contains its bytes."""
+    files = [
+        *sorted(
+            p
+            for p in (ROOT / "src/amplifier_tui").rglob("*")
+            if p.suffix in {".py", ".yaml", ".yml", ".md", ".json", ".toml"}
+            and "__pycache__" not in p.parts
+        ),
+        *sorted((ROOT / "frontends/ratatui/src").glob("*.rs")),
+        *(
+            ROOT / name
+            for name in (
+                "pyproject.toml",
+                "uv.lock",
+                "README.md",
+                "hatch_build.py",
+                "frontends/ratatui/Cargo.toml",
+                "frontends/ratatui/Cargo.lock",
+            )
+        ),
+    ]
+    if len(files) > MAX_SOURCE_FILES:
+        raise RuntimeError(f"Candidate source set exceeds {MAX_SOURCE_FILES} files")
+    return {str(p.relative_to(ROOT)): source_fingerprint(p) for p in files}
 
 
 def checked(command, **kwargs):
@@ -59,6 +125,7 @@ def terminal_smoke(command, stage, env):
     state = stage / "terminal-state"
     launch = [str(command), "--state-dir", str(state)]
     identity = None
+    readiness = []
     for resumed in (False, True):
         probe = Probe(
             [*launch, *(["--resume", identity] if resumed else ["--fixture"])],
@@ -78,6 +145,9 @@ def terminal_smoke(command, stage, env):
                     break
             else:
                 raise AssertionError("Installed fixture did not reach current readiness")
+            readiness.append(
+                {"resumed": resumed, "ready_ms": (time.monotonic_ns() - probe.start) / 1e6}
+            )
             metadata = next((state / "conversations").glob("*/metadata.json"))
             path = metadata.parent
             record = json.loads(metadata.read_text())
@@ -121,6 +191,8 @@ def terminal_smoke(command, stage, env):
         "second_turn": True,
         "help_preserves_draft_without_submission": True,
         "terminal_modes_restored": True,
+        "startup_observations": readiness,
+        "startup_scope": "One first isolated-state launch and one resumed launch; source/dependency resolution included as needed. Global uv/Git caches are not purged, so this is not a cold-cache benchmark.",
         "scope": "Installed native PTY fixture on this runner; not live-provider, physical terminal, clipboard or tmux certification",
     }
 
@@ -142,6 +214,7 @@ def main():
         raise SystemExit("uv is required")
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    sources = source_fingerprints()
     with tempfile.TemporaryDirectory(prefix="tui-release-") as temporary:
         stage = Path(temporary)
         checked([uv, "build", "--wheel", "--out-dir", str(stage)], cwd=ROOT)
@@ -172,7 +245,10 @@ def main():
         )
         env.pop("PYTHONPATH", None)
         assert shutil.which("cargo", path=env["PATH"]) is None
-        checked([uv, "tool", "install", str(wheel)], env=env)
+        # The pinned CLI's development source table follows Foundation main.
+        # Resolve published requirements, including our exact Foundation pin,
+        # rather than importing that dependency's development checkout policy.
+        checked([uv, "tool", "install", "--no-sources", str(wheel)], env=env)
         command = stage / "bin/amplifier-tui"
         doctor = checked(
             [str(command), "--doctor"],
@@ -180,7 +256,8 @@ def main():
             cwd=stage,
         )
         report = json.loads(doctor.stdout)
-        assert report["native_available"] and report["shared_cli_state"] == "not imported"
+        assert report["native_available"]
+        assert "diagnostics do not read shared settings/history" in report["shared_cli_state"]
         assert not (stage / "state").exists()
         installed_binary = Path(report["native_binary"]).read_bytes()
         assert installed_binary == binary
@@ -231,6 +308,7 @@ finally:
             "tracked_source_clean": not checked(
                 ["git", "status", "--porcelain", "--untracked-files=no"], cwd=ROOT
             ).stdout.strip(),
+            "source_sha256": sources,
             "architecture": platform.machine(),
             "build_os_release": platform.mac_ver()[0]
             if platform.system() == "Darwin"
@@ -240,6 +318,7 @@ finally:
             "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
             "native_sha256": hashlib.sha256(binary).hexdigest(),
             "cargo_available_during_install": False,
+            "dependency_resolution": "published metadata (--no-sources); exact direct pins retained",
             "doctor_passed": True,
             "state_untouched": True,
             "installed_native_bytes_match": True,
@@ -248,6 +327,7 @@ finally:
             "terminal_fixture": terminal,
             "clipboard_fixture": clipboard,
         }
+        assert sources == source_fingerprints(), "Candidate sources changed during verification"
         verify_payload(json.dumps(receipt).encode())
         shutil.copy2(wheel, output / wheel.name)
         receipt_path = output / (wheel.name + ".receipt.json")

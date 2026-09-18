@@ -1,7 +1,7 @@
 """Private, single-writer checkpoints. Canonical context is not rendered history.
 
-An incomplete turn is deliberately not repaired or replayed. The journal retains
-its observations; only a completed, matching checkpoint admits a resumed turn.
+An incomplete context is deliberately not repaired or replayed. A validated,
+matching checkpoint admits a resumed turn independently of earlier turn success.
 """
 
 from __future__ import annotations
@@ -54,8 +54,9 @@ def atomic_json(path, value):
         Path(temporary).unlink(missing_ok=True)
 
 
-def catalog(state_dir):
+def catalog(state_dir, *, cwd=None):
     root = Path(state_dir) / "conversations"
+    directory = Path(cwd).resolve() if cwd is not None else None
     result = []
     for path in root.glob("*/metadata.json"):
         try:
@@ -70,20 +71,49 @@ def catalog(state_dir):
                 and value.get("version") == 1
                 and value.get("id") == path.parent.name
             ):
+                if directory is not None:
+                    launch = value.get("launch")
+                    recorded = launch.get("cwd") if isinstance(launch, dict) else None
+                    if (
+                        not isinstance(recorded, str)
+                        or not Path(recorded).is_absolute()
+                        or Path(recorded).resolve() != directory
+                    ):
+                        continue
                 result.append((path.stat().st_mtime_ns, value))
-        except (OSError, ValueError):
+        except (OSError, ValueError, RuntimeError):
             continue
     return [value for _, value in sorted(result, key=lambda row: row[0], reverse=True)]
 
 
-def resolve_resume(state_dir, identity):
-    entries = catalog(state_dir)
+def resolve_resume(state_dir, identity, *, cwd=None):
+    entries = catalog(state_dir, cwd=cwd)
     if identity == "latest" and entries:
         return entries[0]
     for entry in entries:
         if entry["id"] == identity:
             return entry
-    raise ValueError("Conversation not found; use --list-sessions with the same --state-dir")
+    scope = " in this working directory" if cwd is not None else ""
+    raise ValueError(
+        f"Conversation not found{scope}; launch from its directory and use --list-sessions with the same --state-dir"
+    )
+
+
+def checkpoint_status(path):
+    """Bounded discovery hint, never permission to execute an unchecked checkpoint.
+
+    Our atomic writer emits version/status first. Large public contexts must not
+    hide an uncertain status merely because the rest exceeds the menu read budget.
+    Full schema, journal and context validation still happens on opening.
+    """
+    with Path(path).open() as stream:
+        raw = stream.read(65537)
+    if len(raw) <= 65536:
+        return json.loads(raw).get("status")
+    prefix = re.match(
+        r'\s*\{\s*"version"\s*:\s*1\s*,\s*"status"\s*:\s*"(ready|uncertain)"\s*[,}]', raw
+    )
+    return prefix.group(1) if prefix else None
 
 
 class ConversationStore:
@@ -117,7 +147,9 @@ class ConversationStore:
                 self.saved = json.loads((self.path / "checkpoint.json").read_text())
                 if self.saved.get("version") != 1 or self.saved.get("status") != "ready":
                     raise ValueError(
-                        "Conversation has uncertain/incomplete work; resume refused. No work replayed."
+                        "Conversation has uncertain/incomplete work; resume refused. No work replayed. "
+                        f"Use Resume's recovery choice, or amplifier-tui --recover {self.identity}, "
+                        "to create a recovered conversation with the original preserved."
                     )
                 self.draft = json.loads((self.path / "draft.json").read_text())["text"]
                 self.restored_events = [
@@ -156,21 +188,69 @@ class ConversationStore:
             os.fsync(self.journal.fileno())
             if not self.metadata.get("title"):
                 self.metadata["title"] = " ".join(event.payload["text"].split())[:100]
+                self.metadata["title_source"] = "prompt"
                 atomic_json(self.path / "metadata.json", self.metadata)
+
+    def manual_title(self):
+        source = self.metadata.get("title_source")
+        if source:
+            return source == "user"
+        # Older releases did not track provenance. Preserve any title that
+        # cannot be established as their exact first-prompt fallback.
+        first = next((e for e in self.restored_events if e.kind == "turn.accepted"), None)
+        fallback = " ".join(first.payload["text"].split())[:100] if first else None
+        return bool(self.metadata.get("title") and self.metadata["title"] != fallback)
+
+    def set_title(self, title, *, generated=False, description=None):
+        if not isinstance(title, str) or not title.strip() or not title.isprintable():
+            return False
+        if generated and self.manual_title():
+            return False
+        metadata = {
+            **self.metadata,
+            "title": title.strip()[:100],
+            "title_source": "generated" if generated else "user",
+        }
+        if generated and isinstance(description, str) and description.isprintable():
+            metadata["description"] = description[:200]
+        atomic_json(self.path / "metadata.json", metadata)
+        self.metadata = metadata
+        return True
+
+    def naming_metadata(self, completed_turns):
+        # The ecosystem naming hook owns this sidecar. It must never replace
+        # our admission/composition metadata with a stale pre-request copy.
+        path = self.path / "naming"
+        path.mkdir(mode=0o700, exist_ok=True)
+        value = {"turn_count": completed_turns}
+        if self.manual_title() or self.metadata.get("title_source") == "generated":
+            value["name"] = self.metadata.get("title")
+            value["description"] = self.metadata.get("description", "")
+        atomic_json(path / "metadata.json", value)
+        return path
+
+    def checkpoint_auxiliary(self, sequence):
+        """An idle utility observation changes no canonical context or admission."""
+        if self.saved:
+            self.checkpoint(
+                self.saved["messages"],
+                sequence,
+                self.saved["fingerprint"],
+                self.saved["status"] == "ready",
+            )
 
     def checkpoint(self, messages, sequence, fingerprint, ready):
         self.journal.flush()
         os.fsync(self.journal.fileno())
-        atomic_json(
-            self.path / "checkpoint.json",
-            {
-                "version": 1,
-                "status": "ready" if ready else "uncertain",
-                "messages": messages,
-                "sequence": sequence,
-                "fingerprint": fingerprint,
-            },
-        )
+        saved = {
+            "version": 1,
+            "status": "ready" if ready else "uncertain",
+            "messages": messages,
+            "sequence": sequence,
+            "fingerprint": fingerprint,
+        }
+        atomic_json(self.path / "checkpoint.json", saved)
+        self.saved = saved
         # Latest means last checkpoint activity, not lexical UUID order.
         os.utime(self.path / "metadata.json", None)
 

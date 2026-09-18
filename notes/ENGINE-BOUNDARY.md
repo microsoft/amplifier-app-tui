@@ -1,5 +1,439 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Existing CLI host parity (2026-09-17)
+
+The `/config` read path reuses Foundation's loaded `SessionConfigurator`, as the
+pinned CLI does, while rendering an allowlisted metadata subset: names, enablement,
+module IDs, origin bundle names and introduction kind. It never serializes arbitrary
+configuration, source URLs or instruction bodies. Agent rows describe definitions,
+not spawned sessions; context entries are not token occupancy. Lists are bounded to
+32 rows per category, with exact-name lookup for omitted items. Tab uses the CLI's
+cached snapshot; it neither re-queries the inspector nor advertises unsupported
+mutations/save/display flags. Explicit administration still belongs to the CLI
+handoff. Read-only inspection must not write shared policy or enter model context.
+
+The dedicated bridge process reserves its protocol descriptor before runtime imports
+and captures descriptors 1/2 into a separately drained pipe. Legacy Python/Rich/logging,
+native writes and inherited subprocess output therefore cannot paint the terminal or
+pollute JSONL. A thread maintains at most 128 lines / 256 KiB; oversized logical lines
+are omitted, incomplete lines wait for a newline, and decoder failures keep draining
+while marking capture unavailable. Count-only notices are throttled to twice a second;
+text crosses the boundary only on explicit Actions → Runtime output inspection.
+
+This is private process-scoped diagnostic text, not conversation evidence: startup and
+switched sessions share the process tail, child/tool/severity ownership is not inferred,
+and no diagnostic enters journals, exports or canonical context. Stateful terminal-
+control stripping covers split ANSI/OSC/DCS; recognizable credential lines, current
+secret-shaped environment values, PEM blocks and endpoints are omitted. Arbitrary
+private prose cannot be reliably scrubbed, so inspection/copying carries a review warning.
+Module-owned logs are independent. The adapter does not emulate Rich interactive input,
+interpret raw logs as pipeline state, or promise complete/crash-durable diagnostics.
+
+Child admission is separate from observation retention. Each parent has its own
+capacity semaphore (default eight; `AMPLIFIER_TUI_CHILD_CONCURRENCY=1..64`). Waiting
+children publish identified capacity status. A parent retains its slot while nested
+work uses a different semaphore; ancestors cannot consume their descendants' slots.
+The host no longer imposes a total nesting ceiling. It registers the delegate's actual
+`self_delegation_depth`, not ancestry depth; the module still enforces self-delegation
+policy. This is not removal of module safety rules.
+
+Stop wakes admission waiters without starting their calls. Graceful waiters return
+cancelled results, allowing the caller to join already-running siblings; propagating
+CancelledError there would incorrectly abort the parent. Force Stop retains immediate
+cancellation semantics. Cancelling an unadmitted continuation leaves its previously
+completed durable receipt untouched.
+
+Durable hosts keep the most recent 32 completed context/preparation payloads resident;
+older completed work reloads through the existing validated receipt/parent/composition
+path on explicit continuation. Small ancestry, labels and accounting remain indexed
+in memory; this is not a claim of constant total session memory. Hosts without durable
+storage cannot evict their only canonical context. Compact progress retains recent
+and live summaries (32 normally, up to 64 live), states omissions, and totals every
+owned child, including hidden errors/costs/calls. Original Activity records remain
+separate from the bounded preview. No execution quota is derived from history size.
+Explicit subprocess execution uses the same parent-owned composition, admission,
+observations and receipts. A fresh interpreter mounts the selected runtime; an
+inherited local socket carries bounded JSON RPC, independently of raw stdout/stderr.
+Approvals, questions and nested spawns return to the owning host. No pickle, network
+listener, temporary credential-bearing config, or implicit in-process fallback is used.
+The parent forwards kernel cancellation and owns process-group reaping; killed or lost
+workers leave uncertain receipts, never successful continuation claims. This is process
+isolation, not an operating-system sandbox. Transport belongs in frontend_bridge and
+session construction in composition; this adds no source file or second domain.
+The same child setup installs modes, canonical context and tool invocation correlation
+in either interpreter. The parent keeps provider preference resolution; remote catalog
+queries return through the child provider, not an unrelated root instance. Frames are
+limited to 16 MiB with 128 pending requests per direction. Foundation's pinned child
+environment allowlist is reused; modules still receive their declared configuration.
+The control descriptor is non-inheritable by tools. An owner-loss watchdog terminates
+the app-created process group even while a module blocks its event loop. This does not
+promise confinement of independently daemonized processes or arbitrary native code.
+EOF, oversized evidence, failed canonical capture and forced kill never manufacture a
+successful receipt. Socket reset during shutdown is expected transport loss, not a
+reason to abandon joining the process. Independent module policies remain untouched.
+
+Child routing uses the pinned CLI's preference coercion, model-role normalization,
+Foundation promotion and resolution diagnostics. Current explicit preferences win;
+otherwise the saved chain wins over agent defaults. The model-role declaration also
+travels to the child configuration for ecosystem routing hooks. Ordered preferences
+remain durable; hot resumes re-resolve them against the current provider catalog.
+Unresolved choices warn through the identified child display and retain the CLI's
+configured-priority fallback, not a fabricated successful routing claim.
+
+An unrouted plan fingerprint verifies non-routing composition independently of the
+selected model. The in-memory baseline never enters receipts (it may contain provider
+configuration). Saved hashes/routing/modes have a consistency digest, not local-file
+authentication. Legacy receipts first reconstruct their original exact mount hash;
+they do not gain permission by dropping provider fields from that hash. A cancelled
+admission restores the earlier in-memory row and leaves its durable receipt unchanged.
+Current parent mode and the child's own approved mode are tracked separately: a child
+changing its own mode does not mean that its inherited parent policy changed.
+
+Finalization marks interrupted children resumable only after execution is owned/drained,
+cleanup succeeds, and the canonical messages pass the same tool-pair validation used
+for interrupted roots. Unowned execution, failed cleanup/capture, incomplete legacy
+receipts and missing tool outcomes remain unavailable for same-identity continuation.
+No result is synthesized on this path; explicit public recovery is separate. Context
+readback must match before the new instruction executes, including persistent stores.
+No ancestor is started implicitly, and two continuations cannot claim one active child.
+
+LocalCommands reuses the pinned CLI's pure repeated-reason detector and threshold
+policy. A tripped goal clears the orchestrator's existing session-state seam; it
+does not replace the loop or claim goal success. The pending control record stays
+pending until execution drains and context checkpoints. The loop can finish one
+already-admitted continuation, matching the CLI backstop's bounded overshoot.
+Explicitly setting/clearing a goal resets the detector; returning never starts work.
+
+Command argument discovery uses the CLI's cached CompletionSnapshot and pure engine,
+refreshed at startup and turn/control completion, never on Tab. Identified replies
+are discarded after draft, cursor or session changes. Unsupported live configuration
+verbs are filtered rather than advertised. Provider diagnostics address every mounted
+instance (or one explicit name), retain per-provider timeouts/model bounds, and never
+change conversation routing. Standalone validation is explicitly requested and billed
+by the provider; catalog discovery itself is not proof of access.
+
+The host declares boolean `approval.interactive` before root/child module mounting.
+It describes transport, not consent. Computer-use's upstream hook prefers that
+capability, preserving legacy TTY fallback only when absent; explicit false or invalid
+values fail closed. Normal ask_user/deny/defaults and actual decision ownership remain
+unchanged. The workspace source override exercises the patched upstream module without
+rewriting declared mount policy; published installs need that upstream change delivered.
+
+Explicit launcher subcommands and the `cli` prefix replace the process with the pinned
+CLI before importing runtime policy. Cwd, environment, literal argv, stdio, home guards
+and CLI session storage remain CLI-owned. This supplies existing administration and
+scripting without another mutation implementation; it is not native TUI private-state
+resume, a new dashboard, or automatic execution of commands typed into a model prompt.
+
+## Cancellation ownership and resume (2026-09-17)
+
+Cancelling a Rust-backed Session.execute awaiter is not proof that its Python
+orchestrator callback has stopped. The app mounts an ExecutionOwner around the
+selected orchestrator through the public coordinator API, retaining the selected
+module's execution policy and kernel lifecycle dispatch. After a short immediate-
+cancellation drain allowance, **forced** Stop cancels that owned task and joins execution before capturing
+context. Repeated caller cancellation cannot abandon cleanup. If actual task
+ownership is unavailable, forced awaiter cancellation is explicitly uncertain and
+blocks further admission; uncooperative modules still need process-level shutdown.
+Exact-type module capability checks unwrap the adapter; no policy moves into core.
+
+Interactive first Stop requests the public token's graceful state, without cancelling
+execution waits or starting an escalation timer. Second Stop requests immediate
+cancellation synchronously. Child tokens register with their actual parent after
+mounting and unregister only after owned cleanup; late registration inherits the
+parent's state. A child still mounting when graceful Stop arrives never starts its
+first model call. Public tool-pre denial plus the existing invocation adapter prevent
+new tools returned by an in-flight model from starting, including the race through
+asynchronous pre-policy. Already-entered calls keep their real results. New approval
+requests deny while stopping, and pending human waits close without invented answers.
+
+A gracefully stopped child returns its partial result with cancelled outcome metadata.
+It must not raise CancelledError into a still-draining delegate: that exception can
+cancel sibling waits and implicitly escalate the whole tree. Forced cancellation keeps
+that exception path and joins detached children. Root finalization awaits graceful
+descendants without cancelling them; force can interrupt that drain but never abandons
+the checkpoint owner. Interrupted turns do not run successful-prompt naming hooks.
+Explicit idle mode/local controls reset both cancellation stages and the public
+token before admission; stale force intent must not disable a later control's Stop.
+The public loops still own model/tool sequencing; tests cover both independently
+selected loops and contexts, not arbitrary non-cooperative modules.
+
+Turn outcome and checkpoint safety are different facts. A drained interrupted turn
+remains interrupted, but complete, valid public tool pairing can support normal
+resume. Missing outcomes are never synthesized on that path. Closed admission does
+not erase the underlying healthy state before its final checkpoint. Canonical
+capture precedes turn.ended, with no await between that event and its checkpoint.
+Contiguous idle display-only observations advance the existing checkpoint without
+changing its safety status or crossing an execution/admission gap.
+
+Old uncertain checkpoints are not silently promoted. Explicit recovery creates a
+new identity, retaining exact validated public messages only when a terminal
+checkpoint is followed by display-only notices; otherwise historical reference
+recovery applies. Original bytes, uncertain effects and child evidence remain.
+Large checkpoint status previews read a bounded writer-header hint; opening still
+validates the full journal/context. A preview is never execution authorization.
+
+Native Ctrl-C Press during work advances the Stop stage and stays; it neither quits
+nor clears the draft. Selection copy comes first. Repeat/Release cannot escalate or
+quit; Caps Lock works. Idle Ctrl-C opens a separate default-No confirmation without
+discarding an underlying modal or draft. Enter on No, Escape, another Ctrl-C and pasted
+text never authorize exit. SIGINT uses the same policy; SIGTERM and explicit Ctrl-Q
+remain shutdown. Typed stage state survives progress/approval updates, and the live
+meter retains elapsed/accounting while explaining force escalation at narrow widths.
+
+Cancellation presentation keeps the existing stage semantics: negative-state colour
+is not a new failure outcome. Native active-child clocks extrapolate only elapsed
+wall time from identified running observations; repeated sibling snapshots preserve
+their anchors. Final reported durations remain authoritative. These clocks live only
+in the renderer, freeze on disconnection/ending, and never modify source, usage or
+the journal. Interact invalidates only a requested live item's second-level layout;
+long turn durations keep visible seconds rather than appearing frozen for a minute.
+
+## Startup transport ownership (2026-09-17)
+
+A wall-clock timeout around an asyncio pipe drain measures both terminal blockage
+and host event-loop starvation. Synchronous bundle preparation can therefore abort
+a healthy reader while a resumed snapshot is still draining. The pipe writer owns
+nonblocking writes and an inactivity deadline on a separate, explicitly joined
+thread; runtime preparation, module policy and controls remain on their existing
+owner. The bounded queue contains encoded immutable records, not shared mutable
+runtime objects. Shutdown stops polling and joins the writer; no abandoned blocking
+write or silent retry. A failed transport cannot continue to advertise startup or
+durable draft storage. This repairs existing session/presentation obligations; it
+does not grant readiness before mounting or alter saved context.
+
+## Directory-local return and usage adjacency (2026-09-17)
+
+CLI source `f0ba88398043f6b012d151360397893e46cd5d52` uses
+`project_utils.get_project_slug()` over `Path.cwd().resolve()`;
+`SessionStore` chooses that project's store, and `commands/session.py`'s interactive
+resume and ID lookup use it. This is exact directory identity, not a Git-root or
+recursive parent match. The TUI keeps its existing store format, filtering metadata
+by resolved absolute cwd before search, checkpoint previews, paging and latest/ID
+resolution. The launcher captures its effective cwd; the bridge pins its opening
+cwd across New/Resume. Selection rechecks scope before recovery writes or mounting.
+Scoped search preserves other directories' derived cache rows, with a connection-local
+SQL selection applied before the result budget; simultaneous windows cannot evict
+each other's index merely by searching. Global refresh still prunes absent sources.
+Unknown/malformed directory identities never become local matches. Explicit export
+and internal global inspection remain separate, without relocating saved sessions.
+
+Activity separators are deferred until the following visible item is known: usage
+joins activity, while assistant responses retain their blank. Native immutable
+history, the live tail and temporary inspection share the rule; no cursor deletion
+or repaint of already-committed transcript is required.
+
+## Readable ongoing work (2026-09-17)
+
+Codex source at `2f8603f07547247e698748884542ba60a157621c`, particularly
+`codex-rs/tui/src/bottom_pane/textarea/wrapping.rs` and textarea visual navigation,
+uses source-indexed semantic breaks and grapheme-safe fallback, not inserted newlines.
+Its hanging whitespace/cursor sentinels are custom behavior. Our pinned TextArea
+already offers WordOrGlyph with source-based editing; select it rather than fork an
+editor. The bounded chrome height counter must match that editor's Unicode word and
+grapheme ranges, including tabs and long-word fragments. This is the same intent,
+not a claim of identical separator/insertion-point behavior to Codex.
+
+The native projection condenses each root usage record to one width-safe row,
+prioritizing model and cost. Exact reported source remains expandable and in Activity;
+no costs or token totals are recomputed. Todo rendering recognizes successful public
+create/list snapshots or count-validated update arguments (the actual module returns
+counts, not the updated list). At most 256 entries are recognized; other envelopes,
+errors and truncated results use generic evidence. Cards show reported task state,
+not a task-acceptance verdict, with a checklist in Interact. Each task preview is
+bounded to 1,024 characters with explicit disclosure and exact Activity evidence.
+Child ownership and
+saved/native history remain unchanged; old cards are observations, not a sticky plan.
+
+Foreground model phases are deduplicated transient host observations from request,
+stream-block and retry events. Child/naming events cannot replace them; turn ending
+clears them, and client identity/active-turn checks reject stale frames. Tools animate
+only while observed running, at paint time over the mutable projection (not cached
+layouts or committed rows). Human waits, idle and disconnection remain static.
+
+## Agent task titles (2026-09-17)
+
+Foundation's delegate can prepend inherited history before its `[YOUR TASK]`
+boundary. Locate the final paired parent-end/task delimiter in a bounded suffix
+before clipping the task excerpt; old headings and nested history are not the job.
+Missing/out-of-bounds delimiters produce an unavailable title, never a history guess.
+The original effective instruction still goes unchanged to the child and Activity.
+
+The child adapter derives one bounded display title per execution from an explicit
+instruction heading or the opening task clause. It removes only leading boilerplate;
+negation and exact execution instructions remain unchanged. This is an excerpt, not
+a semantic summary or a policy claim. No provider call, delegate schema extension,
+module or kernel change is involved. Titles persist with child metadata and observed
+progress, refresh on explicit continuation and remain distinct from role and activity.
+Native/Interact rows prioritize warnings, title and identity before optional telemetry;
+narrow layouts use the stable agent ordinal. Activity preserves source instructions,
+heading/excerpt provenance and titled breadcrumbs in hot and saved projections. Keep
+the small title metadata when large tool output is bounded, including final updates.
+Older observations without titles retain their previous preview; no history migration.
+
+## Ecosystem session naming (2026-09-16)
+
+As in app-cli, the app emits `prompt:complete` after successful root execution; the
+kernel and orchestrator do not own this event. Configured `hooks-session-naming`
+retains trigger, model-routing and title policy. Its module-owned metadata sidecar
+prevents a late whole-file write from replacing app admission/composition metadata.
+Observed generated titles merge into the app store; explicit user names always win.
+Purpose-tagged naming calls are visible background work with session-only usage,
+never foreground streams or turn costs. Idle utility observations advance only the
+saved journal sequence, preserving canonical context and uncertain/ready admission.
+The app does not generate an alternative title when the hook is absent or defers.
+
+## Continuous work and usage (2026-09-16)
+
+App preparation emits named startup phases; neither renderer nor kernel loads bundles.
+The existing host/children adapters observe each provider dispatch/response, normalize
+reported cache aliases and retain attributed usage messages. Cache writes add to input;
+cache reads are already included in input. Foundation's Decimal cost accumulator remains
+the arithmetic authority. Per-call journal identities deduplicate restoration; missing
+cost and earlier unmetered history remain explicit. No pricing estimates or billing API.
+Exact parent-call progress enriches presentation without replacing tool arguments/results.
+The bridge publishes a constant-size `turn_metrics` projection on turn/usage events;
+the ledger remains the sole accounting owner. The native client advances elapsed
+time locally from the host's monotonic turn clock, rejects stale session/turn frames,
+and repaints quiet active work without emitting history. The local shimmer uses an
+80ms tick only during work/background phases, painting a brighter band through the
+label while measures stay muted. Waiting/reduced-motion clocks tick once per second;
+idle emits no animation frames. A disconnected runtime stops the local ticks and
+live indicators; its separate outcome-uncertain warning remains. New turns
+select empty turn accounting before their first report while retaining session costs.
+No provider polling, guessed token generation or timer journal records are required.
+The native journal commits chronological stable output and uses available viewport space
+for remaining mutable content. Explicit Interact is a temporary reflowed projection over
+the same source, with inline previews and recursive Activity links; it does not rewrite
+primary history, execute tools or change the default terminal mouse owner.
+
+The native palette follows muxplex brand.conf/tokens.css at reference `f88898e`:
+base `#0D1117`, raised surface `#1A1F2B`, words `#F0F6FF`, secondary `#8E95A3`,
+border `#2A3040`, cyan `#00D9F5`, activity amber `#F1A640`, error `#F85149`.
+Use the raised surface, not the almost-identical tile base, for visible user/input
+separation. Syntect selectors map to these semantic colours rather than importing
+an unrelated theme. Light mode uses brand neutrals and darker accessible accents;
+terminal/NO_COLOR remain colour-owned by the terminal. Image pixels are source data,
+not UI colour roles. Shimmer blends activity amber toward conversation ink locally.
+
+The supported filesystem adapter exposes ephemeral provider-request guidance for
+user-owned `/allowed-dirs`/`/denied-dirs` recovery. A directory-policy refusal is not
+an absent directory; mkdir cannot grant access. This guidance does not change tool
+configuration, add paths, lift deny precedence or bypass a refusal with shell tools.
+Actual policy mutation remains an explicit local command with root-session scope.
+
+## Recursive activity projection (2026-09-16)
+
+The invocation wrapper also retains only a bounded authoritative completion status;
+post-hook result bodies remain the sole content source. If truncation destroys a
+serialized envelope, the adapter can label the observed invocation outcome without
+recovering redacted text. Valid post-hook errors override that fallback. Child call
+usage and warnings enrich exact parent summaries; their source events remain journalled
+and drillable, rather than becoming independent root notices. No execution/cost cap
+or module policy is silently imposed by this projection.
+
+Delegate summaries describe the current execution, including only descendants linked
+to that execution. Resuming a child must not add its earlier nested work to a new task's
+summary; the session accounting ledger still retains every call. Missing historical
+summary fields remain unavailable, never fabricated zero counts or warning-free claims.
+
+Child display proxies emit explicit child/tool-owned Activity observations, including
+mount-time messages when no child session handle exists yet. Hook warning/error counts
+remain distinct from tool failures. Invocation and public-block IDs include the child's
+execution identity because a provider may reuse call IDs or restart request counters
+after resume. Parent progress checks both parent identity and its current execution;
+late obsolete children cannot update that parent's new work. Forked-skill labels use
+explicit module metadata and do not alter the skill's instructions or permissions.
+
+The existing children adapter observes task-keyed tool dispatch at the actual tool
+invocation, propagating a scoped ContextVar through delegate/recipe tasks and restoring
+it in `finally`. The streaming loop's optional dispatch map is an app compatibility
+seam, not a new kernel contract. Unsupported/immutable tools still execute; missing
+correlation stays unavailable. Tool instances, schemas, permissions and result policy
+remain owned by their modules. Root and child observers emit stable call identities.
+Instance-bound guards remain the invocation target, even when a different class method
+exists; class replacement is followed only for an originally class-bound implementation.
+Rust hook callbacks can use separate Python tasks, so setting scope in a pre-hook is
+insufficient; the actual parallel/nested integration test caught that false assumption.
+
+Inspection owns a bounded read-only hot index, stable first-observed sibling order,
+explicit parent-call links and descendant status counts. Saved Activity pages read the
+public event journal in a worker, not on the input loop: at most 100 siblings per page,
+with a 1 MiB response budget and bounded source excerpts. Scans stop at 64 MiB, 10,000
+identities or two seconds and disclose incomplete results. Switching conversations
+invalidates pending replies. Public emitted blocks are not private-context reconstruction.
+The private journal retains full evidence; Markdown export includes model-call usage.
+Native committed rows remain terminal-owned; interactive drill-down uses the existing
+temporary inspection screen and never replays operations.
+
+## Scoped CLI controls and service evidence (2026-09-16)
+
+`LocalCommands` in the existing runtime-controls adapter owns app admissions and a
+separate fail-closed control record. The pinned streaming loop still owns goal
+evaluation/continuation; Foundation owns tool mount changes; the inspected filesystem
+module owns actual write/edit enforcement. These root controls do not change child,
+bash, routing or shared settings policy. Modes retain the module tool's transitions
+and cannot silently restore a locally disabled tool. Ordinary turns without an active
+goal do not add control-record writes. No new kernel/module protocol is required.
+
+Provider login invokes a mounted asynchronous public method with transient wire-only
+instructions. It shares host task/Stop ownership, never stores auth prompt text in the
+journal, and never copies credential files. Synchronous or mount-time terminal login
+remains outside this supported path. Actual browser authorization needs its human.
+Structured CLI adoption uses the existing public-history validator and target readback,
+with new identity/source digest; original policy/private state cannot be reconstructed
+from a transcript and are not advertised as canonical same-session resume.
+
+Memory and intelligence checks use upstream modules against disposable destinations.
+The UI can inspect bounded public forwarding diagnostics for its root session, but
+neither an empty diagnostic file nor an HTTP success proves remote indexing. Raw URLs,
+error detail and secrets stay out of the projected diagnostics. Personal service health
+and policy-equivalent performance require separate evidence, not favorable assumptions.
+
+## Everyday CLI workflow seams (2026-09-16)
+
+Generic result normalization belongs to app presentation, after module policy hooks;
+bounded recognized envelopes improve status/preview without rewriting original evidence.
+Skill menus consume cached module discovery and refresh after a turn, while actual
+invocation retains pinned CLI argument semantics and module-owned loading/fork behavior.
+No memory-specific dispatcher is introduced. Recipe file browsing is names-only local
+app policy; an explicitly documented ephemeral hook reminds the model that `list` means
+active runs. This changes request policy, not the thin kernel or recipe engine. Neither
+file selection nor inserted skill text is an execution admission. Tests use actual
+modules and controlled state; personal-service delivery remains a separate gate.
+
+## Configured CLI compatibility (2026-09-15, development)
+
+`cli_compat.py` is an app-layer adapter over pinned CLI policy helpers, not kernel
+policy. Ordinary new launches select CLI settings; explicit bundle/preset/overlay
+launches retain isolated policy unless explicitly opted in. Saved launch policy and
+CLI home are restored; cross-policy/home/cwd switching needs a new process. The host
+process adopts the CLI workspace before module imports, and the pinned CLI bootstrap
+loads its own keys.env with ambient-variable precedence without rewriting it. Global,
+project and local settings are captured once for preparation; malformed settings fail
+closed. Provider identities, module/source overrides, routing, permissions, default
+CLI behaviors and configured app behaviors flow through the pinned merge semantics.
+Explicit TUI overlays are later-wins. Behavior load failure is fatal, unlike CLI's
+optional behavior omission. Source activation happens after configuration merging.
+
+Terminal-print hooks are replaced by identified projections. CLI-policy launches
+retain configured logging/recipe/context-intelligence destinations; isolated policy
+retains app-local storage. Existing credentials remain module-owned; terminal-driven
+login is not implemented behind the composer. Configured hooks can have startup
+effects. No private user configuration or conversation is a test fixture.
+
+Public tool outcomes, child result excerpts, source/severity messages, retry/throttle,
+thinking blocks, effective context-budget events and reported root usage get bounded
+inline projections. Exact tool evidence remains separately inspectable. Missing cost
+or occupancy is unknown, not zero. No provider pricing tables or private meters.
+
+CLI history discovery reads bounded exact-directory metadata. Confirmed import captures
+text using descriptor-relative no-follow reads, checks stability, preserves the source
+and opens a NEW conversation without model calls/tool replay. Canonical CLI state,
+credentials and private modules do not migrate. `/skill` uses pinned CLI prompt semantics;
+unsupported slash commands refuse locally. These are named compatibility boundaries,
+not proof that every CLI command or configured service works.
+
 ## rc5 scoped recovery and evidence
 
 Nested interrupted public-context adoption validates at most two captured ancestors
@@ -615,9 +1049,11 @@ under host lifetime ownership: detached delegate tasks are drained before root
 checkpoint/close, rather than allowed to write into a closed journal. Known terminal hooks
 remain excluded and app-local logging/recipe paths cannot be redirected by agent overlays.
 Tool/hook inheritance consumes module IDs (`inherit_tools` / `exclude_tools` and hook
-equivalents); this host applies exclusions to explicit agent contributions too. Limits are
-4 active / 32 retained children and 3 nested levels. Child resume retains canonical context
-within the open root, not across process restart. Explicit subprocess isolation is refused.
+equivalents); this host applies exclusions to explicit agent contributions too. The
+original 4-active / 32-total / 3-depth limits are superseded by per-parent admission
+and durable context retention described above. Valid completed receipts can resume
+explicitly after restart when parent/composition/mode still validate. Subprocess
+isolation remains refused.
 Private child receipts retain observed mounts, context and outcome, not provider config.
 
 `Modes` adapts the composed mode tool, discovery and hook events. Assistant tool calls

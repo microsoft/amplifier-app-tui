@@ -45,6 +45,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: the boundary's clients and the person relying on them.
 
 6. **Expose supported controls.** Queue is distinct from steering: only successful completion advances an enabled queue; stop, failure and reopening hold pending work until explicit release. Steering names one active turn; acceptance is not proof of insertion, and unconfirmed corrections never retry or become follow-ups automatically. An explicit copy into an empty idle composer creates only an unsent draft, preserves the original correction status and warns that its earlier effects may remain unknown. Unsupported controls remain explicit.
+   First Stop signals graceful cancellation through active descendants, retains current model/tool results and prevents new work while delegates resolve upward. A second explicit Stop escalates to immediate cancellation without abandoning owned finalization; the current stage and force option remain visible. Graceful stopping never escalates on a timer.
    Broken: An offered control that silently discards intent misleads its caller.
    Affected: the boundary's clients and the person relying on them.
 
@@ -77,6 +78,7 @@ What terminal outcome can a host prove when a third-party operation ignores canc
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-17 | Give P6 graceful and immediate cancellation stages. | Steward requested existing ecosystem cancellation propagation, current-call completion and explicit second-press escalation instead of immediately cancelling all work. |
 | 2026-09-15 | Clarify P6's deliberate draft reuse after uncertain steering. | Steward requested the remaining backlog; clipboard-only recovery lacks an explicit non-submitting path back into the composer. |
 | 2026-09-14 | Specify P8's bounded local transport and truthful forced exit. | Steward authorized reliability work; synchronous client pipe writes can block before the existing shutdown deadline, which kills only the direct host. |
 | 2026-09-14 | Clarify P8's finalization ownership under repeated controls. | Continued steward authorization; deterministic Stop/Stop and Stop/exit tests interrupt checkpoint persistence in the current host. |

@@ -5,7 +5,51 @@ exist in the [review packet](TERMINAL-REVIEW.md); matched CLI policy parity is u
 This protocol makes the draft promises testable; it is not a performance receipt.
 The comparison includes the entire path, not just IPC microbenchmarks or renderer FPS.
 
-## Current measurement and policy gap
+## Experience-wave measurement boundary
+
+Fresh prepared captures still differ in tool count and skills configuration. Inspecting
+the actual configuration identifies the latter as the absolute installed CLI-package
+skills directory; all 21 packaged skill files are byte-identical in the two owned
+environments. This explains that field without silently removing it from the comparison.
+The extra interactive question tool remains a real schema difference. App-owned recipe
+guidance and current-mode observations also affect provider requests after preparation.
+Mode-observation tests inspect ordered real requests through the actual streaming loop;
+they are not proof of CLI-equivalent request construction.
+
+The updated runtime probe measures 30 alternating warm fixture pairs, native local
+edit/Actions/inspection/selection/return and tool-success paint. It includes two process-tree RSS snapshots
+and a seeded bootstrap interval for the median. Neither snapshots nor warm measurements
+claim peak/PSS, cold dependency-download cost, real-provider latency or default-product
+parity. Final numbers and source identity belong in the experience acceptance receipt.
+Do not disable the question tool or app guidance to manufacture an equivalence verdict.
+
+## Historical configured CLI-policy checkpoint (2026-09-15, unpublished)
+
+The [configured CLI validation](evidence/cli-compatible-validation.md) records 30
+alternating actual-entrypoint fixture pairs using pinned CLI `f0ba883` and Foundation
+`8a8e4f1`, core 1.6.1. Fresh processes use warm caches, actual product launchers and
+isolated app-owned settings; no concurrent tests/builds/provider probes run during timing.
+
+| Observation | TUI median / p95 (ms) | CLI median / p95 (ms) |
+|---|---:|---:|
+| Startup to ready | 868.1 / 1001.2 | 934.2 / 1038.7 |
+| Submit to first visible | 237.8 / 254.7 | 431.8 / 628.8 |
+| Submit to final visible | 342.0 / 361.4 | 432.8 / 629.8 |
+
+Fresh actual-resolver captures agree on provider/hook configurations, session and
+instruction fields, but differ in tool count (TUI question tool) and the skills-tool
+configuration fingerprint across installed environments. Those differences are not
+normalized away: **latency parity is NOT ESTABLISHED**. Even prepared equality would not
+establish credential identity or request-time equivalence. These fixtures do not measure
+personal service workflows, live-provider latency or cold dependency loading. Native
+RSS excludes the Python host. Private raw receipt: `.evidence/cli-compatible-runtime.json`.
+
+Use `scripts/benchmark_runtime.py --cli-compatible` with the dedicated app-owned CLI
+environment/home and matching fresh policy comparison; see the smoke-test instructions.
+Do not reuse foreign cached-home state or bypass its ownership guard. Earlier measurements
+below used different policy and cannot be treated as a trend across equivalent workloads.
+
+## Historical rc5 measurement and policy gap
 
 The rc5 [validation record](evidence/rc5-validation.md) adds 30 alternating actual
 CLI/native fixture-runtime pairs. Native startup-to-ready p95 is 267.8 ms and first
@@ -49,7 +93,7 @@ observed picker output. `scripts/benchmark_history.py --terminal` reproduces the
 it does not measure a model request or CLI parity. Raw captures remain private; sanitized
 scope and results are in [ACCEPTANCE](ACCEPTANCE.md).
 
-The inspected CLI remains source `772bdb42f135fa310e217d6634dd727039d2d840`.
+The CLI inspected for that historical checkpoint was `772bdb42f135fa310e217d6634dd727039d2d840`.
 Its `runtime/config.py` composes modes, packaged CLI expertise, curated skills, model
 routing and wayfinder even for a minimal fixture bundle; notification and user app
 behaviors add conditional policy. `lib/bundle_loader/prepare.py` also appends optional

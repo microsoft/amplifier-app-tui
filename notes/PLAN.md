@@ -5,7 +5,241 @@ Authority: [the steward's approved direction](DIRECTION-REVIEW.md), amended into
 All contract details remain draft targets. This is a local work record, not a formal
 Converge verdict ledger or a claim that service-backed runs/lanes already exist.
 
-## Active backlog — rc5 recovery and release checkpoint
+## Active goal — existing CLI and ecosystem host parity
+
+Steward approved the current-source audit inventory on 2026-09-17. Implement
+capabilities already supplied by the CLI or its bundle/module host, not speculative
+domain dashboards. Reuse pinned app policy; preserve terminal ownership, safety,
+directory-local resume and original private state. These are work targets, not
+compatibility claims. Personal services remain read-only unless explicitly tested.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| PARITY-01 | ecosystem.v1:5, continuity.v1:1 | CLI mechanical goal breaker | Actual goal loop stops repeated reasons; visible needs-manager state, durable cleared goal and no replay | Delivered: pinned detector, real loop stop and no-replay resume; current evidence in ACCEPTANCE |
+| PARITY-02 | ecosystem.v1:2, ecosystem.v1:5, performance.v1:5 | Provider diagnostics and argument completion | Every mounted provider addressable; explicit bounded discovery/test; cached argument choices never execute on Tab | Delivered core adapter: all-or-one diagnostics, cached CLI grammar, scoped config choices, actual 175/40-column completion; broader live config remains PARITY-05 |
+| PARITY-03 | ecosystem.v1:3, ecosystem.v1:4, ecosystem.v1:5, presentation.v1:5 | Interactive approval and module output compatibility | Non-TTY host can ask without bypassing denial policy; bounded private diagnostics strip terminal controls and recognizable secrets, disclose limits and never enter chat/history | Approval capability and legacy fd-level private inspection verified. Computer-use upstream PR 19 passes current-main offline946 and CI/CLA; required maintainer review remains. Exact scope in ACCEPTANCE |
+| PARITY-04 | ecosystem.v1:6, session.v1:6, session.v1:8, continuity.v1:1 | Delegation admission, subprocess children and routing-aware continuation | Real delegate/recipe callers, cancellation tree, approval, costs and durable identity; UI retention never becomes an accidental execution quota | Admission/retention, routing and canonical continuation verified. Fresh subprocess adapter passes actual delegate/recipe/mode, questions, nested ownership, cancellation/crash and 175/40-column terminal gates; final default579 and ecosystem95 pass. POSIX process isolation, not an OS sandbox; scope in ACCEPTANCE |
+| PARITY-05 | interaction.v1:6, ecosystem.v1:2 | Existing CLI configuration and administration families | Explicit scoped operations reuse CLI policy; bundle/provider/routing/module/source/agent/directory/notification/update workflows; shared settings unchanged without deliberate request | Partial delivered: explicit CLI handoff plus loaded metadata catalogs and cached arguments; final focused/native51 and default581 pass. No source resolution, credential values or shared settings writes. Broader native mutations remain |
+| PARITY-06 | continuity.v1:1, continuity.v1:3, continuity.v1:5, interaction.v1:6 | Session workflows, fork/clear/export and direct tool operations | Validated public/private state boundaries, source preservation, local ordinary resume, deliberate administrative cross-project access; no history execution | Pending |
+| PARITY-07 | ecosystem.v1:2, ecosystem.v1:6, composition.v1:3 | CLI scripting and install entrypoint compatibility | Noninteractive prompt/stdin/output-format and shell completion use actual CLI semantics; isolated installed-entrypoint verification | Partial: run/cli handoff and actual isolated help paths pass; single-shot output, shell completion and installed wheel gates remain |
+
+## Local follow-up — action emphasis
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| READ-07 | presentation.v1:4, presentation.v1:6, presentation.v1:7, performance.v1:5 | Codex-informed action-first semantic spans, independent outcome badges, command previews and active todo emphasis | Actual laptop/narrow painted cells distinguish actions, warnings and outcomes; animation preserves metadata; exact source, native copying, bounded previews and cancellation remain intact | Delivered: 65 Rust tests in three treatments, 788 integrated passes plus 14 focused rerun passes after correcting three retired-label selectors; inspected laptop/narrow PTYs, no kernel/runtime changes; exact gate scope in ACCEPTANCE |
+
+## Local follow-up — resumed startup
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| CANCEL-06 | presentation.v1:4, presentation.v1:6, session.v1:6, performance.v1:5 | Distinguish stopping/stopped states and keep quiet-drain elapsed feedback live | Inspect negative-state colour, advancing elapsed time without new runtime events, unchanged accounting/draft and static completed/disconnected observations at laptop/narrow sizes | Delivered: 519 default Python checks, 43 focused terminal checks, 62 Rust tests; scoped skips/evidence in ACCEPTANCE; inspected 175/40/32-column captures, including hour-long quiet draining and force Stop |
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| CANCEL-05 | session.v1:6, session.v1:8, interaction.v1:2, continuity.v1:1, ecosystem.v1:5 | Wire graceful tree cancellation, explicit force escalation and default-No Ctrl-C exit confirmation | In-flight calls finish, no next calls start, nested siblings drain upward, second press cancels promptly without breaking checkpoints; actual terminal stage/confirmation/draft tests | Delivered: final 775-test all-enabled gate, 60 Rust tests and inspected 175/40/32-column terminal captures; real delegate tools in both presets, both loops/contexts, post-Stop controls and same-identity resume verified |
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| CANCEL-04 | session.v1:4, session.v1:8, continuity.v1:1, continuity.v1:5, interaction.v1:2 | Own cancellation through actual module execution; keep valid interrupted context resumable and Ctrl-C local to active work | Actual provider/tool cancellation drains before checkpoint; late observations do not corrupt sequence; Ctrl-C retains app/draft; restart executes zero work; legacy uncertain recovery preserves original | Delivered: 118 final combined regressions pass, including both loops/contexts and three terminal sizes; original-preserving recovery verified; staged integrated evidence in ACCEPTANCE |
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| STARTUP-04 | session.v1:1, session.v1:7, session.v1:8, continuity.v1:1, continuity.v1:2, presentation.v1:1, presentation.v1:4 | Separate bounded pipe delivery from synchronous preparation; preserve explicit failure and unsent intent | Large replay plus blocking startup reaches Ready; genuinely stalled reader fails; shutdown joins; Enter after disconnect keeps warning and draft | Delivered: original read-only preparation reproduction succeeds, 30 focused checks and 42 final terminal regressions pass; staged integrated evidence in ACCEPTANCE |
+
+The cancellation follow-up adopts graceful Stop-and-stay on first Ctrl-C and explicit
+force escalation on a second press while draining, preserving the draft. It does not
+adopt Codex's draft-clearing/history behavior; idle Ctrl-C confirms exit with No
+selected, and selection copy retains precedence. The preceding transport repair
+alone did not change keyboard policy or add kernel responsibilities.
+
+## Local follow-up — directory-local return
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| RETURN-02 | interaction.v1:1, continuity.v1:1 | CLI-informed directory-local resume across launcher and in-app choices | Parent/child/sibling sessions excluded before search/paging; latest, direct IDs and stale switches cannot change root; symlink aliases agree | Delivered: 72 final directory/search/CLI regressions and actual-launcher picker checks; shared search cache preserved |
+| READ-06 | presentation.v1:3, presentation.v1:7 | Join usage to preceding activity except assistant responses | Native committed/live and inspection layouts agree without repainting old history; response gap retained | Delivered: 60 Rust checks and 31 final terminal regressions; native/Interact captures inspected; staged gate limits in ACCEPTANCE |
+
+## Local follow-up — readable ongoing work
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| READ-04 | presentation.v1:1, interaction.v1:3 | Codex-informed word-first composer wrapping with matched height/navigation | Exact submitted text, Unicode, selection, history and resize survive real input at laptop/narrow widths | Delivered: actual editor and three-size PTY input checks; source preserved, 715-case integrated gate passes |
+| READ-05 | presentation.v1:4, presentation.v1:7 | Compact per-call usage and observed todo cards with expandable source | One usage row, exact detail/totals, correct task states, failed/unknown/child results never promoted | Delivered: both actual preset todo schemas, bounded fallback and expanded source verified; laptop/narrow captures inspected |
+| BRAND-02 | presentation.v1:6, performance.v1:5 | Apply bounded shimmer to actual running tools and named model waits | Quiet progress remains visible; no animation on completed history, human waits, disconnection or reduced-motion mode | Delivered: actual core phase observations, scoped/stale guards and native/Interact motion checks; 58 Rust tests in five treatments |
+
+Inspect resumed user work read-only; directory identity remains that of the saved
+conversation. No implicit retargeting or permission expansion accompanies these changes.
+
+## Local follow-up — usage scope and inherited task titles
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| METER-02 | presentation.v1:4, presentation.v1:6 | Label cumulative turn usage and reported call count explicitly | Counts include root/children, never masquerade as context size, all widths preserve partial/pending values and controls | Delivered: 698-case integrated gate and three-size terminal verification; accounting unchanged |
+| TITLE-02 | presentation.v1:4, presentation.v1:7, session.v1:3 | Extract the actual task after inherited conversation context | Actual delegate context inheritance, long/nested history and continuation retain the correct title and unchanged source | Delivered: actual delegate inheritance in both presets plus bounded/nested/missing-boundary regressions; no naming calls |
+| BRAND-01 | presentation.v1:6, performance.v1:1 | Adopt muxplex brand roles and bounded active-label shimmer | Actual terminal colours, quiet animation, static waiting/idle/reduced motion, draft preservation and narrow layout verified | Delivered: 54 Rust checks in five treatments, inspected 175/40/32 captures; after final disconnect guard, 38 terminal regressions pass |
+| DIR-01 | ecosystem.v1:4, ecosystem.v1:5, ecosystem.v1:6 | Explain supported filesystem denial recovery | Model sees explicit user-owned local controls; mkdir is not a permission grant; allow/deny scope and resume stay unchanged | Delivered: actual supported/unsupported tools, denied write, explicit allow, deny precedence and restore verified; no implicit grant |
+
+## Local follow-up — task-first agent titles
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| TITLE-01 | presentation.v1:4, presentation.v1:7, session.v1:3 | Replace boilerplate previews with stable task titles and retain exact source | Parallel/nested titles stay distinct, continuation updates the task, Activity retains instructions, narrow rows preserve status and warnings, no naming calls | Delivered: 678 all-enabled tests, 52 Rust tests across four treatments, inspected combined title/meter native/Interact captures at 175×50, 40×20 and 32×12; bounded local presentation, no naming calls |
+
+## Local follow-up — active-turn accounting
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| METER-01 | presentation.v1:4, presentation.v1:6, session.v1:3 | Add elapsed turn time, reported tokens and turn/session dollars to working/waiting/stopping indicators | Quiet waits tick; child calls count once; next turn resets; resume retains session costs; narrow native and Interact views preserve the composer | Delivered: 659 all-enabled tests, 50 Rust tests across four treatments, inspected native/Interact captures at 175×50, 40×20 and 32×12; host-owned accounting, no pricing estimates or kernel changes |
+
+## Local follow-up — sustained work clarity
+
+Current follow-up repairs existing presentation.v1:4/7 and session.v1:3 obligations;
+it does not change execution authority or silently constrain third-party skills.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| OWNERSHIP-01 | presentation.v1:4, presentation.v1:7 | Keep child hook notices with the exact child/tool and retain warning visibility | Parallel startup/tool notices remain inspectable under their owners without root notices or shared ID-prefix labels | Delivered: actual child startup/tool notices and saved Activity tested; native warning drilldown inspected |
+| OWNERSHIP-02 | session.v1:3, continuity.v1:1 | Scope resumed-child tool observations and progress to the current execution | Reused provider call IDs cannot merge old grandchildren, costs or warnings into current progress | Delivered: reproduced ID collision, current-run filters and late old-child guards pass in the 654-test gate |
+| OWNERSHIP-03 | presentation.v1:4, presentation.v1:6 | Identify forked skills and separate completion from inner failures | Native summaries name the skill, use readable durations and explicitly label child tool failures | Delivered: 48 Rust tests, three-size native input and inspected captures; skill authority unchanged |
+
+[Ownership validation](evidence/ownership-validation.md) records the evidence and limits.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| CLARITY-01 | presentation.v1:4, ecosystem.v1:4 | Preserve observed tool outcomes through post-hook output truncation | Root/child outcomes remain accurate without bypassing redaction or guessing malformed envelopes | Delivered: status-only fallback, policy-error precedence and unknown/provenance regressions pass |
+| CLARITY-02 | presentation.v1:4, presentation.v1:7 | Parent child usage/warnings under compact delegate summaries | Sustained parallel calls retain per-call evidence and distinct warnings without a flat transcript flood | Delivered: 80 child calls / 228 tools, per-execution nested totals and 700-sibling saved Activity inspection pass |
+| CLARITY-03 | interaction.v1:1, continuity.v1:1, ecosystem.v1:6 | Repair inspection focus, child modes, recovery validation and stale lookups | Actual input and runtime regressions pass; invalid recovery has no writes | Delivered: 646 all-enabled tests, three-size native input, actual child modes and switch/recovery regressions pass |
+
+Direction clarified before implementation; no implicit provider/tool budget policy,
+kernel changes or rewriting of historical source evidence.
+[Clarity validation](evidence/clarity-validation.md) distinguishes controlled runtime,
+actual terminal and live evidence, including remaining copy/interaction and cancellation limits.
+
+## Local follow-up — provider budget compatibility
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| BUDGET-01 | ecosystem.v1:2, ecosystem.v1:3, ecosystem.v1:6 | Accept synchronous and awaitable provider budget decisions at the streaming-loop seam | Real installed provider check completes before dispatch; malformed, oversized and lost-capability decisions still refuse; cancellation propagates | Fixed locally: 374 loop tests, 629 integrated TUI tests and two live launcher turns pass. No kernel, settings or context-limit bypass; not published upstream |
+
+This repairs the existing independent-provider promise, not a new vision or UI policy.
+
+## Local follow-up — control clarity and visual consistency
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| FEEDBACK-01 | session.v1:6, session.v1:8, interaction.v1:1 | Explain correction versus Stop; test a blocked tool | Correction waits at the runtime boundary; cooperative Stop preserves draft and queued intent | Delivered control clarity and cooperative-runtime evidence. Separate tool-search event-loop blocking reproduced; its cancellation defect is not fixed |
+| FEEDBACK-02 | presentation.v1:4, presentation.v1:6 | Dim expanded thinking, darker secondary text, charcoal user corrections/answers and joined final usage | Actual terminal styles, copied source and adjacent usage rows verified | Delivered; actual laptop/narrow captures inspected, native tmux retention and four colour treatments pass |
+| FEEDBACK-03 | interaction.v1:1, continuity.v1:1, ecosystem.v1:4 | Connect configured ecosystem naming to durable titles | Actual naming hook generates title; explicit rename wins; background usage cannot corrupt turn/checkpoint or replay on resume | Delivered; actual module races and both live presets pass in-app New, generated naming and resume |
+
+Steward found Interact/native-copy switching functional but awkward. Reconsider that
+interaction model separately; this follow-up does not add modes or silently capture the mouse.
+[Feedback validation](evidence/feedback-validation.md) records the clean 628-test gate,
+actual live/terminal evidence and the unresolved search-module cancellation boundary.
+
+## Completed local wave — continuous work and accounting
+
+Direction amended before code following explicit steward approval. No kernel changes,
+personal-service writes or publication; current execution policy remains module-owned.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| FLOW-01 | presentation.v1:1, presentation.v1:3, presentation.v1:4, performance.v1:3 | Immediate welcome, named background activity and continuous streaming | Startup draft survives preparation; long stream and four parallel agents do not disappear into a fixed-height tail | Delivered: transient startup, full available height, distinct task/activity previews; replay no longer hides fresh output. Native streaming p95 20.9–39.1 ms across nine stress cells |
+| FLOW-02 | presentation.v1:4, ecosystem.v1:4 | Per-call attributed usage, cache aliases, routing and turn/session costs | Actual root/child calls, parallel identity, resume and no duplicate costs; missing data remains unknown | Delivered: both actual presets each observe 13 model responses across one root/five children; resume preserves totals. Retries, overlapping responses, cache aliases and partial/legacy data tested |
+| FLOW-03 | presentation.v1:5, presentation.v1:7, interaction.v1:1 | Explicit inline mouse/keyboard interaction with native-copy return | Click/keyboard expansion during streaming, retained draft, no replay, actual tmux copy/resize/exit | Delivered: visible-parent previews and recursive Activity; actual live journeys, three-size inline controls and six attached-tmux cases pass |
+
+[Flow validation](evidence/flow-validation.md) records the 620-test integrated gate,
+actual live/capture checks, separate timing, corrected regressions and remaining limits.
+Normal copying stays native; opaque module work and missing accounting remain unknown.
+
+## Completed local wave — conversation-first activity
+
+Direction amended first on 2026-09-16 following the steward's explicit design and implementation approval. Native scrollback owns committed rows; click expansion belongs to temporary inspection. No kernel changes, publication or personal-service writes.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| ACTIVITY-01 | presentation.v1:3, presentation.v1:4, presentation.v1:6 | Shared charcoal user/composer surface, quiet tool/thinking rows and working tail | Real laptop/narrow captures, Markdown/source-copy and native history retention | Delivered: inspected native/live captures; expanded Markdown/source-copy and actual tmux retention pass |
+| ACTIVITY-02 | presentation.v1:7, interaction.v1:1, interaction.v1:2 | Exact parent-call attribution and recursive read-only Activity | Parallel/nested tools retain identity; mouse/keyboard drilldown preserves draft; unobserved data stays unknown | Delivered: actual parallel/nested execution, guard preservation and read-only drilldown at 175×50 / 40×20 / 32×12 pass |
+| ACTIVITY-03 | presentation.v1:5, presentation.v1:8 | Exercise actual terminal and ecosystem paths, inspect and iterate | PTY/tmux gates, real delegate/recipe runs, reviewed captures and honest limits before steward review | Delivered locally: 610 integrated tests, both bounded live preset journeys, actual tmux resize/copy and separate stress measurements; physical-device/release/CLI-parity gates remain separate |
+
+[Activity validation](evidence/activity-validation.md) records source scope, measured
+responsiveness, failed-then-corrected observers and limits. Native history remains
+terminal-owned; recursive expansion uses temporary inspection, not clickable old rows.
+
+## Completed local wave — approachable daily replacement
+
+The steward requested a comprehensive plan for the complete user experience, not
+another automatic feature batch. [Execution and acceptance plan](APPROACHABLE-EXPERIENCE-PLAN.md)
+owns the journeys, viewport matrix, implementation seams, verification and stop criteria.
+VISION and presentation P6 / interaction P1 were clarified first. The approved wave
+is implemented and locally verified below; [evidence and limits](evidence/experience-validation.md)
+distinguish delivered work from account, physical-platform, parity and publication gates.
+These are development outcomes toward DRAFT contracts, not formal Converge verdicts.
+
+| Item | Source promises | Work | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| EXPERIENCE-01 | presentation.v1:8, interaction.v1:7 | Baseline current screens and extend the actual-launcher journey harness | Captures and identified operation receipts distinguish scene, fixture and live evidence; label-only success fails | Delivered: actual daily-link before/after captures, reusable journalled PTY driver and bounded two-preset live journey |
+| EXPERIENCE-02 | presentation.v1:3, presentation.v1:5, presentation.v1:6 | Responsive layout, spacing, palette and copy fidelity | Viewport matrix, exact-copy checks and attached tmux history pass without clipping, gutters or erased rows | Delivered: eight-grid core/question matrix, four colour treatments, source-copy and attached tmux gates pass; physical mobile/clipboard breadth remains unverified |
+| EXPERIENCE-03 | presentation.v1:4, presentation.v1:7, ecosystem.v1:4 | Readable answers and concise generic runtime activity | Busy/failed/unknown states stay visible; exact source remains reachable without replay or diagnostic floods | Delivered: bounded ordinary projections, structured detail, explicit outcomes and spacing; live failed-then-passing tests inspected |
+| EXPERIENCE-04 | interaction.v1:1, interaction.v1:2, interaction.v1:3, interaction.v1:4 | Task-grouped actions and comprehensible composer controls | Keyboard-only task journeys preserve drafts, local completion and explicit queue/correction intent | Delivered: grouped Actions, global aliases, Change task versus queued work, help and retained draft gates |
+| EXPERIENCE-05 | interaction.v1:5, interaction.v1:8, session.v1:6, session.v1:8 | Decisions, waiting state, interruption and recovery feedback | Root/child stale requests, Stop races and late responses cannot steal focus, misroute consent or silently run queued work | Delivered: narrow paged decisions, ordered current-mode observations, root/child request and cancellation regressions; both live child interruptions pass |
+| EXPERIENCE-06 | continuity.v1:1, continuity.v1:3, continuity.v1:5, ecosystem.v1:6 | Whole-task delegation, recipes, review and return | One real native workflow edits/tests, corrects, interrupts and resumes with attributable results and no replay | Delivered: both presets complete eight-root/three-child intended paths with real recipe, test failure/fix, information-work brief and resume without replay |
+| EXPERIENCE-07 | ecosystem.v1:1, interaction.v1:6, presentation.v1:8 | First-run guidance, actionable failures and current user docs | Fresh installed launch and task help work without repo knowledge; historical instructions cannot masquerade as current guidance | Delivered: concise current README/guide, preserved historical README, grouped help, clean installed draft/help/diagnostic gates; documented pinned-metadata install flag |
+| EXPERIENCE-08 | performance.v1:1, performance.v1:2, performance.v1:3, performance.v1:7 | Matched-policy runtime comparison and responsive stress testing | Prepared/request differences explained before parity; measured median/p95 and uncertainty retained | Measured: 30 runtime pairs, 30 renderer pairs, 18 stress cells and 30 history samples; local interaction target passes. Policy equivalence, cold-cache and live-provider latency remain unestablished |
+| EXPERIENCE-09 | ecosystem.v1:2, ecosystem.v1:6 | Real-service and provider verification procedure | Authorized marker survives memory return and reaches queryable intelligence state; delivery/indexing/auth distinctions remain explicit | Delivered procedure and independent-session real memory/loopback HTTP gates. Personal-service queryability and account authorization remain separately gated, not completed |
+| EXPERIENCE-10 | ecosystem.v1:1, presentation.v1:8, composition.v1:5 | Fresh-install candidate, evidence review and bounded handoff | Exact artifact installs outside checkout; release claims match tested revision/platforms; no unreviewed private artifacts | Delivered local Linux ARM candidate: compiler-free install, both installed live presets, exact source/artifact privacy review. Daily link preserved; no release replacement/publication or new cross-platform certification |
+
+## Completed work — remaining CLI workflows
+
+Toward interaction.v1:6, continuity.v1:1/3 and ecosystem.v1:2/6. Direction amended
+before implementation. No publication or personal-service mutation is included.
+
+| Item | Source promises | Work | Required evidence | State |
+|---|---|---|---|---|
+| CLI-09 | interaction.v1:6, continuity.v1:1 | Local goal, mode/provider argument and scoped configuration controls | Real runtime mutations, refusal, restart and no accidental submission | Implemented; real loop cap, native controls and both-preset mode/directory restore pass. Root controls only; arbitrary/global configuration remains separate |
+| CLI-10 | continuity.v1:3, interaction.v1:6 | Structured CLI public-history adoption; module-owned authentication | Source preservation, paired tool messages, exact readback; transient/cancellable login | Implemented public adoption and async login; actual CLI writer and provider wrapper tested. Original CLI identity/private state and real account authorization are not claimed |
+| CLI-11 | ecosystem.v1:2, ecosystem.v1:6 | Isolated memory and intelligence delivery | Actual modules with owned store/receiver, failure and scope checks | Owned memory save/inject and actual HTTP fan-out/401/exclusion gates pass; bounded diagnostic inspection added. Personal services and remote indexing remain unverified |
+
+[Current validation](evidence/cli-controls-validation.md) records the 571-test gate,
+native probes, remaining boundaries and failed-then-corrected integration evidence.
+
+## Previous work — everyday CLI gaps
+
+[Source comparison](CLI-WORKFLOW-GAPS.md) separates implementation work from remaining
+service/provider certification. User authorized analysis and implementation on 2026-09-16.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| CLI-05 | presentation.v1:5, presentation.v1:1 | Remove inspection cursor-response dependency and retain actionable startup failures | Silent-CPR PTY enters/exits/resizes inspection with draft intact; failed startup stays explained after Enter | Implemented; actual native PTY transitions, restored terminal modes, draft retention and sticky failure gates pass |
+| CLI-06 | ecosystem.v1:4, presentation.v1:4 | Normalize bounded serialized result envelopes for root/child status and previews | Real module-shaped JSON/dictionary text classified without executing strings; original evidence retained, malformed results unknown | Implemented; actual root/child tools and hostile/ambiguous-envelope matrix pass; historical evidence is not rewritten |
+| CLI-07 | interaction.v1:4, interaction.v1:6 | Discover user-invocable skill commands and refresh lazy metadata | Actual CLI shortcut dispatch plus native command insertion; no invocation until Send and no file/network discovery on keys | Implemented; native insertion/Tab/Send and real memory skill loading/arguments pass; namespace sources still await module discovery |
+| CLI-08 | interaction.v1:6, ecosystem.v1:6 | Separate recipe files from observed runs and prepare deliberate review requests | Bounded local catalog, disclosed scope, no execution on selection; real recipe/tool workflow test | Implemented; both-preset active-list/file distinction, actual recipe execution regressions and native unsent selection pass; discovery is local and bounded |
+
+[Previous validation](evidence/cli-workflows-validation.md): 551 integrated tests and both
+controlled live presets pass, including real modules and native UI. No kernel changes, personal-service certification,
+new release or matched-policy latency claim. The source comparison ranks the remaining
+goal/configuration, continuity/authentication and external-delivery workflows.
+
+## Previous batch — configured CLI replacement
+
+Steward approved all three priorities from the current-source gap investigation.
+Direction was amended first; work stays in the app/adapter layer, not the kernel.
+Personal settings are read-only inputs; tests isolate service destinations and state.
+
+| Item | Source promises | Gap and action | Observable completion / falsifier | State |
+|---|---|---|---|---|
+| CLI-01 | ecosystem.v1:1, ecosystem.v1:2, composition.v1:3 | Explicit layered CLI configuration through pinned policy helpers; preserve providers, behaviors and destinations | Real settings/merge/composition comparisons, isolated service hooks, root/child inheritance and saved-policy guards; no credential dumps | Implemented and tested with actual CLI defaults, both presets, tools/delegation and saved-key bootstrap. Personal remote-service delivery and provider login/refresh remain uncertified |
+| CLI-02 | presentation.v1:4, presentation.v1:7, ecosystem.v1:4 | Useful inline tool/result, public progress/budget, severity and usage projections | Actual event observers plus native terminal captures, bounded rendering, retained exact evidence and native scrollback | Implemented; both live presets and ordered thinking/tool/result captures pass. Non-reporting modules, exact occupancy and complete routed billing remain unknown |
+| CLI-03 | interaction.v1:6, continuity.v1:3, ecosystem.v1:6 | Local commands/skill semantics and explicit CLI-session discovery/import | Zero model calls for unsupported commands/discovery/replay; source-preserving confirmed migration and real configured workflow tests | Implemented; native skill discovery and confirmed text-reference import pass. General CLI mutation commands and canonical private-state resume remain unsupported |
+| CLI-04 | performance.v1:1, performance.v1:2, performance.v1:7 | Compare effective policy before timing the compatibility path | Named host differences and paired timings; unmatched policy cannot yield a parity verdict | Measured: 30 alternating pairs and actual prepared-policy comparison. Tool count and skills configuration still differ; latency parity NOT ESTABLISHED |
+
+[Previous-batch validation](evidence/cli-compatible-validation.md) owns its historical evidence:
+526 integrated tests, both controlled live presets and isolated timing. These bounded
+deliveries are not certification of every configured personal service. Next useful work
+is a scoped real-service/authentication workflow or canonical CLI continuity, not another
+round of generic presentation polish. No release or publication is included here.
+
+## Historical backlog — rc5 recovery and release checkpoint
 
 The steward authorized all seven next areas. Preserve the vision's destination and
 derive bounded implementation from its contracts; evidence cannot turn unsupported

@@ -8,8 +8,8 @@ checks also pass on Linux x86-64 and both macOS architectures; Windows needs WSL
 ## Install
 
 For compiler-free installation, download your machine's wheel from the private
-[0.3.0rc2 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc2)
-and run `uv tool install ./<downloaded-wheel>.whl`. See the [platform table](../README.md#install-the-native-product)
+[0.3.0rc5 prerelease](https://github.com/bkrabach/amplifier-app-tui/releases/tag/v0.3.0rc5)
+and run `uv tool install --no-sources ./<downloaded-wheel>.whl`. See the [platform table](../README.md#install-the-native-product)
 for the tested systems and limits. Repository access, uv and Git are still needed.
 
 For installation directly from source, you also need Rust/Cargo and a C linker.
@@ -18,7 +18,7 @@ is your chosen Git credential helper, authenticate with `gh auth login` and
 `gh auth setup-git`. Do not put a token in the install URL.
 
 ```sh
-uv tool install git+https://github.com/bkrabach/amplifier-app-tui
+uv tool install --no-sources git+https://github.com/bkrabach/amplifier-app-tui
 amplifier-tui --getting-started
 amplifier-tui --check
 ```
@@ -29,14 +29,23 @@ occur. A missing provider key is expected before live setup, not a broken instal
 
 ## Choose a first run
 
-**Live AI:** provide `ANTHROPIC_API_KEY` through your environment or secret manager, open
-the directory you want to work in, then run `amplifier-tui`. The default is the `anchors`
-preset with Haiku. `--preset anchors-amp-dev` chooses the development preset; custom
-providers use trusted `--bundle` / `--overlay` configuration. No CLI credentials are imported.
+**Live AI:** open the directory you want to work in and run `amplifier-tui`. New launches
+use your CLI's global/project/local settings, active bundle, configured behaviors and
+providers. Settings are not rewritten; credentials remain with their provider modules.
+Configured hooks retain their destinations and may contact services at startup.
+Provider-owned asynchronous login is available through `/provider login NAME` and
+Actions → Provider login prompt when the module supports it; terminal-reading login
+still uses the provider's external entrypoint. See [login boundaries](MIGRATION.md).
+To opt out of CLI settings, use
+`--settings-policy isolated` (the default isolated preset needs `ANTHROPIC_API_KEY`).
+Explicit `--preset`, `--bundle` or `--overlay` is isolated unless you also specify
+`--settings-policy cli`. Old conversations retain their saved policy.
 `amplifier-tui --setup` guides creation of a new private provider/model overlay without
 storing a key or overwriting files. In an open app, **Actions → Model catalog** queries
 reported model IDs for reference; it does not validate access or change the active model.
 First launch downloads bundle/module code and installs dependencies; allow it time.
+The welcome/composer appears immediately with the current preparation phase. You can
+type while it loads; becoming ready never submits your draft automatically.
 Only load sources you trust. Model calls incur charges.
 
 Try a small request such as “Explain this project's structure without editing files
@@ -49,22 +58,69 @@ creates local state and may download dependencies. Use it to try the terminal co
 
 ## Learn the controls as you work
 
+CLI administration and scripting are also available from this entrypoint:
+`amplifier-tui provider list`, `amplifier-tui bundle list`,
+`amplifier-tui routing list`, `amplifier-tui tool --help`, and
+`amplifier-tui run --help`. Use `amplifier-tui cli --help` for the full CLI menu.
+These commands run the pinned CLI directly, preserving its settings, credentials,
+permissions, stdin and text/JSON output. They do not open the native interface.
+`amplifier-tui session ...` operates on CLI sessions; `amplifier-tui --resume`
+opens the TUI's directory-local conversation picker. Neither silently converts
+the other application's private session state.
+
+Actions → Loaded configuration inserts `/config` without sending. Send it to inspect
+loaded providers, tools, hooks, context entries, agent definitions and behaviors.
+Use `/config agents` for definitions (not running agents), or `/config show tools NAME`
+for an exact item's status and origins. Lists show at most 32 items per category;
+exact-name inspection can reach omitted items. These metadata-only views omit values,
+source URLs and instruction bodies; no model request or settings change occurs.
+Only `/config tools enable|disable NAME` changes the root session's tool set here.
+Persistent administration still uses explicit `amplifier-tui cli ...` commands.
+
+In the composer, Tab completes command arguments such as `/provider use`,
+`/provider models`, `/mode`, `/config tools`, `/goal`, and skill arguments from
+cached module metadata. Selecting a choice inserts text; Send executes it.
+`/provider models [NAME]` queries all mounted instances or one named instance;
+`/provider test [NAME]` sends explicit standalone probes and can incur charges.
+
+Delegated work waits for capacity instead of failing when many agents are requested.
+The default is eight executing children per parent; set
+`AMPLIFIER_TUI_CHILD_CONCURRENCY` to 1–64 before launch to change that limit.
+Nested agents have their own capacity, and the delegate module keeps its configured
+self-delegation policy. Completed history does not consume execution slots. Older
+valid completed or safely stopped children can continue explicitly under the same
+identity, including after restart. Their parent and non-routing policy must still
+match. The delegate tool can supply new provider preferences/model roles; omitted
+choices retain the saved routing. Unresolved choices show a warning. The child's
+own approved mode is retained separately from its inherited parent mode. Uncertain
+state still requires explicit recovery; reopening never starts an old call.
+Agents declaring `spawn_mode: subprocess`, and recipe steps requesting subprocess
+execution, run in a fresh interpreter. They keep the same approval/question surfaces,
+Activity evidence, child accounting, nested delegation and explicit continuation.
+First Stop asks current calls to finish; a second Stop can terminate an unresponsive
+worker. A killed or lost worker is not silently retried or marked safely resumable.
+This isolates a process; it is not an operating-system permission sandbox.
+
 Tab focuses visible controls when it cannot complete text; Enter activates the focused
 control or sends from the composer. Alt+Enter adds a newline. Pasting never sends.
-Open Actions, search “Getting started”, then choose a help topic. Escape returns to the
-same unsent draft. Optional shortcut: F4 opens Actions.
+Open Actions to browse Write and attach, Current task, Conversations, Review and copy,
+or Tools and setup. Type to search across every group; “Getting started” opens task help.
+Escape returns to the same unsent draft. Optional shortcut: F4 opens Actions.
 
 | You want to… | Where to go |
 |---|---|
 | Add work for later | Pending follow-ups: inspect, pause, edit, remove or run |
-| Correct current work | Steer; inspect Corrections for actual insertion status |
+| Correct current work | Change task (steer); inspect Corrections for actual insertion status |
 | Supply missing information | Answer question; review and explicitly submit |
 | Grant scoped permission | Review decision; inspect the actual offered options |
-| See delegated work | Actions → Delegated work; old receipts are historical |
-| Understand results | Review or Activity evidence; completion is not a test verdict |
+| See delegated work | Delegate summaries show distinct agents, current activity and warning counts; wider screens add call/cost totals. Activity opens child tools and every retained model-call record, with More/Earlier pages for long runs |
+| Understand results | Interact expands tool/thinking previews inline; Activity opens full evidence. Completion is not a test verdict |
+| Inspect module prints/logs | Actions → Runtime output shows a bounded private stdout/stderr tail. Refresh for new output; review before copying. It spans this app process, not a particular agent, and is not saved to conversation history |
 | Copy or scroll | Normal terminal selection / tmux copy mode; Transcript for reflow |
 | Change tool policy | Modes; the current mode stays visible |
-| Find previous work | Resume, or Actions → Search saved conversations |
+| Find previous work | Resume, or Actions → Search saved conversations in this launch directory; CLI sessions offers explicit historical import |
+| Invoke a discovered skill | Type `/` and search its name/alias, e.g. `memory review`; Enter inserts the command, then Send invokes it. `/skill NAME arguments` also works |
+| Find recipe files | Actions → Recipe files, or `/recipes`; choose a local candidate to append an unsent review request. Recipe activity is separate; the runtime's `list` operation lists active runs |
 | Include images | Actions → Attach image; preview and confirm up to four workspace PNG/JPEG snapshots |
 | Use a desktop clipboard image | Actions → Paste clipboard image; requires a supported clipboard on the host |
 | Inspect saved model context | Actions → Stored context; public messages, not the exact wire request |
@@ -73,9 +129,28 @@ same unsent draft. Optional shortcut: F4 opens Actions.
 | Look up model IDs | Actions → Model catalog; explicit advisory lookup, not a model change |
 
 Stop requests cancellation and holds queued work. It cannot undo effects already made.
+Ctrl-C during work requests a **graceful** Stop: finish current model/tool calls,
+including nested agents, then return to the composer. The indicator explains the
+wait; press Ctrl-C again or choose Force stop to interrupt immediately. Neither
+stage clears your draft. There is no automatic escalation timeout. When idle,
+Ctrl-C opens a quit confirmation with **No** selected; Enter or Escape stays.
+Ctrl-Q or Actions → Quit explicitly exits during work too. Ctrl-C
+copies a selected transcript region before handling Stop or exit.
+Reported usage is module data, not a billing guarantee. A finished response is not proof
+that tests passed: failed or unknown tool outcomes remain separately inspectable.
+Long tool/progress previews are shortened in ordinary history; Actions → Review or
+Transcript retains detail. Committed terminal rows are not rewritten to hide old activity.
 The normal view leaves mouse selection to the terminal; menus and inspection own their
 own mouse controls. In tmux, copy mode is normally prefix then `[`. No special scrollback
 view is needed, and output stays in the terminal after exit.
+
+Use Tab → Interact → Enter (or `/interact`) to enable conversation clicks. Click a
+summary, or use Up/Down and Enter, to expand it. The Activity link opens nested agents,
+tools and evidence. Typing returns keyboard focus to your composer; Escape leaves
+interaction for native copying. Your draft is retained throughout.
+Each observed model call has its own attributed usage row, including cache-aware token
+counts and reported cost. Turn/session totals include child calls; missing values and
+unavailable older usage are disclosed instead of being silently counted as zero.
 
 Images stay attached when you queue a draft. Open Pending follow-ups to inspect the
 captured set; selecting Run explicitly releases a paused queue. Changing the source file
@@ -85,14 +160,22 @@ use Attach image—the host's desktop clipboard is not your remote terminal's cl
 
 ## Return tomorrow
 
-Quit through Actions, then run `amplifier-tui --resume` and choose a conversation.
+Quit through Actions, then return to the same directory and run `amplifier-tui --resume`.
+The picker, search, listing and `--resume latest` only consider that resolved directory;
+parent/child directories are separate, and an explicit ID cannot switch to another root.
+No local matches never falls back to conversations elsewhere.
 Reopening does not repeat tools or automatically release queued work. Normal installed
 state lives under `$XDG_DATA_HOME/amplifier-tui`, usually `~/.local/share/amplifier-tui`.
-Use `--state-dir` to explicitly select another store. Shared CLI history/settings are not
-migrated. Interrupted work can require an explicitly acknowledged historical recovery,
-not exact restoration of arbitrary tool/context state.
+Use `--state-dir` to explicitly select another store. CLI history is not silently migrated:
+in CLI policy, choose Resume → CLI sessions and explicitly confirm a historical-text
+import into a new conversation. The original is unchanged and no tools replay.
+Cleanly stopped work with validated saved context resumes normally. Unverified or
+incomplete state requires explicit recovery into a new conversation, keeping the
+original unchanged. Recovery retains validated public messages when available;
+otherwise it supplies historical reference text, not exact restoration of arbitrary
+tool/context state. Neither path replays work automatically.
 
-To upgrade: `uv tool install --reinstall git+https://github.com/bkrabach/amplifier-app-tui`.
+To upgrade: `uv tool install --no-sources --reinstall git+https://github.com/bkrabach/amplifier-app-tui`.
 This rebuilds the tool environment, so the next normal launch may reinstall module
 dependencies; allow network access and omit `--no-install` then. Saved state is separate.
 Keep recorded local bundle/overlay paths available for older conversations. An upgrade
@@ -101,4 +184,19 @@ For a new provider/composition, see [historical-text migration](MIGRATION.md): e
 import preserves earlier reference text without importing credentials or replaying work.
 
 Need help? [Troubleshooting and safe reports](SUPPORT.md). Full advanced configuration
-and developer setup remain in the [README](../README.md).
+and developer setup remain linked from the [README](../README.md).
+
+## Colour and screen size
+
+The reference layout is 175 columns × 50 rows total, with roughly five to six idle
+composer/status rows. Smaller terminals wrap controls; Actions always has a keyboard
+path. A 32 × 12 terminal is a safe-navigation stress case, not a comfortable workspace.
+Normal text and the composer have no decorative side gutters. Source indentation remains.
+
+Use `AMPLIFIER_TUI_THEME=light amplifier-tui` for a light background,
+`AMPLIFIER_TUI_THEME=terminal amplifier-tui` for terminal-default colours, or
+`NO_COLOR=1 amplifier-tui` for colour-free rendering. Dark is the default; this is an
+explicit preference, not an unreliable automatic terminal-theme query. State labels
+remain meaningful without colour. Physical font/contrast comfort still depends on
+your terminal. Native soft wrapping and remote clipboard restrictions are terminal-owned;
+exact source-copy and Markdown export are the fallback.

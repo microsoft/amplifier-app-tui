@@ -14,8 +14,13 @@ from amplifier_tui.frontend_bridge import Admission
 async def settled(bridge):
     for _ in range(200):
         await asyncio.sleep(0.01)
-        if (not bridge.host.task or bridge.host.task.done()) and not any(
-            r["state"] == "dispatched" for r in bridge.followups.rows
+        if (
+            (not bridge.host.task or bridge.host.task.done())
+            and not any(r["state"] == "dispatched" for r in bridge.followups.rows)
+            and (
+                bridge.followups.paused
+                or not any(r["state"] == "queued" for r in bridge.followups.rows)
+            )
         ):
             return
     raise AssertionError("Follow-ups did not settle")
@@ -29,9 +34,19 @@ def texts(host):
     ]
 
 
-async def test_queue_runs_sequentially_with_identified_admission(prepared, tmp_path):
+@pytest.mark.parametrize("delayed_completion", [False, True])
+async def test_queue_runs_sequentially_with_identified_admission(
+    prepared, tmp_path, delayed_completion
+):
     bridge, events = await bridge_for(prepared, tmp_path, tmp_path)
     try:
+        if delayed_completion:
+            # A done task may still have its completion callback scheduled. Do
+            # not call that transient boundary a fully drained queue.
+            original = bridge.followups.finished
+            bridge.followups.finished = lambda task, identity: (
+                asyncio.get_running_loop().call_later(0.05, original, task, identity)
+            )
         bridge.host.session.coordinator.get("tools")["fixture_probe"].config["delay"] = 0.1
         assert bridge.command({"op": "submit", "text": "first"})[0]
         for text in ("second", "third"):

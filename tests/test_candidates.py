@@ -109,10 +109,12 @@ def test_real_terminal_paste_selection_views_and_failure(frontend):
         probe.wait("Working")
         probe.send("\x1b[200~Preserve this draft.\nUnicode: 界 é 🦀\x13\x1b[201~".encode())
         probe.wait("Unicode:")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.wait("Preserve this draft.")
         # No implicit second submit from pasted newlines/control characters.
-        assert "Completed" in probe.text
+        assert (
+            probe.screen.display[-1].strip() == "Ready" or "Completed" in probe.screen.display[-1]
+        )
     finally:
         probe.close()
 
@@ -130,7 +132,9 @@ def test_boundary_loss_keeps_draft_and_never_claims_completion(frontend):
         probe.wait("Disconnected")
         probe.wait("Also check that permanent failures")
         probe.send(b"\r")
-        probe.wait("no automatic retry")
+        probe.wait("no retry" if frontend == "ratatui" else "no automatic retry")
+        probe.wait("Also check that permanent failures")
+        assert "Starting" not in probe.text and "Session not ready" not in probe.text
     finally:
         probe.close()
 
@@ -184,7 +188,7 @@ def test_real_runtime_terminal_round_trip_or_startup_error(frontend, failure, tm
             probe.wait("Compute a digest")
         else:
             probe.send(b"\r")
-            probe.wait("Completed")
+            probe.wait_idle()
             probe.wait("fixture_probe")
             probe.send(b"\x05")
             probe.wait("sha256")

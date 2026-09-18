@@ -20,6 +20,8 @@ def reference(value):
 def parser():
     result = argparse.ArgumentParser(description="Amplifier modular terminal host")
     result.add_argument("--bundle", help="Bundle path or URI (explicit; no implicit CLI settings)")
+    result.add_argument("--settings-policy", choices=("isolated", "cli"), default="isolated")
+    result.add_argument("--cli-home", type=Path)
     result.add_argument("--overlay", action="append", default=[], help="Ordered bundle overlay")
     result.add_argument(
         "--fixture", action="store_true", help="Deterministic provider/tool; no live AI"
@@ -66,14 +68,40 @@ def main():
         parser().error(
             "--import-transcript requires a new --bridge conversation; cannot combine with --resume or --headless"
         )
-    if bool(args.bundle) == args.fixture:
+    if bool(args.bundle or args.settings_policy == "cli") == args.fixture:
         parser().error("Choose exactly one of --fixture or --bundle")
+    if args.bridge:
+        from .frontend_bridge import RuntimeOutput
+
+        # Capture before importing runtime modules: they may print during import.
+        with RuntimeOutput() as runtime_output:
+            return run(args, runtime_output)
+    return run(args)
+
+
+def run(args, runtime_output=None):
     # Explicit process-level storage policy, before importing Foundation. Library
     # imports remain side-effect free; embedders choose their own environment.
-    os.environ["AMPLIFIER_HOME"] = str(args.state_dir.resolve() / "foundation")
-    os.environ["AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH"] = str(
-        args.state_dir.resolve() / "context-intelligence"
-    )
+    if args.settings_policy == "cli":
+        from amplifier_foundation.paths.resolution import get_amplifier_home
+
+        # CLI modules may intentionally resolve relative config against process cwd
+        # (not every module consumes session.working_dir). Own this only in the
+        # dedicated host process; normalize launch paths before changing it.
+        args.cwd = args.cwd.resolve()
+        args.state_dir = args.state_dir.resolve()
+        args.sources = args.sources.resolve() if args.sources else None
+        args.import_transcript = (
+            args.import_transcript.resolve() if args.import_transcript else None
+        )
+        args.cli_home = args.cli_home.resolve() if args.cli_home else get_amplifier_home()
+        os.environ["AMPLIFIER_HOME"] = str(args.cli_home)
+        os.chdir(args.cwd)
+    else:
+        os.environ["AMPLIFIER_HOME"] = str(args.state_dir.resolve() / "foundation")
+        os.environ["AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH"] = str(
+            args.state_dir.resolve() / "context-intelligence"
+        )
     from .composition import SourceMap, prepare
     from .host import SessionHost
 
@@ -90,6 +118,10 @@ def main():
             args.state_dir.resolve(),
             sources,
             install_deps=not args.no_install,
+            progress=target.background,
+            cli_policy={"cwd": args.cwd.resolve(), "home": args.cli_home}
+            if args.settings_policy == "cli"
+            else None,
         )
         report["fixture"] = args.fixture
         required = (
@@ -104,11 +136,6 @@ def main():
         from .conversations import ConversationStore
         from .frontend_bridge import serve
         from .navigation import WorkspaceBridge
-
-        # Reserve the protocol descriptor, then isolate even native module writes
-        # to fd 1. Only the frontend owns the real terminal output stream.
-        protocol_output = os.fdopen(os.dup(sys.stdout.fileno()), "wb", buffering=0)
-        os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
 
         def store_factory():
             # Open inside backend.open so storage errors reach the terminal.
@@ -132,6 +159,11 @@ def main():
                     "overlays": args.overlay,
                     "sources": str(args.sources.resolve()) if args.sources else None,
                     "cwd": str(args.cwd.resolve()),
+                    **(
+                        {"settings_policy": "cli", "cli_home": str(args.cli_home)}
+                        if args.settings_policy == "cli"
+                        else {}
+                    ),
                     **({"required_tools": required} if required else {}),
                 },
                 args.resume,
@@ -157,6 +189,10 @@ def main():
                 args.state_dir.resolve(),
                 SourceMap.read(Path(launch["sources"]) if launch["sources"] else None),
                 install_deps=not args.no_install,
+                progress=target.background,
+                cli_policy={"cwd": Path(launch["cwd"]), "home": Path(launch["cli_home"])}
+                if launch.get("settings_policy") == "cli"
+                else None,
             )
             report["fixture"] = fixture
             report["required_tools"] = launch.get("required_tools", []) + (
@@ -176,7 +212,8 @@ def main():
                     state_dir=args.state_dir.resolve(),
                     open_launch=open_launch,
                 ),
-                protocol_output,
+                runtime_output.protocol,
+                runtime_output=runtime_output,
             )
         )
         return

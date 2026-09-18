@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def scene(tmp_path, items, draft="", skills=None):
+def scene(tmp_path, items, draft="", skills=None, stream_interval_ms=15):
     path = tmp_path / "reading-scene.json"
     path.write_text(
         json.dumps(
@@ -30,7 +30,7 @@ def scene(tmp_path, items, draft="", skills=None):
                 "skills": skills or [],
                 "system": [],
                 "response": "Streaming new content without disturbing the reading anchor.",
-                "stream_interval_ms": 15,
+                "stream_interval_ms": stream_interval_ms,
             }
         )
     )
@@ -76,15 +76,15 @@ def test_markdown_visual_line_scroll_anchor_stream_and_resize(tmp_path):
         probe.send(b"\x1b[<64;50;15M")  # wheel up: exactly three visual rows
         probe.wait("[ Latest")
         probe.wait("row 080", absent=True)
-        probe.wait("row 079")
+        probe.wait("row 078")
         rows = re.findall(r"row (\d+)", "\n".join(probe.screen.display[6:32]))
-        assert rows[-1] == "079"  # two trailing Markdown spacer rows, then row 80
+        assert rows[-1] == "078"  # one trailing spacer, then rows 80 and 79
         probe.send(b"\x1b[5~")
-        probe.wait("row 079", absent=True)
+        probe.wait("row 078", absent=True)
         before = probe.screen.display[6:32]
         assert len(re.findall(r"row \d+", "\n".join(before))) > 20
         probe.send(b"continue\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         assert probe.screen.display[6:32] == before
         probe.resize(160, 40)
         probe.wait("row " + re.findall(r"row (\d+)", "\n".join(before))[-1])
@@ -138,7 +138,7 @@ def test_boundary_history_and_tab_completion_keep_neighbors(tmp_path):
         draft_is(probe, "Use @context-beta suffix")
         assert "Working" not in probe.text
         probe.send(b"\t\r")  # complete exact token, then explicit submit
-        probe.wait("Completed")
+        probe.wait_idle()
     finally:
         probe.close()
 
@@ -150,7 +150,7 @@ def test_launcher_resume_restores_draft_and_next_real_context(tmp_path):
     try:
         probe.wait("Ready")
         probe.send(b"Remember terminal-resume-281\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"unfinished correction")
         draft_is(probe, "unfinished correction")
     finally:
@@ -173,7 +173,7 @@ def test_launcher_resume_restores_draft_and_next_real_context(tmp_path):
         probe.send(b"\x1b[B")
         draft_is(probe, "unfinished correction")
         probe.send(b"\r")
-        probe.wait("Completed")
+        probe.wait_idle()
     finally:
         probe.close()
     checkpoint = json.loads((path / "checkpoint.json").read_text())

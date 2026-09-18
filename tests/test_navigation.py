@@ -10,6 +10,62 @@ from amplifier_tui.host import SessionHost
 from amplifier_tui.navigation import WorkspaceBridge, file_candidates, session_choices
 
 
+def test_large_uncertain_checkpoint_offers_recovery_before_opening(tmp_path):
+    store = ConversationStore(tmp_path, {"cwd": str(tmp_path)})
+    store.checkpoint(
+        [{"role": "user", "content": "Synthetic large history " * 5000}], 0, "fixture", False
+    )
+    store.close()
+    choices = session_choices(tmp_path, None, cwd=tmp_path)
+    assert choices["sessions"][0]["status"].startswith("recovery required")
+    assert choices["sessions"][0]["id"] == store.identity
+
+
+def test_directory_scope_precedes_paging_and_full_text_search(tmp_path):
+    from amplifier_tui.events import Event
+    from amplifier_tui.history_index import search
+
+    local, foreign = tmp_path / "local", tmp_path / "foreign"
+    identities = []
+    for index in range(102):
+        store = ConversationStore(tmp_path, {"cwd": str(local)})
+        identities.append(store.identity)
+        store.record(
+            Event(
+                store.identity,
+                1,
+                "turn",
+                "turn.accepted",
+                "turn",
+                {"text": f"Local source {index}"},
+            )
+        )
+        store.record(
+            Event(store.identity, 2, "turn", "text.final", "answer", {"text": "Shared needle"})
+        )
+        store.checkpoint([], 2, {}, True)
+        store.close()
+    other = ConversationStore(tmp_path, {"cwd": str(foreign)})
+    other.record(
+        Event(other.identity, 1, "turn", "turn.accepted", "turn", {"text": "Foreign secret needle"})
+    )
+    other.checkpoint([], 1, {}, True)
+    other.close()
+    # Seed a global cache first; old indexed matches must not escape directory scope.
+    from amplifier_tui.conversations import catalog
+
+    search(tmp_path, catalog(tmp_path), "needle")
+    for query in ("", "needle"):
+        first = session_choices(tmp_path, None, cwd=local, query=query)
+        second = session_choices(tmp_path, None, cwd=local, query=query, offset=100)
+        assert len(first["sessions"]) == 100 and first["next_offset"] == 100
+        assert len(second["sessions"]) == 2 and second["next_offset"] is None
+        assert {r["id"] for r in first["sessions"] + second["sessions"]} == set(identities)
+        assert "Foreign secret" not in str(first) + str(second)
+    assert not session_choices(tmp_path, None, cwd=local, query="Foreign secret")["sessions"]
+    assert not session_choices(tmp_path, None, cwd=tmp_path, query="needle")["sessions"]
+
+
 async def bridge_for(prepared, state, cwd):
     launch = {"fixture": True, "bundle": None, "overlays": [], "sources": None, "cwd": str(cwd)}
     events = []
@@ -204,7 +260,8 @@ async def test_catalog_titles_and_correlated_lookup(prepared, tmp_path):
         await bridge.close()
 
 
-async def test_switch_restores_target_cwd_and_completion_scope(prepared, tmp_path):
+@pytest.mark.parametrize("recover", [False, True])
+async def test_foreign_directory_switch_cannot_retarget_or_recover(prepared, tmp_path, recover):
     other = tmp_path / "other-workspace"
     other.mkdir()
     (other / "only-in-target.txt").touch()
@@ -213,21 +270,39 @@ async def test_switch_restores_target_cwd_and_completion_scope(prepared, tmp_pat
     await target.close()
     source, events = await bridge_for(prepared, tmp_path, tmp_path)
     try:
+        original = source.host
+        before = {p: p.read_bytes() for p in target.host.store.path.iterdir() if p.is_file()}
+        count = len(list((tmp_path / "conversations").iterdir()))
         assert source.command(
-            {"op": "switch", "target": identity, "draft": "source", "request_id": "cwd"}
+            {
+                "op": "switch",
+                "target": identity,
+                "draft": "source",
+                "request_id": "cwd",
+                "recover": recover,
+            }
         )[0]
         await source.switch_task
-        assert source.cwd == other
+        assert source.host is original and source.cwd == tmp_path
+        assert source.host.store.draft == "source"
+        assert len(list((tmp_path / "conversations").iterdir())) == count
+        assert all(p.read_bytes() == data for p, data in before.items())
+        assert any(e["type"] == "switch_result" and not e["ok"] for e in events)
+        assert any("not found in this working directory" in str(e) for e in events)
         assert source.command(
             {
                 "op": "complete_path",
                 "query": "./only",
                 "request_id": "names",
-                "session_id": identity,
+                "session_id": original.session_id,
             }
         )[0]
         await source.lookup_task
-        assert events[-1]["candidates"] == ["./only-in-target.txt"]
+        assert events[-1]["candidates"] == []
+        assert source.command({"op": "conversations", "request_id": "local"})[0]
+        await source.lookup_task
+        assert [row["id"] for row in events[-1]["sessions"]] == [original.session_id]
+        assert "Launch directory only" in events[-1]["scope"]
         assert source.host.session.coordinator.get("providers")["fixture"].calls == []
     finally:
         await source.close()

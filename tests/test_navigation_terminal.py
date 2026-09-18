@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -33,23 +34,62 @@ def start(tmp_path):
     )
 
 
+@pytest.mark.parametrize("width", [40, 175])
+def test_cli_argument_completion_in_real_terminal_never_submits(tmp_path, width):
+    probe = Probe(
+        [
+            sys.executable,
+            str(ROOT / "scripts/run.py"),
+            "--fixture",
+            "--no-install",
+            "--cwd",
+            str(tmp_path),
+            "--state-dir",
+            str(tmp_path / "state"),
+        ],
+        cols=width,
+        rows=50,
+    )
+    try:
+        probe.wait("Ready")
+        probe.send(b"\x1b[200~/provider \x1b[201~\t")
+        probe.wait("Command arguments")
+        capture(probe, f"cli-parity-arguments-{width}")
+        # Filter and select a verb; Enter here inserts, it does not send.
+        probe.send(b"models\r")
+        probe.wait("Command arguments", absent=True)
+        draft_is(probe, "/provider models ")
+        probe.send(b"fi\t")
+        draft_is(probe, "/provider models fixture ")
+        probe.send(b"\r")
+        probe.wait("Provider-reported IDs")
+        probe.wait("Ready")
+        capture(probe, f"cli-parity-models-{width}")
+        events = next((tmp_path / "state/conversations").glob("*/events.jsonl")).read_text()
+        assert '"kind": "turn.accepted"' not in events
+        assert '"kind": "user.message"' not in events
+    finally:
+        probe.close()
+
+
 def test_picker_new_return_and_drafts(tmp_path):
     probe = start(tmp_path)
     try:
         probe.wait("Ready")
         probe.send(b"Conversation alpha\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"Keep alpha draft")
         action(probe, "New conversation", "[ Send ]")
         # Native terminal history deliberately retains previous conversations;
         # canonical context isolation is asserted from checkpoints below.
         probe.wait("Keep alpha draft", absent=True)
-        probe.wait("Ready")
+        probe.wait("Untitled conversation")
+        probe.wait("Ready")  # New does not execute a turn.
         probe.send(b"\x1aConversation beta")  # Undo cannot resurrect source text.
         draft_is(probe, "Conversation beta")
         assert "Keep alpha draft" not in probe.text
         probe.send(b"\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"Keep beta draft")
         action(probe, "Resume", "Saved conversations")
         probe.wait("Conversation alpha")
@@ -57,10 +97,10 @@ def test_picker_new_return_and_drafts(tmp_path):
         probe.send(b"Conversation alpha\r")
         probe.wait("Saved conversations", absent=True)
         draft_is(probe, "Keep alpha draft")
-        probe.wait("Ready")
+        probe.wait("Ready")  # Resume restores context without executing it.
         assert "Conversation beta" in probe.text
         probe.send(b"\r")
-        probe.wait("Completed")
+        probe.wait_idle()
     finally:
         probe.close()
     records = [
@@ -86,20 +126,32 @@ def test_explicit_provider_fork_confirmation_and_retained_public_context(tmp_pat
     try:
         probe.wait("Ready")
         probe.send(b"Remember the original conversation\r")
-        probe.wait("Completed")
+        probe.wait_idle()
         probe.send(b"Unsent retained draft")
         action(probe, "New provider composition", "New provider overlay")
         probe.send(str(overlay).encode() + b"\r")
         probe.wait("Adopt new provider composition?")
-        probe.wait("model call until your next explicit Send")
+        probe.wait("No model call until your next")
+        probe.wait("explicit Send")
         capture(probe, "provider-fork-confirmation")
         probe.send(b"\r")
         probe.wait("Adopt new provider composition?", absent=True)
+        # The source can still say Ready while the candidate initializes. Wait
+        # for the NEW identity's committed UI snapshot, not the old footer.
+        deadline = time.monotonic() + 30
+        target = None
+        while time.monotonic() < deadline:
+            targets = list((tmp_path / "state/conversations").glob("*/imported-context.json"))
+            if targets:
+                target = targets[0].parent
+                break
+            probe.read()
+        assert target is not None, "Provider candidate was not created"
+        probe.wait(target.name[:12], timeout=30)
         probe.wait("Ready", timeout=30)
         draft_is(probe, "Unsent retained draft")
         records = list((tmp_path / "state/conversations").glob("*/metadata.json"))
         assert len(records) == 2
-        target = next(p.parent for p in records if (p.parent / "imported-context.json").exists())
         assert '"kind": "turn.accepted"' not in (target / "events.jsonl").read_text()
         assert "Remember the original conversation" in (target / "checkpoint.json").read_text()
         capture(probe, "provider-fork-ready")

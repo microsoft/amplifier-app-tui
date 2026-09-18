@@ -16,10 +16,13 @@ impl Table {
         if width < n.saturating_mul(8).saturating_add(1) {
             let mut lines = vec![Line::styled(
                 "Table · stacked for this width",
-                Style::default().fg(MUTED),
+                Style::default().fg(palette().muted),
             )];
             for (i, row) in self.rows.iter().enumerate().skip(1) {
-                lines.push(Line::styled(format!("Row {i}"), Style::default().fg(GREEN)));
+                lines.push(Line::styled(
+                    format!("Row {i}"),
+                    Style::default().fg(palette().green),
+                ));
                 for (j, cell) in row.iter().enumerate() {
                     let header = self.rows[0]
                         .get(j)
@@ -34,7 +37,9 @@ impl Table {
                                 header
                             }
                         ),
-                        Style::default().fg(GREEN).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(palette().green)
+                            .add_modifier(Modifier::BOLD),
                     ));
                     lines.push(cell.clone());
                 }
@@ -61,7 +66,7 @@ impl Table {
             let j = (0..n).max_by_key(|&j| widths[j]).unwrap();
             widths[j] -= 1;
         }
-        let edge = Style::default().fg(MUTED);
+        let edge = Style::default().fg(palette().muted);
         let border = |left: &str, join: &str, right: &str| {
             Line::styled(
                 format!(

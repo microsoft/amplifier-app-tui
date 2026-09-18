@@ -30,12 +30,13 @@ def inspect(args, capsys, code):
 def test_guide_requires_no_binary_key_or_state(local_install, tmp_path, capsys):
     local_install.unlink()
     text = inspect(["--getting-started"], capsys, 0)
-    assert "NOT an AI assistant" in text and "Queue = a later turn" in text
+    assert "NOT an AI assistant" in text and "Queue = a later task" in text
+    assert "Change task (steer) corrects current work" in text
     assert not (tmp_path / "state").exists()
 
 
 def test_missing_default_key_is_actionable(local_install, tmp_path, capsys):
-    text = inspect(["--check"], capsys, 1)
+    text = inspect(["--check", "--settings-policy", "isolated"], capsys, 1)
     assert "[ERROR] provider" in text and "--fixture" in text
     assert not (tmp_path / "state").exists()
 

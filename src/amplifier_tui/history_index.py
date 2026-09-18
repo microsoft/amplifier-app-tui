@@ -56,7 +56,7 @@ def open_index(root):
         return connect(root)
 
 
-def refresh(db, root, entries, *, budget=READ_BUDGET):
+def refresh(db, root, entries, *, budget=READ_BUDGET, prune=True):
     deadline = time.monotonic() + REFRESH_SECONDS
     partial = False
     active = {entry["id"] for entry in entries}
@@ -68,7 +68,8 @@ def refresh(db, root, entries, *, budget=READ_BUDGET):
         key=lambda entry: entry["id"] in known and known[entry["id"]][1] >= known[entry["id"]][2],
     )
     with db:
-        for identity in known.keys() - active:
+        # A directory subset is not evidence that other source journals vanished.
+        for identity in known.keys() - active if prune else ():
             db.execute("DELETE FROM messages WHERE session=?", (identity,))
             db.execute("DELETE FROM search WHERE session=?", (identity,))
             db.execute("DELETE FROM sources WHERE id=?", (identity,))
@@ -180,23 +181,30 @@ def refresh(db, root, entries, *, budget=READ_BUDGET):
     return partial
 
 
-def search(root, entries, query):
+def search(root, entries, query, *, scoped=False):
     db = open_index(root)
     matches = {}
     try:
-        partial = refresh(db, root, entries)
+        partial = refresh(db, root, entries, prune=not scoped)
+        scope_join = ""
+        if scoped:
+            # Connection-local selection prevents another directory's matches
+            # consuming the result budget, without evicting its shared cache.
+            db.execute("CREATE TEMP TABLE resume_scope (id TEXT PRIMARY KEY)")
+            db.executemany("INSERT INTO resume_scope VALUES (?)", ((e["id"],) for e in entries))
+            scope_join = " JOIN resume_scope r ON r.id=m.session"
         deadline = time.monotonic() + 0.5
         db.set_progress_handler(lambda: int(time.monotonic() >= deadline), 1000)
         folded = query.casefold()
         if len(folded) >= 3:
             expression = '"' + folded.replace('"', '""') + '"'
             rows = db.execute(
-                "SELECT m.session,m.sequence,m.kind,m.text FROM search s JOIN messages m ON m.session=s.session AND m.position=s.position WHERE search MATCH ? ORDER BY m.stamp DESC,m.position DESC LIMIT 10001",
+                f"SELECT m.session,m.sequence,m.kind,m.text FROM search s JOIN messages m ON m.session=s.session AND m.position=s.position{scope_join} WHERE search MATCH ? ORDER BY m.stamp DESC,m.position DESC LIMIT 10001",
                 (expression,),
             )
         else:
             rows = db.execute(
-                "SELECT m.session,m.sequence,m.kind,m.text FROM search s JOIN messages m ON m.session=s.session AND m.position=s.position WHERE instr(s.folded,?)>0 ORDER BY m.stamp DESC,m.position DESC LIMIT 10001",
+                f"SELECT m.session,m.sequence,m.kind,m.text FROM search s JOIN messages m ON m.session=s.session AND m.position=s.position{scope_join} WHERE instr(s.folded,?)>0 ORDER BY m.stamp DESC,m.position DESC LIMIT 10001",
                 (folded,),
             )
         for index, (identity, sequence, kind, text) in enumerate(rows):

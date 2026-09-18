@@ -43,6 +43,49 @@ def test_index_appends_replaces_deletes_without_mutating_journals(tmp_path):
     assert not matches and partial
 
 
+def test_directory_search_retains_other_indexes_and_filters_before_result_limit(tmp_path):
+    local, foreign = "a" * 32, "b" * 32
+    journal(tmp_path, tmp_path / "local", local, ["local needle"], 1)
+    journal(tmp_path, tmp_path / "foreign", foreign, ["foreign needle"], 2)
+    search(tmp_path, catalog(tmp_path), "needle")
+    db = open_index(tmp_path)
+    try:
+        # Newer foreign matches must not consume the 10,000-result query budget.
+        with db:
+            db.executemany(
+                "INSERT INTO messages VALUES (?,?,?,?,?,?,?)",
+                (
+                    (foreign, i, i, "text.final", "answer", "foreign needle", i)
+                    for i in range(100, 10200)
+                ),
+            )
+            db.executemany(
+                "INSERT INTO search VALUES (?,?,?)",
+                ((foreign, i, "foreign needle") for i in range(100, 10200)),
+            )
+        prior = db.execute("SELECT COUNT(*) FROM messages WHERE session=?", (foreign,)).fetchone()
+    finally:
+        db.close()
+    for query in ("needle", "le"):
+        matches, partial = search(
+            tmp_path, catalog(tmp_path, cwd=tmp_path / "local"), query, scoped=True
+        )
+        assert set(matches) == {local} and not partial
+    assert search(tmp_path, [], "needle", scoped=True) == ({}, False)
+    db = open_index(tmp_path)
+    try:
+        assert (
+            db.execute("SELECT COUNT(*) FROM messages WHERE session=?", (foreign,)).fetchone()
+            == prior
+        )
+    finally:
+        db.close()
+    # A separate workspace can still query its retained index.
+    assert set(
+        search(tmp_path, catalog(tmp_path, cwd=tmp_path / "foreign"), "foreign", scoped=True)[0]
+    ) == {foreign}
+
+
 def test_corrupt_cache_is_preserved_and_rebuilt(tmp_path):
     identity = "a" * 32
     journal(tmp_path, tmp_path, identity, ["recoverable"], 1)

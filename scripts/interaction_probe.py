@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import sys
+import time
 from types import SimpleNamespace
 
 from terminal_probe import ROOT, Probe
@@ -41,8 +42,17 @@ def capture(probe, name):
     # No screenshot delay is interpreted as an interaction timing.
     from capture_candidates import render_visible_cursor
 
-    for _ in range(10):
-        probe.read(0)
+    # A menu closing can precede the next native journal paint. Wait for a quiet
+    # frame, bounded during streaming; this is never a latency measurement.
+    deadline = time.monotonic() + 0.25
+    quiet = time.monotonic()
+    while time.monotonic() < deadline:
+        before = probe.bytes
+        probe.read(0.01)
+        if probe.bytes != before:
+            quiet = time.monotonic()
+        elif time.monotonic() - quiet >= 0.04:
+            break
     screen = copy.deepcopy(probe.screen)
     ordered = screen.buffer.copy()
     ordered.clear()
@@ -107,8 +117,9 @@ def exercise(preset=None):
                 choose(probe, "Decisions —", "Options (exact runtime scope)")
                 capture(probe, "fixture-decision")
                 probe.send(b"allow\r")
-            probe.wait("Completed", timeout=90)
-            probe.wait(f"✓  {tool}")
+            probe.wait_idle(timeout=90)
+            label = {"read_file": "Read", "load_skill": "Load skill"}.get(tool, tool)
+            probe.wait(f"▸ {label} · done")
             tools.append(tool)
             choose(probe, "expand selected", "Evidence ·")
             probe.wait("sha256" if not preset else '"status": "succeeded"')

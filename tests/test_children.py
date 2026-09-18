@@ -17,7 +17,7 @@ async def test_real_child_execution_and_resume_are_isolated(host):
     assert len(row["messages"]) > 4
 
 
-async def test_child_cancel_closes_and_cannot_resume(host):
+async def test_child_cancel_closes_and_valid_canonical_context_can_resume(host):
     host.children.prepared.bundle.providers[0].setdefault("config", {})["delay"] = 10
     task = asyncio.create_task(host.children.spawn("probe", "wait", host.session, {"probe": {}}))
     async with asyncio.timeout(5):
@@ -28,15 +28,18 @@ async def test_child_cancel_closes_and_cannot_resume(host):
         await task
     assert not host.children.active
     identity = next(iter(host.children.records))
-    with pytest.raises(ValueError, match="incomplete"):
-        await host.children.resume(identity, "again")
+    row = host.children.records[identity]
+    assert row["status"] == "interrupted" and row["resumable"]
+    row["prepared"].mount_plan["providers"][0]["config"]["delay"] = 0
+    result = await host.children.resume(identity, "Explicit new instruction")
+    assert result["session_id"] == identity and row["status"] == "completed"
 
 
 async def test_child_unknown_and_unsupported_scope_refuse(host):
     with pytest.raises(ValueError, match="Unknown"):
         await host.children.spawn("missing", "x", host.session, {})
-    with pytest.raises(ValueError, match="Subprocess"):
-        await host.children.spawn("self", "x", host.session, {}, use_subprocess=True)
+    with pytest.raises(ValueError, match="boolean"):
+        await host.children.spawn("self", "x", host.session, {}, use_subprocess="yes")
     assert not host.children.records
     with pytest.raises(ValueError, match="Unknown tools inheritance"):
         await host.children.spawn("self", "x", host.session, {}, tool_inheritance={"allow": []})
