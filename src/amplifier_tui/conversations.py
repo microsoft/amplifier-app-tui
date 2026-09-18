@@ -54,7 +54,7 @@ def atomic_json(path, value):
         Path(temporary).unlink(missing_ok=True)
 
 
-def catalog(state_dir, *, cwd=None):
+def catalog(state_dir, *, cwd=None, archived=False):
     root = Path(state_dir) / "conversations"
     directory = Path(cwd).resolve() if cwd is not None else None
     result = []
@@ -70,6 +70,7 @@ def catalog(state_dir, *, cwd=None):
                 isinstance(value, dict)
                 and value.get("version") == 1
                 and value.get("id") == path.parent.name
+                and bool(value.get("archived", False)) == archived
             ):
                 if directory is not None:
                     launch = value.get("launch")
@@ -84,6 +85,44 @@ def catalog(state_dir, *, cwd=None):
         except (OSError, ValueError, RuntimeError):
             continue
     return [value for _, value in sorted(result, key=lambda row: row[0], reverse=True)]
+
+
+def archive_conversation(state_dir, identity, *, cwd, archived):
+    """Reversible metadata-only housekeeping under the same single-writer lock."""
+    if not isinstance(identity, str) or not re.fullmatch(r"[0-9a-f]{32}", identity):
+        raise ValueError("Use an exact conversation ID from this directory, not latest")
+    path = Path(state_dir) / "conversations" / identity
+    metadata = path / "metadata.json"
+    if path.is_symlink() or metadata.is_symlink() or not path.is_dir():
+        raise ValueError("Conversation unavailable; no change made")
+    lock = os.open(path / "lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ValueError(
+                "Close the conversation in every client before archiving/restoring"
+            ) from exc
+        with metadata.open() as stream:
+            raw = stream.read(65537)
+        if len(raw) > 65536:
+            raise ValueError("Conversation metadata exceeds housekeeping limit")
+        value = json.loads(raw)
+        launch = value.get("launch") if isinstance(value, dict) else None
+        recorded = launch.get("cwd") if isinstance(launch, dict) else None
+        if (
+            not isinstance(value, dict)
+            or value.get("version") != 1
+            or value.get("id") != identity
+            or not isinstance(recorded, str)
+            or not Path(recorded).is_absolute()
+            or Path(recorded).resolve() != Path(cwd).resolve()
+        ):
+            raise ValueError("Conversation not found in this working directory; no change made")
+        value["archived"] = bool(archived)
+        atomic_json(metadata, value)
+    finally:
+        os.close(lock)
 
 
 def resolve_resume(state_dir, identity, *, cwd=None):
@@ -142,6 +181,8 @@ class ConversationStore:
                 self.metadata = json.loads((self.path / "metadata.json").read_text())
                 if self.metadata.get("version") != 1 or self.metadata.get("id") != self.identity:
                     raise ValueError("Unsupported or corrupt conversation metadata")
+                if self.metadata.get("archived"):
+                    raise ValueError("Conversation is archived; restore explicitly before resuming")
                 if self.metadata["launch"] != launch:
                     raise ValueError("Resume composition or working directory does not match")
                 self.saved = json.loads((self.path / "checkpoint.json").read_text())

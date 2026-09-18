@@ -87,10 +87,16 @@ def source_fingerprints():
     return {str(p.relative_to(ROOT)): source_fingerprint(p) for p in files}
 
 
-def checked(command, **kwargs):
+def checked(command, *, failure_log=None, **kwargs):
     """Build/install logs may contain configured index credentials; never upload them."""
     result = subprocess.run(command, capture_output=True, text=True, **kwargs)
     if result.returncode:
+        if failure_log is not None:
+            # Explicit local diagnostics only. Never include this file in receipts
+            # or release uploads; output may contain private dependency settings.
+            fd = os.open(failure_log, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "w") as stream:
+                stream.write((result.stdout + "\n" + result.stderr)[-1024 * 1024 :])
         raise RuntimeError(
             f"{Path(command[0]).name} exited {result.returncode}; output withheld by release gate"
         )
@@ -197,12 +203,123 @@ def terminal_smoke(command, stage, env):
     }
 
 
+def scripting_smoke(command, stage, env, python, uv, failure_log=None):
+    """Actual pinned CLI subprocesses in the isolated installed environment."""
+    package = Path(
+        json.loads(
+            checked(
+                [
+                    python,
+                    "-c",
+                    "import amplifier_tui,json; print(json.dumps(amplifier_tui.__path__[0]))",
+                ],
+                env=env,
+                cwd=stage,
+            ).stdout
+        )
+    )
+    fixture = package / "fixtures"
+    # Installs are confined to the disposable tool environment, not the running
+    # developer/user environment. No foreign-home guard is bypassed.
+    checked(
+        [
+            uv,
+            "pip",
+            "install",
+            "--python",
+            python,
+            "--no-deps",
+            str(fixture / "provider-fixture"),
+            str(fixture / "tool-fixture"),
+        ],
+        env=env,
+    )
+    home = stage / "terminal-state/foundation"
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "settings.yaml").write_text(
+        json.dumps(
+            {
+                "config": {
+                    "providers": [
+                        {
+                            "module": "provider-fixture",
+                            "source": str(fixture / "provider-fixture"),
+                            "config": {"priority": 1},
+                        }
+                    ]
+                },
+                "updates": {"auto_prompt": False},
+            }
+        )
+    )
+    isolated = {
+        key: value
+        for key, value in env.items()
+        if not any(term in key.upper() for term in ("API_KEY", "TOKEN", "SECRET", "PASSWORD"))
+    }
+    isolated["AMPLIFIER_HOME"] = str(home)
+    outcomes = []
+    for output, stdin in (("text", False), ("json", True), ("json-trace", False)):
+        prompt = f"Synthetic installed {output} {'stdin' if stdin else 'argument'} marker"
+        argv = [
+            str(command),
+            "run",
+            "--bundle",
+            (fixture / "bundle.yaml").as_uri(),
+            "--output-format",
+            output,
+        ]
+        result = checked(
+            [*argv, *([] if stdin else [prompt])],
+            input=prompt if stdin else "",
+            env=isolated,
+            cwd=stage,
+            timeout=300,
+            failure_log=failure_log,
+        )
+        if output == "text":
+            assert "Fixture round trip complete" in result.stdout
+        else:
+            payload = json.loads(result.stdout)
+            assert "Fixture round trip complete" in payload["response"]
+            if output == "json-trace":
+                assert "fixture_probe" in json.dumps(payload)
+        transcripts = list((home / "projects").rglob("transcript.jsonl"))
+        assert any(prompt in path.read_text() for path in transcripts)
+        outcomes.append(
+            {"format": output, "input": "stdin" if stdin else "argument", "passed": True}
+        )
+    for shell in ("bash", "zsh", "fish"):
+        result = checked(
+            [str(command)],
+            env={**isolated, "_AMPLIFIER_TUI_COMPLETE": f"{shell}_source"},
+            cwd=stage,
+            timeout=20,
+        )
+        assert "_AMPLIFIER_TUI_COMPLETE" in result.stdout
+    return {
+        "cases": outcomes,
+        "completion_shells": ["bash", "zsh", "fish"],
+        "scope": "Installed pinned CLI and deterministic provider/tool; original CLI store, no native launch or paid model calls",
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--terminal", action="store_true", help="Also exercise installed fixture PTY; requires pyte"
     )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "dist/release")
+    parser.add_argument(
+        "--private-failure-log",
+        type=Path,
+        help="New private diagnostic file on CLI failure; may contain secrets, never upload",
+    )
+    parser.add_argument(
+        "--scripting",
+        action="store_true",
+        help="Exercise installed CLI prompt/stdin/text/JSON/trace and completion with deterministic modules",
+    )
     parser.add_argument(
         "--ci-clipboard",
         action="store_true",
@@ -273,6 +390,11 @@ def main():
         assert b"Use scripts/compare.py ratatui to launch" in loaded.stderr
         checked([str(command), "--getting-started"], env=env, cwd=stage)
         terminal = terminal_smoke(command, stage, env) if args.terminal else None
+        scripting = (
+            scripting_smoke(command, stage, env, report["python"], uv, args.private_failure_log)
+            if args.scripting
+            else None
+        )
         clipboard = None
         if args.ci_clipboard and platform.system() == "Darwin":
             if os.environ.get("GITHUB_ACTIONS") != "true":
@@ -325,6 +447,7 @@ finally:
             "installed_native_load_passed": True,
             "artifact_privacy_scan_passed": True,
             "terminal_fixture": terminal,
+            "scripting_fixture": scripting,
             "clipboard_fixture": clipboard,
         }
         assert sources == source_fingerprints(), "Candidate sources changed during verification"

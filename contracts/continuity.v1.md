@@ -1,7 +1,6 @@
 # Return and retained intent Contract — v1 (DRAFT)
 
-Proposed boundary derived from the implementation handoff.
-Parent: [composition.v1](composition.v1.md).
+Proposed boundary derived from the implementation handoff. Parent: [composition.v1](composition.v1.md).
 
 ## Who builds against this
 
@@ -32,7 +31,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: An unsent input becoming submitted on return violates intent.
    Affected: the boundary's clients and the person relying on them.
 
-3. **Replay only observations.** History reconstruction and exports never invoke a tool, provider or approval. Explicit turn branching creates a new identity with validated captured public context and disclosed private-state exclusions; clearing active context preserves identity/history and records that prior effects remain. Neither operation replays work or dispatches held input.
+3. **Replay only observations.** History reconstruction and exports never invoke a tool, provider or approval. Explicit turn branching creates a new identity with validated captured public context and disclosed private-state exclusions; clearing active context preserves identity/history and records that prior effects remain. Neither operation replays work or dispatches held input. Confirmed archival hides a closed conversation from ordinary return without deleting its history; explicit restore reverses that choice within its original directory.
    Explicit CLI-session discovery/import preserves source bytes and distinguishes historical reference from supported executable adoption; neither silently replays tools or changes the original session's policy. Structured public adoption validates tool pairing and exact context readback under a new identity; it never claims original private-state continuation.
    Broken: A repeated external effect during replay violates recovery.
    Affected: the boundary's clients and the person relying on them.
@@ -65,6 +64,7 @@ How does a replacement context manager preserve canonical history independently 
 
 | Date | Change | Evidence |
 |---|---|---|
+| 2026-09-18 | Clarify P3's explicit session operations and reversible closed-session archival. | Existing CLI parity calls for clear/branch/export and housekeeping without replay, accidental deletion or active-writer interference. |
 | 2026-09-17 | Distinguish P1's safe root/child interruption from uncertain persistence and permit explicit routing-aware child continuation. | The CLI parity audit identifies refusals based solely on child outcome or changed routing; execution ownership, canonical validation and non-routing policy must decide resumability. |
 | 2026-09-15 | Clarify P3's cross-application continuity. | Steward approved CLI migration work; a separate TUI catalog and text import are not equivalent resume. |
 | 2026-09-15 | Distinguish explicitly reparented nested public adoption from same-identity continuation in P5. | Steward authorized deeper recovery; a captured nested self-agent can have root-equivalent policy without requiring ancestor execution. |

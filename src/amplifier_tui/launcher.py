@@ -70,7 +70,7 @@ def executable(workspace=None):
     )
 
 
-def arguments(argv=None, workspace=None, require_terminal=False):
+def argument_parser(workspace=None):
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog="CLI-compatible administration and scripting: amplifier-tui cli --help. "
@@ -168,7 +168,55 @@ def arguments(argv=None, workspace=None, require_terminal=False):
         const="latest",
         help="Create a new conversation from historical context; original unchanged, no replay",
     )
+    housekeeping = parser.add_mutually_exclusive_group()
+    housekeeping.add_argument(
+        "--archive", metavar="ID", help="Hide a closed conversation; retains all history"
+    )
+    housekeeping.add_argument(
+        "--restore", metavar="ID", help="Restore an archived conversation to Resume"
+    )
+    housekeeping.add_argument(
+        "--list-archived",
+        action="store_true",
+        help="List archived conversations from this directory",
+    )
+    parser.add_argument(
+        "--confirm", action="store_true", help="Explicitly confirm --archive or --restore"
+    )
+    return parser
+
+
+def arguments(argv=None, workspace=None, require_terminal=False):
+    parser = argument_parser(workspace)
     args = parser.parse_args(argv)
+    if args.archive or args.restore or args.list_archived or args.confirm:
+        allowed = {"archive", "restore", "list_archived", "confirm", "state_dir", "cwd"}
+        if any(
+            value != parser.get_default(name)
+            for name, value in vars(args).items()
+            if name not in allowed
+        ):
+            parser.error("Housekeeping is separate; use only --state-dir/--cwd with these options")
+        if bool(args.archive or args.restore) != args.confirm:
+            parser.error("Archive/restore requires an exact ID and --confirm; no change made")
+        from .conversations import archive_conversation, catalog
+
+        try:
+            directory = (args.cwd or Path.cwd()).resolve()
+            if args.list_archived:
+                for row in catalog(args.state_dir, cwd=directory, archived=True):
+                    print(f"{row['id']}  {row.get('title', 'Untitled')}")
+            else:
+                identity = args.archive or args.restore
+                archive_conversation(
+                    args.state_dir, identity, cwd=directory, archived=bool(args.archive)
+                )
+                print(
+                    f"{'Archived' if args.archive else 'Restored'} {identity}. History retained; nothing executed."
+                )
+        except (OSError, ValueError) as exc:
+            parser.error(str(exc))
+        parser.exit()
     if args.import_transcript and (
         args.resume or args.recover or args.export or args.list_sessions or args.setup
     ):
@@ -389,6 +437,9 @@ def arguments(argv=None, workspace=None, require_terminal=False):
 
 
 def main(workspace=None):
+    instruction = os.environ.get("_AMPLIFIER_TUI_COMPLETE")
+    if instruction:
+        return shell_completion(instruction, workspace)
     command = cli_command(sys.argv[1:])
     if command:
         return os.execv(command[0], command)
@@ -403,6 +454,52 @@ def main(workspace=None):
             "Native binary missing or not executable. Run --check for local setup guidance. Reinstall with Rust/Cargo available, or build the workspace Ratatui frontend."
         )
     os.execv(str(binary), [str(binary), "--host-json", json.dumps(host)])
+
+
+def shell_completion(instruction, workspace=None):
+    """Click's read-only protocol over CLI commands and our actual native options.
+
+    Set the CLI's import guard *before* importing its command tree; completion must
+    never initialize keys, activate environments or execute normal callbacks.
+    """
+    if instruction not in {
+        f"{shell}_{action}"
+        for shell in ("bash", "zsh", "fish")
+        for action in ("source", "complete")
+    }:
+        print("Unsupported shell completion instruction", file=sys.stderr)
+        raise SystemExit(2)
+    previous = os.environ.get("_AMPLIFIER_COMPLETE")
+    os.environ["_AMPLIFIER_COMPLETE"] = instruction
+    try:
+        import click
+        from amplifier_app_cli.main import cli
+
+        params = []
+        for action in argument_parser(workspace)._actions:
+            if not action.option_strings or action.dest == "help":
+                continue
+            kind = click.Choice(list(action.choices)) if action.choices else click.STRING
+            if action.type is Path:
+                kind = click.Path()
+            params.append(
+                click.Option(
+                    action.option_strings,
+                    type=kind,
+                    is_flag=action.nargs == 0,
+                    multiple=isinstance(action, argparse._AppendAction),
+                    help=action.help,
+                )
+            )
+        commands = {name: command for name, command in cli.commands.items() if name in CLI_COMMANDS}
+        commands["cli"] = cli
+        command = click.Group(params=params, commands=commands)
+        command.main(prog_name="amplifier-tui", complete_var="_AMPLIFIER_TUI_COMPLETE")
+    finally:
+        if previous is None:
+            os.environ.pop("_AMPLIFIER_COMPLETE", None)
+        else:
+            os.environ["_AMPLIFIER_COMPLETE"] = previous
 
 
 if __name__ == "__main__":

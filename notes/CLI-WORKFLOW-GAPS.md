@@ -1,5 +1,30 @@
 # Everyday CLI gap analysis — 2026-09-16
 
+## Follow-up boundary — 2026-09-18
+
+The historical table below describes the original gaps, not a current backlog.
+PARITY-01–07 in [PLAN](PLAN.md) now maps the later implementation and verification:
+goal breaker; loaded configuration controls and confirmed shared saves; argument
+completion and all-provider diagnostics; legacy module output; cancellation-aware
+child admission/process spawning and canonical continuation; confirmed context clear,
+turn branches, private exports, direct tools and reversible conversation archival;
+installed scripting and read-only shell completion.
+
+Setup, bundle/module/source administration, routing, provider setup, directory and
+notification configuration, update/reset, and canonical CLI session administration
+remain explicit `amplifier-tui COMMAND` or `amplifier-tui cli …` handoff to pinned CLI
+policy. They work on the CLI store, not the native store. This is supported entrypoint
+compatibility, not a second native implementation of every wizard. Native ordinary
+Resume stays directory-local; structured adoption is not original private-state resume.
+
+Remaining delivery/verification boundaries: computer-use approval transport awaits
+required upstream review; personal remote destinations/devices, real account login,
+arbitrary private module state, and billed provider behavior are not certified by
+offline fixtures. No speculative service/device dashboards were added. Exact failed-
+then-corrected and final gate evidence belongs in [ACCEPTANCE](ACCEPTANCE.md).
+
+## Original comparison
+
 Source comparison against pinned amplifier-app-cli `f0ba883` and the current local
 TUI implementation. No claim about a newer remote revision or universal ecosystem
 compatibility. Personal transcript/configuration content is not a fixture or publication

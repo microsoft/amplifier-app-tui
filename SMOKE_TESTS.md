@@ -1,5 +1,20 @@
 # Verification guide
 
+Entrypoint completion/housekeeping: `tests/test_entrypoint_workflows.py` verifies
+archive confirmation, exact identity, original directory, single-writer refusal,
+retained content and explicit restore. CLI/bash protocol checks cover native options,
+actual nested commands and configured provider candidates; bash/zsh/fish sources
+must leave settings/session bytes untouched. Explicitly fail key/store construction
+to prove completion does not initialize them. No shell startup-file writes.
+Run `scripts/release_wheel.py --terminal --scripting` for an isolated uv-installed
+wheel, real native fixture start/turn/resume, actual CLI argument/stdin prompts and
+text/JSON/JSON-trace output, plus installed completion. Use `--output-dir .evidence/…`
+for private candidate evidence; this does not publish a release. Fixture bundle
+arguments use `file://` URIs, not bare paths (which the CLI resolves as names).
+`--private-failure-log NEW_PATH` retains bounded mode-0600 failure diagnostics only;
+never commit/upload that file. A passing deterministic script is not paid-provider
+or arbitrary module-private-state proof. Do not bypass the CLI foreign-home guard.
+
 Session operations: `tests/test_session_workflows.py` exercises confirmed context
 clear, retained backups/history/draft/held input, no-op refusal, turn-branch validation,
 source preservation and projection-only JSON exports. Direct tools must exercise real

@@ -1,5 +1,29 @@
 # Engine boundary: first-slice record and reopened decision
 
+## Entrypoint and closed-session housekeeping (2026-09-18)
+
+Archive/restore is a confirmed launcher metadata operation under the existing
+conversation lock. It requires an exact ID and matching resolved working directory;
+active writers refuse. It never loads canonical context, erases journals or makes an
+uncertain checkpoint executable. Catalogs omit archived entries, including ordinary
+resume/search/recall; explicit restore makes them discoverable again. Direct store
+opening also checks the marker under lock so a stale picker cannot bypass archival.
+Delete/cleanup/timed replay and canonical CLI continuation remain CLI-store commands
+through explicit `amplifier-tui session` / `resume` / `continue` handoff, not native
+store mutation or an implied migration mechanism.
+
+Shell completion uses Click's protocol with the pinned CLI command tree plus options
+derived from the actual native parser. The CLI's completion guard is set before
+import, bypassing key initialization and runtime/environment activation. Only known
+bash/zsh/fish source/complete instructions are accepted; callbacks remain read-only.
+No shell startup file is edited. Explicit `run` preserves literal argv and inherited
+stdio; its text/JSON/trace outputs and stdin prompts stay owned by the pinned CLI.
+Installed scripting verification uses an isolated tool environment/home, deterministic
+provider/tool, and a file URI (the CLI treats a bare path as a bundle name). Do not
+bypass the foreign-home guard or install dynamic modules into the developer's venv.
+Optional failure logs are exclusive, private and bounded; never upload them as release
+evidence because dependency diagnostics can contain private source configuration.
+
 ## Explicit session and tool operations (2026-09-17)
 
 Context clear is confirmed user intent, not a model tool. It holds pending input,
