@@ -1,6 +1,6 @@
 # Verification guide
 
-Shared-session gate: run `uv run --no-sync pytest -q tests/test_shared_sessions.py tests/test_shared_usage.py`
+Shared-session gate: run `uv run --no-sync pytest -q tests/test_shared_sessions.py tests/test_shared_usage.py tests/test_shared_ownership.py tests/test_native_history.py`
 for actual CLI SessionStore round trips, same-ID canonical writeback, directory-local
 picker/search/recall, session settings, preserved unknown metadata, no-replay startup,
 changed-CLI projection rebuilding, reminder filtering, explicit branch context,
@@ -11,8 +11,19 @@ transcript. Missing packages explicitly skip those checks; never use shared-home
 defaults for the persistent-context fixture. Accounting checks cover root/child/utility
 receipts, recorded forks, repeat-resume deduplication, conflicting/missing/symlinked
 logs and capture bounds. Preserve canonical bytes; earlier costs never enter a new Turn.
+Ownership checks use real subprocess contention/crash, stale handles and cleanup awaits.
+History checks exercise backup recovery, unknown provider fields and path-swap refusal.
+Every fixture owns `AMPLIFIER_SESSION_STATE_HOME`; never contend with a user's lock.
+CI tests cover relocation, exact Foundation association, identity conflicts and physical
+row/byte bounds. Missing/partial optional logs cannot block ordinary canonical reading.
+Run `tests/test_shared_activity.py` for lazy snapshot loading, exact turn/utility/unassociated
+groups, refresh-on-reopen, page bounds and malformed optional records. The real Unified
+storage-adapter test runs when its checkout exists under the source workspace, otherwise
+explicitly skips. It reproduces the worker's ownership composition but does not launch
+the web runtime or claim its complete controls/lifecycle behavior.
 Run `uv run --no-sync python scripts/shared_session_probe.py` serially with other
-PTY tests. It creates a fresh disposable CLI environment/home, uses actual CLI
+PTY tests. It creates a fresh disposable CLI environment/home from this app's pinned
+CLI requirement (not an arbitrary sibling checkout), uses actual CLI
 entrypoints and default app behaviors, then resumes the same identity in native TUI
 at 175×50 and 40×20. Never reuse a CLI environment claimed by another home or bypass
 the CLI ownership guard. Local bundle overrides require file URIs for fragments.
@@ -20,13 +31,20 @@ Only the provider/tool are deterministic fixtures; no paid calls are authorized.
 Inspect private `shared-session-*` captures and require new-turn tool outcomes,
 no transcript growth before Send, unchanged root-session count and restored TTY.
 The probe mounts actual hooks-logging and reconciles fixture usage across returns.
+While TUI owns the idle session, actual CLI continuation must refuse busy ownership
+without changing transcript/metadata/log bytes; continuation succeeds after TUI closes.
+The reverse busy-startup test must keep typed text editable without submission. Open
+Activity → Shared session history → Turn 1 and inspect the shared observation source;
+opening it must not change history or execute recorded calls. Renderer snapshot replies
+stop live polling; ordinary live Activity continues refreshing. Build Rust and run
+`TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q tests/test_activity_terminal.py tests/test_navigation_terminal.py tests/test_flow_terminal.py tests/test_tmux_scrollback.py` serially.
 Its mixed Markdown answer exercises nested lists, loose paragraphs, quotes, headings,
 code, Unicode and links; narrow screens correctly retain the opening text in history
 instead of requiring both the opening prompt and the answer tail on one screen.
 The probe also starts/resumes an explicit isolated composition under its owned
 `--cli-home`, asserts canonical storage and rejects a parallel live journal store.
 Raw probe logs/settings/transcripts are private and must never be published. This
-does not certify concurrent writers, private-control equivalence or complete costs
+does not certify full web-client execution, noncooperating writers, private-control equivalence or complete costs
 when the source receipts are missing.
 
 Structural reading gate: build the native frontend, then run

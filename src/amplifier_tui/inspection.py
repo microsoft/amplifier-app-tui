@@ -886,6 +886,233 @@ class Inspection:
             return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns
 
     @staticmethod
+    def shared_activity_entry():
+        """A lazy source entry, not another copy of canonical tool identities."""
+        return {
+            "id": "shared:history",
+            "label": "Shared session history",
+            "status": "saved",
+            "source": "shared session activity",
+            "children": 1,
+            "summary": "open recorded observations",
+            "preview": "Read saved activity from other clients, grouped by exact transcript associations. "
+            "Loaded only when opened; no tool, provider or approval runs.",
+            "detail": "Transcript messages remain authoritative. Optional saved observations are a separate, "
+            "read-only source, not live jobs or another accounting ledger.",
+            "parent": None,
+            "partial": False,
+            "markdown": False,
+        }
+
+    @staticmethod
+    def shared_activity_view(activity, messages, node="shared:history", offset=0):
+        """One bounded page from an in-memory Foundation activity snapshot.
+
+        Groups are separate from native/live tool nodes. Only shared exact
+        associations assign a transcript turn; telemetry cannot become a job,
+        decision or accounting contribution. Only operational metadata and
+        bounded tool fields are projected, not raw provider request/response bodies.
+        """
+        root = "shared:history"
+
+        def excerpt(value, limit=160):
+            if not isinstance(value, str):
+                return ""
+            return value[:limit].encode("utf-8", errors="replace").decode("utf-8")
+
+        groups, observations = {}, {}
+        for association in activity["associations"]:
+            event = activity["events"][association.event_index]
+            anchor = association.turn_message_index
+            group = (
+                f"{root}:utility"
+                if association.auxiliary
+                else f"{root}:turn:{anchor}"
+                if anchor is not None
+                else f"{root}:unassociated"
+            )
+            if group not in groups:
+                text = messages[anchor].get("content") if anchor is not None else None
+                preview = " ".join(excerpt(text, 400).split())
+                groups[group] = {
+                    "id": group,
+                    "parent": root,
+                    "label": "Utility calls"
+                    if association.auxiliary
+                    else f"Turn {association.turn_index + 1}"
+                    if anchor is not None
+                    else "Unassociated observations",
+                    "preview": preview
+                    or (
+                        "Auxiliary naming/summarization; not assigned to conversation turns."
+                        if association.auxiliary
+                        else "No unique message/tool association was recorded; timing is not used to guess one."
+                    ),
+                    "children": 0,
+                    "anchor": anchor,
+                }
+            groups[group]["children"] += 1
+            observations[f"{root}:event:{event['line']}"] = (group, event, association)
+
+        def row(identity):
+            if identity == root:
+                value = Inspection.shared_activity_entry()
+                value.update(
+                    children=len(groups),
+                    summary=f"{len(observations)} recorded observations",
+                    preview=f"{len(observations)} recorded observations in this session's capture. "
+                    "This is a saved snapshot, not live state. Reopen Shared session history from Activity to refresh.",
+                )
+                if not observations:
+                    value["preview"] += (
+                        " No readable observations in the bounded capture; conversation history is unaffected."
+                    )
+                return value
+            if identity in groups:
+                value = {k: v for k, v in groups[identity].items() if k != "anchor"}
+                return {
+                    **value,
+                    "status": "saved",
+                    "summary": f"{value['children']} recorded observations",
+                    "detail": value["preview"],
+                    "source": "shared session activity",
+                    "markdown": False,
+                    "partial": False,
+                }
+            parent, event, association = observations[identity]
+            data = event["data"]
+            fields = (
+                "tool_name",
+                "name",
+                "tool_call_id",
+                "call_id",
+                "message_id",
+                "request_id",
+                "span_id",
+                "provider",
+                "model",
+                "purpose",
+                "usage",
+                "duration_ms",
+                "status",
+                "success",
+                "error",
+            )
+            if event["event"].startswith("tool:"):
+                fields += ("arguments", "input", "result")
+            selected = {key: data[key] for key in fields if key in data}
+            try:
+                projection, limited = bounded_projection(selected)
+            except (UnicodeError, OverflowError, ValueError, TypeError, RecursionError):
+                projection, limited = {"unavailable": "Malformed observed fields omitted"}, True
+            event_name = excerpt(event["event"])
+            detail, clipped = bounded(
+                {
+                    "event": event_name,
+                    "source_line": event["line"],
+                    "session_id": excerpt(event.get("session_id")),
+                    "timestamp": excerpt(event.get("timestamp")),
+                    "association": {
+                        "method": association.method,
+                        "message_indices": association.message_indices,
+                        "turn_index": association.turn_index,
+                        "auxiliary": association.auxiliary,
+                    },
+                    "observed_fields": projection,
+                }
+            )
+            linked = (
+                "Saved message "
+                + ", ".join(str(index + 1) for index in association.message_indices)
+                + f" · exact {association.method} association"
+                if association.message_indices
+                else "Auxiliary observation; not assigned to a conversation turn."
+                if association.auxiliary
+                else "Unassociated observation; no unique message/tool evidence."
+            )
+            name = excerpt(data.get("tool_name") or data.get("name") or data.get("model"), 120)
+            preview = linked
+            if event["event"] == "llm:response":
+                try:
+                    stamp = datetime.fromisoformat(
+                        excerpt(event.get("timestamp")).replace("Z", "+00:00")
+                    )
+                except ValueError:
+                    preview += (
+                        "\n\nCall timestamp unavailable; usage is retained in observed fields."
+                    )
+                else:
+                    duration = event.get("duration_ms", data.get("duration_ms"))
+                    if type(duration) not in (int, float) or not 0 <= duration < 2**53:
+                        duration = None
+                    preview += "\n\n" + call_usage_text(
+                        usage_values(data.get("usage")),
+                        {key: excerpt(data.get(key)) for key in ("provider", "model", "basis")},
+                        timestamp=stamp,
+                        duration_ms=duration,
+                    )
+            return {
+                "id": identity,
+                "parent": parent,
+                "label": event_name + (f" · {name}" if name else ""),
+                "status": "observed",
+                "source": "shared session activity",
+                "children": 0,
+                "summary": f"source line {event['line']}",
+                "preview": preview,
+                "detail": detail,
+                "partial": limited or clipped or len(event_name) != len(event["event"]),
+                "markdown": False,
+            }
+
+        valid = node == root or node in groups or node in observations
+        focus = row(node) if valid else None
+        children = (
+            sorted(
+                groups,
+                key=lambda key: (groups[key]["anchor"] is None, groups[key]["anchor"] or 0, key),
+            )
+            if node == root
+            else [key for key, (parent, _, _) in observations.items() if parent == node]
+        )
+        rows, budget = [], 1024 * 1024 - 4096 - len(json.dumps(focus).encode())
+        for identity in children[offset : offset + 100]:
+            value = row(identity)
+            size = len(json.dumps(value, ensure_ascii=False).encode())
+            if size > budget:
+                break
+            rows.append(value)
+            budget -= size
+        parent = focus["parent"] if focus else root
+        trail = ["Shared session history"]
+        if node in observations:
+            trail += [groups[parent]["label"], focus["label"]]
+        elif node in groups:
+            trail.append(focus["label"])
+        return {
+            "rows": rows,
+            "focus": focus,
+            "node": node,
+            "parent": parent,
+            "breadcrumb": " / ".join(trail),
+            "offset": offset,
+            "next_offset": offset + len(rows)
+            if rows and offset + len(rows) < len(children)
+            else None,
+            "partial": activity["partial"]
+            or not valid
+            or len(rows) < min(100, len(children[offset:])),
+            "snapshot": True,
+            "scope": "Saved shared-session observations, not live state or an additional cost total. "
+            "Selected session only; child captures are separate. Exact message/tool associations; no timing joins. "
+            "Limits: 16 MiB / 5000 physical lines, 100 rows / 1 MiB per page, 16 KiB detail excerpts. "
+            "Only operational metadata and bounded tool fields are shown; raw provider bodies are omitted. "
+            "No log writes, execution or approval. Reopen this source from Activity to refresh."
+            + (" Capture incomplete or unavailable." if activity["partial"] else "")
+            + (" Selected observation is unavailable in this snapshot." if not valid else ""),
+        }
+
+    @staticmethod
     def journal_activity(path, node=None, offset=0):
         """One read-only sibling page from retained events, not the hot cache.
 

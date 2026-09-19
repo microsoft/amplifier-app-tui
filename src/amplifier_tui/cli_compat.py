@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import os
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -246,7 +247,10 @@ def shared_session_entry(home, cwd, identity):
     # eager __init__/main bootstrap in a read-only launcher or custom-home picker.
     if "_" in identity:
         raise ValueError("Choose a root conversation, not a delegated session")
-    metadata = json.loads(read_session_file(home, cwd, identity, "metadata.json", 65536))
+    metadata = native_history(home, cwd, identity, metadata_only=True)
+    root = session_directory(home, cwd) / identity
+    if not any((root / name).is_file() for name in ("transcript.jsonl", "transcript.jsonl.backup")):
+        raise FileNotFoundError("No saved conversation transcript")
     if not isinstance(metadata, dict) or metadata.get("session_id", identity) != identity:
         raise ValueError("Invalid shared session metadata")
     if (
@@ -304,7 +308,12 @@ def shared_session_catalog(home, cwd, *, archived=False):
         try:
             entry = shared_session_entry(home, cwd, path.name)
             if entry["archived"] == archived:
-                rows.append(((path / "metadata.json").stat().st_mtime_ns, entry))
+                stamps = [
+                    source.stat().st_mtime_ns
+                    for source in (path / "metadata.json", path / "metadata.json.backup")
+                    if source.is_file()
+                ]
+                rows.append((max(stamps, default=0), entry))
         except (OSError, ValueError, TypeError, KeyError, AttributeError):
             continue
     return sorted(rows, key=lambda row: row[0], reverse=True)
@@ -358,13 +367,16 @@ def session_message_visible(message):
     return False
 
 
-def read_session_file(home, cwd, identity, filename, limit):
-    """Descriptor-relative, bounded regular-file reads; no mutable path authority."""
+@contextmanager
+def _open_session_file(home, cwd, identity, filename):
+    """Open only a regular native file through no-follow directory descriptors."""
     import re
     import stat
 
     if not isinstance(identity, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", identity):
         raise ValueError("Invalid CLI session identity")
+    if Path(filename).name != filename:
+        raise ValueError("Expected a native session filename")
     root = session_directory(home, cwd)
     # Open each descendant relative to its already-open parent, closing the
     # symlink-swap gap between path validation and the final directory open.
@@ -380,25 +392,232 @@ def read_session_file(home, cwd, identity, filename, limit):
         child = os.open(identity, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
         fd = os.open(filename, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=child)
         with os.fdopen(fd, "rb") as stream:
-            before = os.fstat(stream.fileno())
-            if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
-                raise ValueError("CLI source exceeds import bound or is not a regular file")
-            raw = stream.read(limit + 1)
-            after = os.fstat(stream.fileno())
-            if len(raw) > limit or (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
-                after.st_size,
-                after.st_mtime_ns,
-                after.st_ctime_ns,
-            ):
-                raise ValueError("CLI source changed during capture; try again after work finishes")
-            return raw
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                raise ValueError("CLI source is not a regular file")
+            yield stream
     finally:
         if child is not None:
             os.close(child)
         os.close(directory)
 
 
-def historical_usage(home, cwd, identity, *, byte_limit=64 * 1024 * 1024, file_limit=128):
+def read_session_file(home, cwd, identity, filename, limit):
+    """Descriptor-relative, bounded regular-file reads; no mutable path authority."""
+    with _open_session_file(home, cwd, identity, filename) as stream:
+        before = os.fstat(stream.fileno())
+        if before.st_size > limit:
+            raise ValueError("CLI source exceeds import bound or is not a regular file")
+        raw = stream.read(limit + 1)
+        after = os.fstat(stream.fileno())
+        if len(raw) > limit or (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
+            raise ValueError("CLI source changed during capture; try again after work finishes")
+        return raw
+
+
+class _NativeHistoryPath:
+    """Read-only Path facade; Foundation owns parsing and backup semantics.
+
+    Foundation currently accepts Paths, not an opened-stream factory. Constrain
+    its read-only path operations here so adoption does not weaken no-follow and
+    byte-limit policy. Never use this facade with the Foundation write methods.
+    """
+
+    def __init__(self, home, cwd, identity, filename):
+        self.home, self.cwd, self.identity, self.name = home, cwd, identity, filename
+
+    def with_suffix(self, suffix):
+        return type(self)(
+            self.home, self.cwd, self.identity, str(Path(self.name).with_suffix(suffix))
+        )
+
+    @property
+    def suffix(self):
+        return Path(self.name).suffix
+
+    def stat(self):
+        with _open_session_file(self.home, self.cwd, self.identity, self.name) as stream:
+            return os.fstat(stream.fileno())
+
+    def read_bytes(self):
+        limit = 8 * 1024 * 1024 if self.name.startswith("transcript.") else 65536
+        return read_session_file(self.home, self.cwd, self.identity, self.name, limit)
+
+    def open(self, mode):
+        import io
+
+        if mode != "rb":
+            raise ValueError("Native history adapter is read-only")
+        return io.BytesIO(self.read_bytes())
+
+
+def native_history(home, cwd, identity, *, metadata_only=False):
+    """Shared native parser/recovery with bounded, no-follow host read policy.
+
+    No runtime, CLI bootstrap, event log or provider is loaded for discovery.
+    Unknown JSON fields survive. Recovery is read-only; callers surface the
+    returned history diagnostics and retry changed reads under shared ownership.
+    """
+    from amplifier_foundation.session import SessionHistoryStore
+
+    store = SessionHistoryStore(session_directory(home, cwd) / identity, session_id=identity)
+    store.transcript_path = _NativeHistoryPath(home, cwd, identity, "transcript.jsonl")
+    store.metadata_path = _NativeHistoryPath(home, cwd, identity, "metadata.json")
+    return store.load_metadata() if metadata_only else store.load(include_events=False)
+
+
+def session_events_path(session_dir):
+    """Pure mirror of pinned CLI cost-history policy; discovery cannot bootstrap CLI.
+
+    An explicit CI relocation is a projects root. Select exactly one capture:
+    existing CI first, then the old CLI logger only when CI is absent. Invalid
+    or unreadable CI must not be silently replaced by a different observer.
+    """
+    from amplifier_foundation.session import SessionHistoryStore
+
+    session_dir = Path(session_dir)
+    raw = os.environ.get("AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH", "").strip()
+    root = Path(raw).expanduser() if raw and "${" not in raw else None
+    capture = session_dir
+    if root is not None and root.is_absolute():
+        capture = root / session_dir.parent.parent.name / "sessions" / session_dir.name
+    path = SessionHistoryStore(capture).events_path
+    # lexists also keeps a broken CI symlink from authorizing another capture.
+    return path if os.path.lexists(path) else session_dir / "events.jsonl"
+
+
+class _OpenedEventSource:
+    """Read-only bridge to Foundation's Path.open seam using an owned descriptor.
+
+    Foundation owns decoding/normalization. Its current public reader accepts a
+    Path, not an opened stream; substituting only that open seam preserves our
+    descriptor-relative no-follow policy without a parser fork or disk copy.
+    Retire this adapter when the shared API accepts host-owned input streams.
+    """
+
+    def __init__(self, descriptor):
+        import stat
+
+        self.descriptor = descriptor
+        self.before = os.fstat(descriptor)
+        if not stat.S_ISREG(self.before.st_mode):
+            raise ValueError("Activity source is not a regular file")
+        self.bytes_read = self.lines_read = 0
+        self.stream = None
+
+    def open(self, mode):
+        if mode != "rb" or self.stream is not None:
+            raise ValueError("Activity source is read-only and single-use")
+        self.stream = os.fdopen(os.dup(self.descriptor), mode)
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.stream.close()
+
+    def readline(self, size=-1):
+        # Bound an individual provider payload as well as the aggregate scan.
+        bound = 4 * 1024 * 1024 + 1
+        raw = self.stream.readline(min(size, bound) if size >= 0 else bound)
+        self.bytes_read += len(raw)
+        self.lines_read += bool(raw)
+        if len(raw) >= bound:
+            raise OSError("Activity row exceeds capture bound")
+        return raw
+
+    def peek(self, size):
+        return self.stream.peek(size)
+
+    @property
+    def changed(self):
+        after = os.fstat(self.descriptor)
+        return (self.before.st_size, self.before.st_mtime_ns, self.before.st_ctime_ns) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        )
+
+
+def _session_event_reader(home, cwd, identity):
+    """Open the selected capture without following any descendant symlinks."""
+    import re
+    from contextlib import contextmanager
+
+    from amplifier_foundation.session import SessionHistoryStore
+
+    @contextmanager
+    def reader():
+        if not isinstance(identity, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", identity):
+            raise ValueError("Invalid CLI session identity")
+        session_dir = session_directory(home, cwd) / identity
+        path = session_events_path(session_dir)
+        # The selected path is either native under home or exactly CI's resolved
+        # projects root/project/sessions/identity/context-intelligence/events.
+        anchor = Path(home)
+        try:
+            relative = path.relative_to(anchor)
+        except ValueError:
+            anchor = path.parents[4]
+            relative = path.relative_to(anchor)
+        directory = os.open(anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        descriptor = None
+        try:
+            for part in relative.parts[:-1]:
+                child = os.open(
+                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory
+                )
+                os.close(directory)
+                directory = child
+            descriptor = os.open(
+                relative.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory
+            )
+            source = _OpenedEventSource(descriptor)
+            history = SessionHistoryStore(session_dir, session_id=identity)
+            history.events_path = source
+            yield history, source
+        finally:
+            if descriptor is not None:
+                os.close(descriptor)
+            os.close(directory)
+
+    return reader()
+
+
+def read_session_activity(
+    home, cwd, identity, messages, *, byte_limit=16 * 1024 * 1024, line_limit=5000
+):
+    """Bounded in-memory observations and exact Foundation associations, no writes.
+
+    Missing or limited activity is not a canonical-history error. The returned
+    events never grant approval, complete a job or replace transcript messages.
+    """
+    from amplifier_foundation.session import associate_events
+
+    events, diagnostics, partial = [], [], False
+    try:
+        with _session_event_reader(home, cwd, identity) as (history, source):
+            events.extend(history.iter_events(max_bytes=byte_limit, max_lines=line_limit))
+            diagnostics = [diagnostic.code for diagnostic in history.diagnostics]
+            partial = bool(diagnostics) or source.changed
+            partial |= bool(source.lines_read and not events)
+    except (OSError, ValueError, RecursionError):
+        partial = True
+    return {
+        "events": events,
+        "associations": associate_events(messages, events),
+        "partial": partial,
+        "diagnostics": diagnostics,
+    }
+
+
+def historical_usage(
+    home, cwd, identity, *, byte_limit=64 * 1024 * 1024, file_limit=128, line_limit=100000
+):
     """Read canonical logging receipts, never transcript prose or estimated prices.
 
     Descendants require recorded parent metadata or fork events, not ID prefixes.
@@ -435,6 +654,64 @@ def historical_usage(home, cwd, identity, *, byte_limit=64 * 1024 * 1024, file_l
     owners = [identity, *sorted(descendants - {identity})]
     partial |= len(owners) > file_limit
     records = {}
+
+    def add_record(rec, owner):
+        nonlocal partial
+        if rec.get("event") == "session:fork":
+            data = rec.get("data", {})
+            child = data.get("child_session_id") if isinstance(data, dict) else None
+            if (
+                not isinstance(data, dict)
+                or rec.get("session_id") != owner
+                or data.get("parent_session_id") != owner
+                or not isinstance(child, str)
+                or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", child)
+                or parents.get(child, owner) != owner
+            ):
+                raise ValueError("Unattributed fork")
+            if child not in descendants:
+                if len(owners) >= file_limit:
+                    partial = True
+                    return
+                descendants.add(child)
+                owners.append(child)
+            return
+        if rec.get("event") != "llm:response":
+            return
+        data = rec.get("data", {})
+        if not isinstance(data, dict) or rec.get("session_id") != owner:
+            raise ValueError("Unattributed response")
+        if any(
+            rec.get(key) is not None and data.get(key) is not None and rec[key] != data[key]
+            for key in ("request_id", "span_id", "timestamp")
+        ):
+            raise ValueError("Conflicting response identity")
+        observed = {
+            **data,
+            **{k: rec[k] for k in ("session_id", "request_id", "span_id") if k in rec},
+            "timestamp": rec.get("timestamp"),
+        }
+        key = usage_receipt_id(observed)
+        if key is None:
+            # A physical row remains evidence, but cannot be joined with another
+            # observer. Equal token counts or nearby observer clocks are not IDs.
+            key = f"log:{owner}:{rec['line'] - 1}"
+            partial = True
+        values = usage_values(data.get("usage"))
+        row = {
+            "usage_receipt_id": key,
+            "usage_session_id": owner,
+            "usage_call": {k: str(v) if k == "cost_usd" else v for k, v in values.items()},
+            "provider": {k: data[k] for k in ("provider", "model") if isinstance(data.get(k), str)},
+            "timestamp": rec.get("timestamp"),
+            "duration_ms": rec.get("duration_ms", data.get("duration_ms")),
+            "purpose": data.get("purpose") if isinstance(data.get("purpose"), str) else None,
+        }
+        if key in records and records[key] != row:
+            partial = True  # Conflicting observations are never summed.
+        else:
+            records[key] = row
+
     for position, owner in enumerate(owners):
         if position >= file_limit:
             partial = True
@@ -446,78 +723,29 @@ def historical_usage(home, cwd, identity, *, byte_limit=64 * 1024 * 1024, file_l
                     continue
                 descendants.add(child)
                 owners.append(child)
+        if byte_limit <= 0 or line_limit <= 0:
+            return list(records.values()), True
         try:
-            raw = read_session_file(home, cwd, owner, "events.jsonl", byte_limit)
-            byte_limit -= len(raw)
-        except (OSError, ValueError):
-            partial = True
-            continue
-        for index, line in enumerate(raw.splitlines()):
-            if not line.strip():
-                continue
-            try:
-                if len(line) > 4 * 1024 * 1024:
-                    raise ValueError("Oversized event")
-                rec = json.loads(line)
-                if not isinstance(rec, dict):
-                    raise ValueError("Invalid event")
-                if rec.get("event") == "session:fork":
-                    data = rec.get("data", {})
-                    child = data.get("child_session_id") if isinstance(data, dict) else None
-                    if (
-                        not isinstance(data, dict)
-                        or rec.get("session_id") != owner
-                        or data.get("parent_session_id") != owner
-                        or not isinstance(child, str)
-                        or not re.fullmatch(r"[A-Za-z0-9_-]{1,160}", child)
-                        or parents.get(child, owner) != owner
-                    ):
-                        raise ValueError("Unattributed fork")
-                    if child not in descendants:
-                        if len(owners) >= file_limit:
+            with _session_event_reader(home, cwd, owner) as (history, source):
+                seen = False
+                events = history.iter_events(max_bytes=byte_limit, max_lines=line_limit)
+                try:
+                    for rec in events:
+                        seen = True
+                        try:
+                            add_record(rec, owner)
+                        except (ValueError, TypeError, RecursionError):
                             partial = True
-                            continue
-                        descendants.add(child)
-                        owners.append(child)
-                    continue
-                if rec.get("event") != "llm:response":
-                    continue
-                data = rec.get("data", {})
-                if not isinstance(data, dict) or rec.get("session_id") != owner:
-                    raise ValueError("Unattributed response")
-                observed = {
-                    **data,
-                    **{k: rec[k] for k in ("session_id", "request_id", "span_id") if k in rec},
-                    "timestamp": rec.get("ts"),
-                }
-                key = usage_receipt_id(observed)
-                if key is None:
-                    # A physical record is still evidence, but cannot be joined
-                    # with another observer. Never dedup on equal token counts.
-                    key = f"log:{owner}:{index}"
-                    partial = True
-                values = usage_values(data.get("usage"))
-                row = {
-                    "usage_receipt_id": key,
-                    "usage_session_id": owner,
-                    "usage_call": {k: str(v) if k == "cost_usd" else v for k, v in values.items()},
-                    "provider": {
-                        k: data[k] for k in ("provider", "model") if isinstance(data.get(k), str)
-                    },
-                    "timestamp": rec.get("ts"),
-                    "duration_ms": rec.get("duration_ms"),
-                    "purpose": data.get("purpose")
-                    if isinstance(data.get("purpose"), str)
-                    else None,
-                }
-                if key in records and records[key] != row:
-                    partial = True  # Conflicting observations are never summed.
-                else:
-                    records[key] = row
-                if len(records) >= 10000:
-                    return list(records.values()), True
-            except (ValueError, TypeError, RecursionError):
-                partial = True
+                        if len(records) >= 10000:
+                            return list(records.values()), True
+                finally:
+                    events.close()
+                    byte_limit -= source.bytes_read
+                    line_limit -= source.lines_read
+                partial |= bool(history.diagnostics) or source.changed
+                partial |= bool(source.lines_read and not seen)
+        except (OSError, ValueError, RecursionError):
+            partial = True
     return list(records.values()), partial
 
 

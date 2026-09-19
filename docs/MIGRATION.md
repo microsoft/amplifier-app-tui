@@ -19,9 +19,11 @@ canonical context but do not appear as user messages or input recall.
 
 This is the first bidirectional session slice, **not complete feature parity**:
 
-- Close one client before opening the other. Current CLI writers do not share a
-  lifetime lease. TUI locking and detected-stale-write refusal cannot guarantee
-  simultaneous cross-client editing or prevent an old CLI overwriting newer data.
+- Close one client before opening the other. Foundation's common ownership lock
+  refuses a second cooperating writer, including while the first client is idle.
+  All clients must use the same `AMPLIFIER_SESSION_STATE_HOME` (or Foundation's
+  platform default), working directory and session ID. Older clients can ignore
+  this mechanism; it does not support simultaneous editing or fence remote jobs.
 - TUI-only pending input, pins, modes, goals and child receipts are retained, but
   are not yet a shared CLI control format. Changed/incompatible controls can refuse
   native resume; do not edit their checkpoint by hand.
@@ -29,9 +31,14 @@ This is the first bidirectional session slice, **not complete feature parity**:
   with TUI observations. Earlier usage contributes to Session, not the next Turn;
   inspect its receipts in Activity. Missing logs, uncorrelated observations and
   import limits disclose partial accounting rather than an invented complete total.
+  The shared reader prefers context-intelligence capture, honors its configured base
+  path and falls back to the root log only when CI is absent. Shared Activity reads
+  bounded historical snapshots on demand, without replay or changing source logs.
 - Unknown outcomes, incomplete tool pairing and uncertain checkpoints refuse native
   execution. Export for inspection; no prior call is automatically replayed.
-- Canonical loading currently accepts at most 10,000 messages / 8 MiB. Arbitrary
+- Foundation reads valid primary or backup history; corruption never becomes an
+  empty conversation. Canonical loading accepts at most 10,000 messages / 8 MiB,
+  with metadata bounded to 64 KiB. Arbitrary
   module-private state and cross-client persistent-context combinations still need
   individual verification. A successful context readback is required before Send.
 

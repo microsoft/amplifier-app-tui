@@ -149,6 +149,7 @@ class WorkspaceBridge(RuntimeBridge):
         self.history_loading = True
         self.history_state = None
         self.activity_pages = OrderedDict()
+        self.shared_activity_snapshot = None
         self.transport_emit = self.emit
         self.emit = self.publish
 
@@ -317,6 +318,9 @@ class WorkspaceBridge(RuntimeBridge):
             offset = request.get("offset", 0)
             if type(offset) is not int or not 0 <= offset <= 10000:
                 return False, "Invalid activity page"
+            child = request.get("child")
+            if child is not None and (not isinstance(child, str) or len(child) > 512):
+                return False, "Invalid activity identity"
             if self.lookup_task and not self.lookup_task.done():
                 return False, "A lookup is still running"
             self.lookup_task = asyncio.create_task(self.inspect_activity(request))
@@ -669,6 +673,68 @@ class WorkspaceBridge(RuntimeBridge):
         host = self.host
         path = host.store.path / "events.jsonl"
         cache_key = (str(path), request.get("child"), request.get("offset", 0))
+        shared = getattr(host.store, "shared_session", False)
+        node = request.get("child")
+        if (
+            shared
+            and isinstance(node, str)
+            and (node == "shared:history" or node.startswith("shared:history:"))
+        ):
+            from .cli_compat import read_session_activity
+
+            try:
+                key = (host.session_id, host.store.canonical_digest)
+                if self.shared_activity_snapshot is None or self.shared_activity_snapshot[0] != key:
+                    spec = host.store.canonical_launch
+                    messages = list(host.store.canonical_messages)
+                    activity = await asyncio.to_thread(
+                        read_session_activity,
+                        spec["cli_home"],
+                        spec["cwd"],
+                        host.session_id,
+                        messages,
+                    )
+                    self.shared_activity_snapshot = key, activity, messages
+                _, activity, messages = self.shared_activity_snapshot
+                value = await asyncio.to_thread(
+                    host.inspection.shared_activity_view,
+                    activity,
+                    messages,
+                    node,
+                    request.get("offset", 0),
+                )
+            except (
+                OSError,
+                ValueError,
+                TypeError,
+                KeyError,
+                IndexError,
+                OverflowError,
+                RecursionError,
+            ):
+                self.shared_activity_snapshot = None
+                value = host.inspection.shared_activity_view(
+                    {"events": [], "associations": [], "partial": True}, [], node
+                )
+                value["scope"] += (
+                    " Optional activity could not be projected; return to Activity or reopen to retry."
+                )
+            if host is self.host:
+                self.emit(
+                    {
+                        "type": "inspection",
+                        "session_id": host.session_id,
+                        "request_id": request.get("request_id"),
+                        "category": "activity_tree",
+                        "child": node,
+                        **value,
+                    }
+                )
+            return
+        if node is None:
+            # Returning to the ordinary Activity root permits a fresh explicit
+            # open. Paging/back navigation within a shared snapshot never polls.
+            self.shared_activity_snapshot = None
         try:
             version = await asyncio.to_thread(host.inspection.journal_version, path)
             cached = self.activity_pages.get(cache_key)
@@ -694,6 +760,22 @@ class WorkspaceBridge(RuntimeBridge):
                 partial=True,
                 scope="Saved activity unavailable; showing bounded memory index. Export remains separate.",
             )
+        if shared and node is None and request.get("offset", 0) == 0:
+            entry = host.inspection.shared_activity_entry()
+            retained, budget = [], 1024 * 1024 - 4096 - len(json.dumps(entry).encode())
+            for row in value["rows"][:99]:
+                size = len(json.dumps(row, ensure_ascii=False).encode())
+                if size > budget:
+                    break
+                retained.append(row)
+                budget -= size
+            value = {
+                **value,
+                "rows": [entry, *retained],
+                "next_offset": len(retained)
+                if len(value["rows"]) > len(retained)
+                else value.get("next_offset"),
+            }
         if host is self.host:
             self.emit(
                 {
@@ -890,6 +972,7 @@ class WorkspaceBridge(RuntimeBridge):
             self.host = candidate
             self.host.delivery_failed = self.failure
             self.activity_pages.clear()
+            self.shared_activity_snapshot = None
             self.bind_host_observations()
             self.followups = next_followups
             committed = True

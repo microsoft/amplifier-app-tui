@@ -136,6 +136,9 @@ async def test_cli_tui_cli_tui_same_identity_context_and_no_replay(shared, prepa
         {"role": "assistant", "content": "CLI continuation result"},
     ]
     cli.save(identity, canonical, {**metadata, "name": "CLI renamed"})
+    # The CLI applies its own native sanitizer; read the actual saved source,
+    # rather than assuming it retains every JSON field (for example nulls).
+    canonical, _ = cli.load(identity)
     second = SharedConversationStore(tmp_path, launch, identity)
     resumed = SessionHost(second)
     try:
@@ -315,6 +318,9 @@ def test_shared_symlink_and_corrupt_metadata_do_not_overwrite_sources(shared, tm
         assert (cli.base_dir / identity / "transcript.jsonl").read_bytes() == before
     finally:
         store.close()
+    # Foundation correctly refuses to overwrite corruption without a backup.
+    # Restore the synthetic metadata explicitly before the independent link test.
+    metadata.write_text(json.dumps({"working_dir": launch["cwd"]}))
     cli.save(identity, messages, {"working_dir": launch["cwd"]})
     (store.path / "draft.json").unlink()
     external = tmp_path / "untouched"

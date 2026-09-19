@@ -15,6 +15,16 @@ pub struct Insights {
     pub activity_offset: usize,
 }
 
+impl Insights {
+    fn received_activity(&mut self, value: &Value) {
+        if value["snapshot"] == true {
+            // Saved CI inspection is explicitly opened, never a live log poll.
+            // Reopening Activity still uses inspect(), which starts a new request.
+            self.watching = None;
+        }
+    }
+}
+
 pub fn thumbnail_lines(value: &Value, width: usize) -> Vec<Line<'static>> {
     let w = value["width"].as_u64().unwrap_or(0) as usize;
     let h = value["height"].as_u64().unwrap_or(0) as usize;
@@ -466,6 +476,7 @@ impl App {
     }
 
     pub fn activity_result(&mut self, value: Value) {
+        self.insights.received_activity(&value);
         let prior = self.ui.menu.as_ref().map(|m| {
             (
                 m.query.clone(),
@@ -838,6 +849,27 @@ pub fn attachment_location(value: &Value) -> String {
 #[cfg(test)]
 mod thumbnail_tests {
     use super::*;
+    #[test]
+    fn saved_activity_snapshot_stops_polling_but_live_activity_keeps_it() {
+        let mut insights = Insights {
+            watching: Some((
+                "activity_tree".into(),
+                Some("shared:history".into()),
+                Instant::now(),
+            )),
+            ..Default::default()
+        };
+        insights.received_activity(&json!({"snapshot": false}));
+        assert!(insights.watching.is_some());
+        insights.received_activity(&json!({"snapshot": true}));
+        assert!(insights.watching.is_none());
+        // An explicit reopen installs a new watch until its response identifies
+        // itself as a snapshot; ordinary live Activity continues refreshing.
+        insights.watching = Some(("activity_tree".into(), None, Instant::now()));
+        insights.received_activity(&json!({"rows": []}));
+        assert!(insights.watching.is_some());
+    }
+
     #[test]
     fn reference_location_disambiguates_same_file_ranges() {
         let first =
