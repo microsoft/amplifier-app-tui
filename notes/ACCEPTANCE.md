@@ -2,7 +2,7 @@
 
 ## Canonical sessions
 
-All live TUI launches use the CLI project/session format under the selected Amplifier
+All live TUI launches use Foundation's native history API and the CLI project/session format under the selected Amplifier
 home. Ordinary launch shares CLI configuration; explicit isolated policy uses its
 own home without creating a different live-session format. TUI drafts, observations
 and controls remain namespaced sidecars. Deterministic fixture journals are private
@@ -14,6 +14,18 @@ new ordinary TUI → CLI, plus explicit isolated-composition TUI start/resume us
 same canonical format. Laptop 175×50, narrow 40×20 and custom-composition 80×30 paths
 use real app/core/modules and deterministic provider/tool fixtures. Resume performs
 no implicit provider/tool call; original transcript bytes and terminal modes survive.
+The current probe also proves actual CLI continuation refuses an idle TUI owner
+without changing canonical transcript/metadata/log bytes, then succeeds after close.
+TUI startup under a competing shared owner visibly refuses and retains editable text.
+Common ownership spans native loading through runtime/child cleanup; crash/stale-handle
+and complete-backup recovery tests use real Foundation and isolated subprocesses.
+Backup recovery is visibly disclosed; repeated snapshots never rewrite source files.
+
+The real Unified storage adapter at `54f3337` passes same-ID TUI → Unified → CLI-read
+→ TUI round trips and mutual ownership contention. Unknown metadata and JSON provider
+continuation fields survive that path. This does not execute Unified's web/worker
+runtime or prove every later CLI save policy: the pinned CLI still applies its own
+message sanitizer. The TUI preserves JSON fields and excludes system/developer messages.
 
 Run `scripts/shared_session_probe.py` as documented in [SMOKE_TESTS](../SMOKE_TESTS.md).
 Raw captures/logs/settings stay private. This is actual-entrypoint verification,
@@ -28,19 +40,18 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The default Python suite passes **664 tests, 327 opt-in skips** (139.84s), recorded
-privately in `.evidence/viewport-default.xml`. Rust renderer/native tests pass
-**72 tests**, with release build and strict Clippy clean. Ruff lint/format and
-direction checks pass. The expanded structured-reading, thinking/activity, flow,
-compact geometry, tmux and capture-observer gate passes **56 tests** (67.99s),
-recorded in `.evidence/viewport-native.xml`.
-It includes exact source copy and retained drafts at 40/80/175 columns, with heading
-attributes verified directly from terminal cells in both colour and NO_COLOR modes.
-Shared store/usage/bridge checks pass **58 tests**.
+The default Python suite passes **718 tests, 327 opt-in skips** (142.53s), recorded
+privately in `.evidence/shared-foundation-default.xml`. Rust renderer/native tests pass
+**73 tests**, with release build and strict Clippy clean. Ruff lint/format and
+direction checks pass. The shared history/ownership/activity, CLI compatibility and
+independent loop/context gates pass **138 tests** (37.69s), with opt-ins enabled and
+no skips, in `.evidence/shared-foundation-integration.xml`.
+Native Activity/navigation/flow/tmux regressions pass **29 tests** (51.28s), recorded
+in `.evidence/shared-foundation-native.xml`. The actual-entrypoint shared-session
+probe additionally passes busy-owner/draft and shared Activity inspection at 175×50;
+round trips cover 40×20 as well. Reference-font captures were inspected privately.
 The actual-entrypoint round-trip probe also checks the visible reconciled On resume
 total at laptop and narrow widths, without executing user history.
-The CLI owner tests passed **2353 tests**, with one skip and one expected failure;
-its merged resume-list fix has synthetic store and actual Click coverage.
 Responsiveness evidence lives in [PERFORMANCE](PERFORMANCE.md); these reading
 checks do not establish provider or CLI latency parity.
 [SMOKE_TESTS](../SMOKE_TESTS.md) owns additional opt-in preset, terminal, service,
@@ -96,26 +107,40 @@ Missing, conflicting, oversized and uncorrelated sources produce partial account
 The actual CLI/TUI round-trip probe mounts hooks-logging, reconciles exact synthetic
 reported costs and uses a mixed Markdown answer without paid model calls.
 
+Foundation now owns CI normalization and exact message/tool/prompt associations.
+The host honors CI relocation and uses the root logger only when CI is absent;
+dual captures are not summed. Activity → Shared session history reads a bounded
+in-memory snapshot, grouping exact turns, utility calls and unassociated observations.
+Reopening refreshes; snapshots do not poll, mutate logs or enter the accounting ledger.
+Malformed/oversized optional records produce partial views, including hostile duration,
+Unicode and label cases. Existing TUI observation/accounting/admission sidecars remain;
+this is not a claim that all intent or recovery state can be reconstructed from CI.
+
 CLI discovery requires a saved transcript, retaining log-only diagnostics on disk.
 Resume lists label their nonblank transcript-line counts as messages, not user turns.
-The app pins CLI main merge `5d1068dd83d9c6837558c6aa859329fba23bcd50`.
-[CLI PR346](https://github.com/microsoft/amplifier-app-cli/pull/346) is merged after
-all eight Linux/macOS/Windows unit/integration CI jobs and CLA passed for its tested head.
+The app pins CLI `120f7e54d5ddd6e493dc5815f300e04f5e2666da` and Foundation
+`b3bdab2adcc2a8fe477aca64c20b77528a95e1df`. The independent global CLI installation
+is not automatically upgraded by this source change.
 
 ## Remaining boundaries
 
-- Close one client before opening the same session in the other. The current CLI
-  does not honor a lifetime writer lease; TUI stale-write refusal is not atomic
-  cross-client exclusion.
+- Close one client before opening the same session in the other. Cooperating clients
+  must share Foundation's owner-state root; the local POSIX lock does not fence older
+  nonparticipants, other hosts or remote effects. Native saves remain per-file atomic,
+  not a transcript/metadata transaction or a generic cross-thread save/release guarantee.
 - Interrupted shared sessions fail closed. Recovery must retain originals and
   unknown effects; the canonical recovery workflow is not yet implemented.
 - Native pins/modes/goals/held input/child controls are not a common CLI private-state
-  format. Unsupported state must refuse rather than silently disappear.
+  format. [Foundation PR397](https://github.com/microsoft/amplifier-foundation/pull/397)
+  proposes DRAFT controls, intent and recovery contracts; no runtime implementation
+  or ratification is claimed. Preserve-but-ignore clients are not conforming receivers.
 - Historical accounting is bounded to 512 directory metadata candidates, 128 event
   logs / 64 MiB and 10,000 receipts. Gaps are disclosed; unavailable costs are never
   estimated from transcript tokens or model prices.
-- Canonical loading is bounded to 10,000 messages / 8 MiB. Broader module-private
-  state and actual-entrypoint persistent-context combinations need separate checks.
+- Canonical loading is bounded to 10,000 messages / 8 MiB and metadata to 64 KiB.
+  Larger Unified effective-configuration metadata can exceed this bound; no universal
+  metadata or private-state compatibility is claimed. Full web runtime and broader
+  actual-entrypoint persistent-context combinations need separate checks.
 - Real provider authorization, personal service destinations and physical devices
   are not certified by fixtures. Policy differences prevent a default CLI latency
   parity claim.

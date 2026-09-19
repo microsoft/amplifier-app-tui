@@ -10,7 +10,7 @@ CLI helpers are pinned application policy, not a kernel API.
 
 ## Canonical conversation storage
 
-Every live session uses CLI SessionStore transcript/metadata semantics under the
+Every live session uses Foundation SessionHistoryStore transcript/metadata semantics under the
 selected Amplifier home's project/session directory. Normal launch reads the CLI's
 global/project/local/session settings. Explicit isolated policy chooses its own home
 but uses the same session format. Directory-local discovery never falls back to a
@@ -20,7 +20,9 @@ The `.tui` sidecar owns observation history, drafts, held input and native contr
 Its checkpoint stores a canonical digest and admission state, not another authoritative
 message history. If CLI history advances while TUI is closed, validate the completed
 journal, retain its observations and rebuild the display from canonical messages.
-Preserve names and unknown canonical metadata. Never replay providers, tools,
+Preserve names, unknown canonical metadata and JSON provider continuation fields.
+Foundation validates native primary/backup files; invalid history never becomes empty.
+Never replay providers, tools,
 approvals or held work while reconstructing history.
 
 Canonical messages have both core `tool/arguments` and provider `function` tool-call
@@ -37,18 +39,24 @@ private context when public history already agrees. Unsupported readback refuses
 
 ## Ownership and uncertainty
 
-TUI holds an exclusive sidecar lock and checks the canonical digest before admission
-and save. The current CLI does not honor that lifetime lock. Sequential switching is
-supported; concurrent editing is not. A digest check is not a cross-process
-transaction or a guarantee against a noncooperating writer racing after the check.
+TUI acquires Foundation SharedSessionStore ownership before loading a writable
+session and retains the original HeldSession through runtime/child cleanup. Cooperating
+CLI and web hosts use the same canonical working-directory/session key and state
+root (`AMPLIFIER_SESSION_STATE_HOME`, otherwise Foundation's platform default).
+Never derive a different lock root from the client's Amplifier home. Busy ownership
+refuses execution; a stale callback cannot borrow a later acquisition. Native writes
+and release stay synchronous on the host event loop; check() alone is not a generic
+thread-safe save transaction. Do not call HeldSession.write(): native files own history.
+The sidecar lock/digest remain additional admission defenses, not another shared lease.
+Older/noncooperating writers and remote effects are not fenced by this local POSIX lock.
 
-Before the CLI's two-file save, mark the sidecar uncertain. Ready follows successful
+Before Foundation's two-file save, mark the sidecar uncertain. Ready follows successful
 canonical validation and durable observation checkpointing. Incomplete pairing,
 corrupt metadata, uncertain journals and stale writes refuse continuation. Shared
 crash recovery is not implemented; retain the original and export for inspection.
 No prior effect becomes undone merely because a session stopped.
 
-Archive/restore changes only TUI visibility metadata under its lock, never the CLI
+Archive/restore changes only TUI visibility metadata under shared ownership, never the CLI
 transcript or CLI deletion policy. Imported historical reference and adopted public
 context are explicit new-identity operations, not substitutes for ordinary Resume.
 
@@ -67,7 +75,9 @@ state cannot imply safe continuation. Display retention is not an execution quot
 Queue, steering and task replacement are different admissions. Stop holds the queue.
 A correction accepted by the UI is not evidence that a module consumed it. Provider,
 mode, goal and component controls retain their actual capability and enforcement
-scope; native control sidecars are not yet a common CLI control format.
+scope; native control sidecars are not yet a common CLI control format. The proposed
+Foundation controls/intent/recovery contracts are not implemented or ratified. Mere
+preservation of unknown metadata does not make another client enforce its meaning.
 
 ## Presentation and accounting
 
@@ -90,8 +100,14 @@ Call usage uses observed identity, reported values and parent attribution; no
 estimates of in-flight generation. Resume reads bounded canonical event logs and
 explicit descendant ownership, reconciling native observations by kernel receipt
 identity, never equal amounts or nearby timestamps. Historical totals seed Session,
-not Turn; detailed receipts live in the Activity sidecar. Canonical source bytes are
-read-only. Missing, conflicting, bounded or uncorrelated evidence stays partial.
+not Turn. Foundation normalizes optional CI capture (including configured relocation);
+the root events log is a fallback only when CI is absent, never a second summed source.
+The host owns bounded descriptor-relative no-follow opens; a narrow read-only Path
+adapter supplies its opened stream to the shared reader until that API accepts streams.
+On-demand shared Activity is an in-memory snapshot, not a live file-polling mechanism.
+Existing TUI observation/accounting and admission records remain sidecars; their full
+retirement is not claimed. Canonical source bytes are read-only. Missing, conflicting,
+bounded or uncorrelated evidence stays partial.
 Full private-control interchange remains in [PLAN](PLAN.md).
 
 ## Verification and publication

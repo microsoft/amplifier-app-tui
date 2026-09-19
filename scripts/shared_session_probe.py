@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 from decimal import Decimal
+from importlib.metadata import requires
 from pathlib import Path
 
 from interaction_probe import action, capture
@@ -42,6 +43,8 @@ Reading check complete.
 
 
 def run(cli=None):
+    from amplifier_foundation.session import SharedSessionStore
+
     from amplifier_tui.cli_compat import session_directory
 
     base = ROOT / ".state/shared-session-probes"
@@ -74,6 +77,11 @@ def run(cli=None):
         )
     )
     if cli is None:
+        cli_requirement = next(
+            requirement
+            for requirement in requires("amplifier-app-tui") or ()
+            if requirement.startswith("amplifier-app-cli @")
+        )
         environment = state / "cli-env"
         subprocess.run(["uv", "venv", str(environment)], check=True, capture_output=True)
         subprocess.run(
@@ -83,7 +91,7 @@ def run(cli=None):
                 "install",
                 "--python",
                 str(environment / "bin/python"),
-                str(workspace / "amplifier-app-cli"),
+                cli_requirement,
                 str(fixture / "provider-fixture"),
                 str(fixture / "tool-fixture"),
             ],
@@ -131,6 +139,7 @@ def run(cli=None):
     }
     env.update(
         AMPLIFIER_HOME=str(home),
+        AMPLIFIER_SESSION_STATE_HOME=str(state / "owners"),
         PYTHONDONTWRITEBYTECODE="1",
         TERM="xterm-256color",
         COLORTERM="truecolor",
@@ -138,7 +147,7 @@ def run(cli=None):
     env.pop("NO_COLOR", None)
     env["AMPLIFIER_TUI_THEME"] = "dark"
 
-    def command(arguments, name):
+    def command(arguments, name, *, busy=False):
         result = subprocess.run(
             [str(cli), *arguments], cwd=cwd, env=env, capture_output=True, timeout=180
         )
@@ -147,7 +156,14 @@ def run(cli=None):
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "wb") as stream:
             stream.write((result.stdout + result.stderr)[-1024 * 1024 :])
-        assert result.returncode == 0, f"{name} failed; inspect private probe log"
+        if busy:
+            assert result.returncode != 0, "Concurrent CLI writer was admitted"
+            output = (result.stdout + result.stderr).decode(errors="replace").lower()
+            assert "busy" in output or "already owned" in output, (
+                f"{name} did not report ownership refusal; inspect private probe log"
+            )
+        else:
+            assert result.returncode == 0, f"{name} failed; inspect private probe log"
 
     command(
         ["run", "--bundle", bundle.as_uri(), "CLI first shared marker"],
@@ -179,6 +195,20 @@ def run(cli=None):
         "--resume",
         identity,
     ]
+    held = SharedSessionStore(cwd, identity, root=state / "owners").acquire(app="fixture-owner")
+    before_busy = (session / "transcript.jsonl").read_bytes()
+    p = Probe(launch, cwd=cwd, env=env, cols=175, rows=50, guard_terminal_modes=True)
+    try:
+        p.wait("Startup failed", timeout=60)
+        p.wait("open in another Amplifier client")
+        p.send(b"Keep this unsent while busy\r")
+        p.wait("Keep this unsent while busy")
+        p.wait("Session not ready")
+        assert (session / "transcript.jsonl").read_bytes() == before_busy
+        capture(p, "shared-session-busy-draft-175")
+    finally:
+        p.close()
+        held.release()
     for index, size in enumerate(((175, 50), (40, 20))):
         before = transcript()
         p = Probe(
@@ -198,6 +228,15 @@ def run(cli=None):
             p.wait("Ready", timeout=120)
             assert len(transcript()) == len(before), "Resume executed or changed message count"
             if index == 0:
+                canonical_before = {
+                    name: (session / name).read_bytes()
+                    for name in ("transcript.jsonl", "metadata.json", "events.jsonl")
+                }
+                command(["continue", "Rejected concurrent marker"], "cli-busy", busy=True)
+                assert all(
+                    (session / name).read_bytes() == value
+                    for name, value in canonical_before.items()
+                ), "Refused CLI startup changed canonical history or executed work"
                 p.wait("CLI first shared marker")
                 p.wait("fixture_probe")
             else:
@@ -240,6 +279,17 @@ def run(cli=None):
                 p.wait("Input: 100")
                 p.wait("Cost: $0.025000")
                 capture(p, "shared-session-earlier-call-175")
+                p.send(b"\x1b")
+                p.wait("Actions / choices", absent=True)
+                action(p, "expand tools", "Activity ·")
+                p.send(b"Shared session history\r")
+                p.wait("Activity · Shared session history")
+                p.wait("Turn 1")
+                capture(p, "shared-session-activity-groups-175")
+                p.send(b"Turn 1\r")
+                p.wait("Shared session history / Turn 1")
+                p.wait("tool:post")
+                capture(p, "shared-session-activity-turn-175")
                 p.send(b"\x1b")
                 p.wait("Actions / choices", absent=True)
                 assert transcript() == before, "Inspecting historical usage executed work"
@@ -327,8 +377,11 @@ def run(cli=None):
         "new_tui_to_cli": True,
         "explicit_composition_uses_same_format": True,
         "no_implicit_resume_turn": True,
+        "actual_cli_refuses_live_tui_owner": True,
+        "busy_tui_keeps_draft_without_execution": True,
+        "shared_activity_snapshot_inspected": True,
         "terminal_sizes": [[175, 50], [40, 20]],
-        "scope": "Actual entrypoints and app behaviors; deterministic provider and tool; sequential clients only",
+        "scope": "Actual CLI/TUI entrypoints and ownership contention; deterministic provider and tool; no full web-client proof",
     }
 
 

@@ -37,6 +37,34 @@ def logs(cli, owner, records):
     return path
 
 
+def ci_logs(cli, owner, records, *, root=None):
+    """Use the actual CI envelope/layout, not the CLI logging envelope."""
+    directory = cli.base_dir / owner
+    if root is not None:
+        directory = root / cli.base_dir.parent.name / "sessions" / owner
+    path = directory / "context-intelligence" / "events.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(
+            json.dumps(
+                {
+                    "event": record["event"],
+                    "timestamp": record.get("ts"),
+                    "data": {
+                        **record["data"],
+                        "session_id": record["session_id"],
+                        "timestamp": record.get("ts"),
+                        "duration_ms": record.get("duration_ms"),
+                    },
+                }
+            )
+            + "\n"
+            for record in records
+        )
+    )
+    return path
+
+
 def ledger(store):
     return CallUsage(store.restored_events)
 
@@ -251,4 +279,260 @@ def test_conflicting_receipts_and_capture_bounds_disclose_partial_totals(shared)
     assert partial and len(rows) == 1
     assert rows[0]["usage_call"]["cost_usd"] == "0.25"
     rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity, byte_limit=16)
+    assert partial and not rows
+
+
+def test_ci_normalization_uses_one_capture_and_retains_kernel_receipt_identity(shared):
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    record = receipt(identity, 0, request_id="exact-request", span_id="exact-span")
+    root = logs(cli, identity, [record, receipt(identity, 1, "9")])
+    ci = ci_logs(cli, identity, [record, record])
+    before = {path: path.read_bytes() for path in (root, ci)}
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    assert not partial
+    assert len(rows) == 1
+    assert rows[0]["usage_call"]["cost_usd"] == "0.25"
+    assert rows[0]["usage_receipt_id"] == usage_receipt_id(
+        {**record["data"], "session_id": identity, "timestamp": record["ts"]}
+    )
+    assert rows[0]["duration_ms"] == 1200
+    assert all(path.read_bytes() == data for path, data in before.items())
+
+
+def test_relocated_ci_applies_to_explicit_descendants_and_utility_calls(
+    shared, tmp_path, monkeypatch
+):
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    child = "recorded-child"
+    cli.save(child, [], {"parent_id": identity})
+    relocated = tmp_path / "capture-root"
+    monkeypatch.setenv("AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH", str(relocated))
+    ci_logs(cli, identity, [receipt(identity, 0, "0.10", purpose="session-naming")], root=relocated)
+    ci_logs(cli, child, [receipt(child, 1, "0.20")], root=relocated)
+    ci_logs(cli, identity, [receipt(identity, 0, "99")])
+    logs(cli, identity, [receipt(identity, 0, "999")])
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    assert not partial
+    assert {row["usage_session_id"] for row in rows} == {identity, child}
+    assert sum(Decimal(row["usage_call"]["cost_usd"]) for row in rows) == Decimal("0.30")
+    assert rows[0]["purpose"] == "session-naming"
+
+
+@pytest.mark.parametrize("root", ["relative-capture", "${UNEXPANDED_CAPTURE_ROOT}", ""])
+def test_invalid_ci_relocation_matches_cli_path_policy(shared, monkeypatch, root):
+    from amplifier_app_cli.cost_history import session_events_path
+
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    monkeypatch.setenv("AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH", root)
+    path = ci_logs(cli, identity, [receipt(identity, 0)])
+    assert session_events_path(cli.base_dir / identity) == path
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    assert not partial and len(rows) == 1
+
+
+@pytest.mark.parametrize("damage", ["corrupt", "conflicting-owner", "symlink", "directory-symlink"])
+def test_bad_ci_never_silently_falls_back_to_another_capture(shared, tmp_path, damage):
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    path = ci_logs(cli, identity, [receipt(identity, 0)])
+    logs(cli, identity, [receipt(identity, 0, "99")])
+    if damage == "corrupt":
+        path.write_text('{"incomplete":')
+    elif damage == "conflicting-owner":
+        record = json.loads(path.read_text())
+        record["session_id"] = "another-owner"
+        path.write_text(json.dumps(record) + "\n")
+    else:
+        outside = tmp_path / "outside-capture"
+        outside.mkdir()
+        target = outside / "events.jsonl"
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        if damage == "symlink":
+            path.symlink_to(target)
+        else:
+            path.parent.rmdir()
+            path.parent.symlink_to(outside, target_is_directory=True)
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    assert partial and not rows
+
+
+def test_event_scan_is_bounded_by_physical_rows_including_filtered_and_bad_rows(shared):
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    path = ci_logs(cli, identity, [receipt(identity, 0)])
+    good = path.read_text()
+    foreign = json.loads(good)
+    foreign["data"]["session_id"] = "another-owner"
+    path.write_text("\nnot json\n" + json.dumps(foreign) + "\n" + good)
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity, line_limit=3)
+    assert partial and not rows
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity, line_limit=4)
+    assert partial and len(rows) == 1  # Malformed row remains a disclosed gap.
+
+
+def test_byte_budget_is_shared_across_descendant_logs_and_preserves_complete_prefix(shared):
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    child = "bounded-child"
+    cli.save(child, [], {"parent_id": identity})
+    root = ci_logs(cli, identity, [receipt(identity, 0)])
+    ci_logs(cli, child, [receipt(child, 1)])
+    rows, partial = historical_usage(
+        launch["cli_home"], launch["cwd"], identity, byte_limit=root.stat().st_size + 16
+    )
+    assert partial
+    assert [row["usage_session_id"] for row in rows] == [identity]
+
+
+def test_ci_symlink_swap_after_open_does_not_change_read_authority(shared, tmp_path, monkeypatch):
+    from amplifier_foundation.session import SessionHistoryStore
+
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    path = ci_logs(cli, identity, [receipt(identity, 0)])
+    outside = tmp_path / "outside-events.jsonl"
+    value = json.loads(path.read_text())
+    value["data"]["usage"]["cost_usd"] = "99"
+    outside.write_text(json.dumps(value) + "\n")
+    original = SessionHistoryStore.iter_events
+
+    def swap_before_read(self, **limits):
+        path.rename(path.with_name("retained-events.jsonl"))
+        path.symlink_to(outside)
+        yield from original(self, **limits)
+
+    monkeypatch.setattr(SessionHistoryStore, "iter_events", swap_before_read)
+    rows, _ = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    assert len(rows) == 1 and rows[0]["usage_call"]["cost_usd"] == "0.25"
+
+
+def test_ci_activity_uses_exact_shared_associations_without_reordering_messages(shared):
+    from amplifier_tui.cli_compat import read_session_activity
+
+    launch, cli, identity, _ = shared
+    messages = [
+        {"role": "user", "content": "Inspect two fixture files"},
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {"id": "first-call", "tool": "read_file", "arguments": {}},
+                {"id": "second-call", "tool": "read_file", "arguments": {}},
+            ],
+        },
+        {"role": "tool", "tool_call_id": "first-call", "content": "First result"},
+        {"role": "tool", "tool_call_id": "second-call", "content": "Second result"},
+    ]
+    before = json.dumps(messages)
+    records = [
+        {"event": "tool:post", "session_id": identity, "data": {"tool_call_id": "second-call"}},
+        {"event": "tool:post", "session_id": identity, "data": {"tool_call_id": "first-call"}},
+        receipt(identity, 0, purpose="session-naming"),
+    ]
+    path = ci_logs(cli, identity, records)
+    raw = path.read_bytes()
+    activity = read_session_activity(launch["cli_home"], launch["cwd"], identity, messages)
+    assert not activity["partial"]
+    assert [event["session_id"] for event in activity["events"]] == [identity] * 3
+    associations = activity["associations"]
+    assert [item.message_indices for item in associations] == [(3,), (2,), ()]
+    assert associations[0].method == "tool_call_id"
+    assert associations[0].turn_message_index == 0
+    assert associations[2].auxiliary
+    assert json.dumps(messages) == before and path.read_bytes() == raw
+
+
+def test_ambiguous_or_unscoped_ci_activity_never_invents_message_ownership(shared):
+    from amplifier_tui.cli_compat import read_session_activity
+
+    launch, cli, identity, _ = shared
+    messages = [
+        {"role": "user", "content": "First"},
+        {"role": "assistant", "tool_calls": [{"id": "reused", "tool": "read_file"}]},
+        {"role": "tool", "tool_call_id": "reused", "content": "First result"},
+        {"role": "user", "content": "Second"},
+        {"role": "assistant", "tool_calls": [{"id": "reused", "tool": "read_file"}]},
+    ]
+    path = ci_logs(
+        cli,
+        identity,
+        [{"event": "tool:post", "session_id": identity, "data": {"tool_call_id": "reused"}}],
+    )
+    raw = json.loads(path.read_text())
+    raw["data"].pop("session_id")
+    path.write_text(path.read_text() + json.dumps(raw) + "\n")
+    activity = read_session_activity(launch["cli_home"], launch["cwd"], identity, messages)
+    assert activity["partial"]
+    assert "unscoped_event" in activity["diagnostics"]
+    assert all(not item.message_indices for item in activity["associations"])
+
+
+def test_activity_missing_or_bounded_capture_is_a_view_gap_not_a_resume_failure(shared):
+    from amplifier_tui.cli_compat import read_session_activity
+
+    launch, cli, identity, messages = shared
+    absent = read_session_activity(launch["cli_home"], launch["cwd"], identity, messages)
+    assert absent["partial"] and not absent["events"]
+    ci_logs(cli, identity, [receipt(identity, 0), receipt(identity, 1)])
+    limited = read_session_activity(
+        launch["cli_home"], launch["cwd"], identity, messages, line_limit=1
+    )
+    assert limited["partial"] and len(limited["events"]) == 1
+    assert "scan_limit" in limited["diagnostics"]
+
+
+@pytest.mark.parametrize("field", ["request_id", "span_id", "timestamp"])
+def test_conflicting_ci_receipt_identity_is_not_silently_overridden(shared, field):
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    path = ci_logs(cli, identity, [receipt(identity, 0)])
+    record = json.loads(path.read_text())
+    record["data"][field] = "nested-identity"
+    record[field] = "different-envelope-identity"
+    path.write_text(json.dumps(record) + "\n")
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    assert partial and not rows
+
+
+def test_shared_activity_read_does_not_bootstrap_cli(shared, monkeypatch):
+    import builtins
+
+    from amplifier_tui.cli_compat import historical_usage, read_session_activity
+
+    launch, cli, identity, messages = shared
+    ci_logs(cli, identity, [receipt(identity, 0)])
+    original = builtins.__import__
+
+    def no_cli(name, *args, **kwargs):
+        if name == "amplifier_app_cli" or name.startswith("amplifier_app_cli."):
+            raise AssertionError("Read-only activity must not initialize CLI policy/keys")
+        return original(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_cli)
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    activity = read_session_activity(launch["cli_home"], launch["cwd"], identity, messages)
+    assert len(rows) == 1 and not partial
+    assert len(activity["events"]) == 1 and not activity["partial"]
+
+
+def test_oversized_ci_payload_is_bounded_and_never_treated_as_zero_cost(shared):
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    path = ci_logs(cli, identity, [receipt(identity, 0)])
+    record = json.loads(path.read_text())
+    record["data"]["oversized_payload"] = "x" * (4 * 1024 * 1024)
+    path.write_text(json.dumps(record) + "\n")
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
     assert partial and not rows

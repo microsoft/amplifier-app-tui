@@ -1,11 +1,19 @@
 import os
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 
 import amplifier_tui
 from amplifier_tui.composition import SourceMap, prepare
 from amplifier_tui.host import SessionHost
+
+
+@pytest.fixture(autouse=True)
+def shared_state_home(tmp_path, monkeypatch):
+    # The production shared lock is independent of AMPLIFIER_HOME. Tests must
+    # never allocate owner records beneath the person's real platform state root.
+    monkeypatch.setenv("AMPLIFIER_SESSION_STATE_HOME", str(tmp_path / "shared-owners"))
 
 
 @pytest_asyncio.fixture

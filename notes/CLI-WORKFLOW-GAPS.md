@@ -7,7 +7,7 @@ not universal compatibility. [PLAN](PLAN.md) is the current queue;
 
 | Boundary | Working path | Remaining work |
 |---|---|---|
-| Canonical history | Same-ID CLI/TUI sessions, directory Resume/search/recall, metadata/names and session settings | Cooperative writer lease and explicit shared crash recovery; current switching is sequential |
+| Canonical history | Same-ID CLI/TUI sessions, directory Resume/search/recall, metadata/names/settings, Foundation native history and common writer ownership | Portable controls and explicit shared crash recovery; sequential switching, full web runtime and larger metadata remain bounded gates |
 | Reading | Structured tools/delegates, native scrollback/copy, Markdown parser, syntax colour and tables | List/paragraph/quote layout and conservative links; see MARKDOWN-GAPS |
 | Accounting | Attributed TUI calls and turn/session totals with missing-data disclosure | Import actual CLI event usage/costs and reconcile child identities without duplicate counting |
 | Private controls | Native provider/mode/goal/queue/child persistence | Common CLI control-state round trips, unsupported-module refusal and actual-entrypoint persistent-context tests |

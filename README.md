@@ -52,7 +52,8 @@ To continue existing CLI work, close the CLI and run `amplifier-tui --resume` in
 that same project. Ordinary CLI-policy sessions share the CLI's session ID,
 transcript, metadata and session-scoped settings. After closing the TUI, use
 `amplifier resume ID` or `amplifier continue` to return to CLI. No import is needed.
-Switch sequentially: concurrent CLI/TUI writers are not supported.
+Switch sequentially. Current cooperating clients share Foundation's writer lock;
+an already-open session refuses a second writer. Older clients may not participate.
 See [switching limits](docs/MIGRATION.md).
 
 Use `--settings-policy isolated` to opt out of CLI configuration; its default preset

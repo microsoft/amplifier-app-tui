@@ -111,8 +111,42 @@ def open_conversation(state_dir, launch, resume=None):
     return SharedConversationStore(state_dir, launch, resume)
 
 
+def _acquire_shared_owner(cwd, identity):
+    from amplifier_foundation.session import SessionBusyError, SharedSessionStore
+
+    try:
+        # Use Foundation's shared default/environment root, never a TUI-specific
+        # directory. The exact workspace/session key must match the other apps.
+        return SharedSessionStore(cwd, identity).acquire(app="amplifier-tui", pid=os.getpid())
+    except SessionBusyError as exc:
+        # Owner metadata is untrusted advisory text. Do not forward arbitrary
+        # client names, machine paths or terminal escapes into the startup error.
+        raise BlockingIOError(
+            "Conversation is open in another Amplifier client; close that session and retry. "
+            "Nothing sent; your draft is retained."
+        ) from exc
+
+
 def archive_conversation(state_dir, identity, *, cwd, archived, cli_home=None):
     """Reversible metadata-only housekeeping under the same single-writer lock."""
+    owner = None
+    if cli_home is not None:
+        try:
+            owner = _acquire_shared_owner(cwd, identity)
+        except BlockingIOError as exc:
+            raise ValueError(
+                "Close the conversation in every client before archiving/restoring"
+            ) from exc
+    try:
+        return _archive_conversation(
+            state_dir, identity, cwd=cwd, archived=archived, cli_home=cli_home
+        )
+    finally:
+        if owner is not None:
+            owner.release()
+
+
+def _archive_conversation(state_dir, identity, *, cwd, archived, cli_home=None):
     if (
         not isinstance(identity, str)
         or not re.fullmatch(r"[A-Za-z0-9-]{1,160}", identity)
@@ -373,10 +407,14 @@ class ConversationStore:
 
 
 class SharedConversationStore(ConversationStore):
-    """CLI owns transcript/metadata; this app owns only the .tui observation sidecar.
+    """Foundation owns native history and writer coordination across clients.
 
-    The old CLI does not cooperate with our lock. Sequential client switching is
-    supported; digest checks detect stale writers, not a distributed transaction.
+    The .tui sidecar holds local admission/display state, not canonical context.
+    Ownership spans construction through runtime cleanup and close; digest checks
+    additionally detect older, non-cooperating writers, not arbitrary races.
+    Mutations and close run synchronously on the owning event loop, without an
+    await between check and write. Cross-thread callers need synchronization;
+    HeldSession.check alone is not atomic with release.
     """
 
     def projection(self):
@@ -397,12 +435,35 @@ class SharedConversationStore(ConversationStore):
                     "detail": json.dumps({"source": "usage", "text": text}),
                 }
             )
+        recovered = sorted(
+            {
+                d.source
+                for d in getattr(self, "history_diagnostics", ())
+                if d.code == "recovered_backup" and d.source in ("transcript", "metadata")
+            }
+        )
+        if recovered:
+            text = (
+                "Recovered "
+                + " and ".join(recovered)
+                + " from backup; the saved view may be older. Review before sending. "
+                "No earlier work replayed."
+            )
+            items.append(
+                {
+                    "id": "shared:backup-recovery",
+                    "kind": "notice",
+                    "text": text,
+                    "status": "warning",
+                    "detail": json.dumps({"source": "history", "level": "warning", "text": text}),
+                }
+            )
         return items
 
     def __init__(self, state_dir, launch, resume=None):
-        from amplifier_app_cli.session_store import SessionStore
+        from amplifier_foundation.session import SessionHistoryStore
 
-        from .cli_compat import session_directory, shared_session_entry
+        from .cli_compat import session_directory
 
         launch = {**launch, "shared_session": True}
         identity = resume or str(uuid.uuid4())
@@ -415,30 +476,44 @@ class SharedConversationStore(ConversationStore):
         for path in (home, *reversed(root.parents[:2]), root, self.canonical_path):
             if path.is_symlink():
                 raise ValueError("Shared session directories cannot be symlinks")
-        self.cli_store = SessionStore(base_dir=root)
         self.shared_session = True
         self.canonical_launch = launch
-        if resume:
-            entry = shared_session_entry(home, launch["cwd"], identity)
-            if entry["archived"]:
-                raise ValueError("Conversation is archived")
-        else:
-            self.canonical_path.mkdir(mode=0o700)
-            self.cli_store.save(identity, [], self._metadata(identity, []))
-        self.canonical_messages, self.canonical_digest = self._read_canonical(identity)
-        path = self.canonical_path / ".tui"
-        existing = (path / "events.jsonl").exists()
-        super().__init__(
-            state_dir, launch, identity if existing else None, _path=path, _identity=identity
-        )
+        self.identity = identity
+        self.journal = None
+        self.lock = None
+        self.history_store = SessionHistoryStore(self.canonical_path, session_id=identity)
+        # Acquire before canonical reads/new-session writes or module mounting.
+        # This object never replaces the handle: late callbacks retain their
+        # original (released) capability rather than borrowing a new acquisition.
+        self._owner = _acquire_shared_owner(launch["cwd"], identity)
         try:
+            if not resume:
+                root.mkdir(mode=0o700, parents=True, exist_ok=True)
+                self.canonical_path.mkdir(mode=0o700)
+                self._save_native([], self._metadata(identity, []))
+            self.canonical_messages, self.canonical_digest = self._read_canonical()
+            path = self.canonical_path / ".tui"
+            prior_metadata = path / "metadata.json"
+            if prior_metadata.exists():
+                if path.is_symlink() or prior_metadata.is_symlink():
+                    raise ValueError("Shared session sidecar files cannot be symlinks")
+                with prior_metadata.open() as stream:
+                    prior = stream.read(65537)
+                if len(prior) > 65536:
+                    raise ValueError("Shared session sidecar metadata exceeds limit")
+                if json.loads(prior).get("archived"):
+                    raise ValueError("Conversation is archived")
+            existing = (path / "events.jsonl").exists()
+            super().__init__(
+                state_dir, launch, identity if existing else None, _path=path, _identity=identity
+            )
             if not existing:
                 self._seed_view()
             self._restore_accounting()
             if not resume:
                 # Fresh forks/imports must reach the host's explicit transfer path.
                 self.saved = None
-            canonical = self.cli_store.get_metadata(identity)
+            canonical = self.canonical_metadata
             if canonical.get("name"):
                 if canonical["name"] != self.metadata.get("title"):
                     self.metadata["title_source"] = "external"
@@ -451,18 +526,11 @@ class SharedConversationStore(ConversationStore):
     def _metadata(self, identity, messages):
         from datetime import UTC, datetime
 
-        from .cli_compat import read_session_file
+        from .cli_compat import native_history
 
-        existing = {}
-        if (self.canonical_path / "metadata.json").exists():
-            launch = self.canonical_launch
-            existing = json.loads(
-                read_session_file(
-                    launch["cli_home"], launch["cwd"], identity, "metadata.json", 65536
-                )
-            )
-            if not isinstance(existing, dict):
-                raise ValueError("Invalid canonical metadata; nothing overwritten")
+        self._owner.check()
+        launch = self.canonical_launch
+        existing = native_history(launch["cli_home"], launch["cwd"], identity, metadata_only=True)
         bundle = self.canonical_launch.get("bundle") or existing.get("bundle", "unknown")
         if "://" not in bundle and Path(bundle).exists():
             bundle = Path(bundle).resolve().as_uri()
@@ -475,30 +543,84 @@ class SharedConversationStore(ConversationStore):
             "turn_count": sum(m.get("role") == "user" for m in messages),
         }
 
-    def _read_canonical(self, identity=None):
+    def _native_sources(self):
+        """Preserve descriptor-relative bounded reads around shared native I/O."""
         import hashlib
 
         from .cli_compat import read_session_file
-        from .recovery import public_history
 
         launch = self.canonical_launch
-        raw = read_session_file(
-            launch["cli_home"],
-            launch["cwd"],
-            identity or self.identity,
-            "transcript.jsonl",
-            8 * 1024 * 1024,
-        )
-        messages = [json.loads(line) for line in raw.splitlines() if line.strip()]
-        public_history(messages)  # Validation only; never repair or execute old tools.
-        return messages, hashlib.sha256(raw).hexdigest()
+        sources = {}
+        for name, limit in (("transcript.jsonl", 8 * 1024 * 1024), ("metadata.json", 65536)):
+            for filename in (name, name + ".backup"):
+                try:
+                    raw = read_session_file(
+                        launch["cli_home"], launch["cwd"], self.identity, filename, limit
+                    )
+                except FileNotFoundError:
+                    sources[filename] = None
+                else:
+                    sources[filename] = hashlib.sha256(raw).hexdigest()
+        return sources
+
+    def _read_canonical(self):
+        import hashlib
+
+        from .cli_compat import native_history
+        from .recovery import public_history
+
+        self._owner.check()
+        before = self._native_sources()
+        if not any(before[name] for name in ("transcript.jsonl", "transcript.jsonl.backup")):
+            raise ValueError("Canonical transcript is missing; no empty history substituted")
+        if not any(before[name] for name in ("metadata.json", "metadata.json.backup")):
+            raise ValueError("Canonical metadata is missing; resume refused")
+        launch = self.canonical_launch
+        history = native_history(launch["cli_home"], launch["cwd"], self.identity)
+        if before != self._native_sources() or any(
+            diagnostic.code == "changed_during_read" for diagnostic in history.diagnostics
+        ):
+            raise ValueError("Canonical history changed during capture; resume again")
+        metadata = history.metadata
+        if metadata.get("session_id", self.identity) != self.identity:
+            raise ValueError("Invalid shared session metadata identity")
+        if (
+            metadata.get("working_dir")
+            and Path(metadata["working_dir"]).resolve()
+            != Path(self.canonical_launch["cwd"]).resolve()
+        ):
+            raise ValueError("Session belongs to another working directory")
+        public_history(history.messages)  # Validate only; never repair or execute old tools.
+        self.canonical_metadata = metadata
+        self.history_diagnostics = history.diagnostics
+        # Include the backup: when recovery used it, a concurrent backup change
+        # is every bit as significant as a changed primary transcript.
+        transcript = {
+            name: value for name, value in before.items() if name.startswith("transcript.")
+        }
+        digest = hashlib.sha256(json.dumps(transcript, sort_keys=True).encode()).hexdigest()
+        return history.messages, digest
+
+    def _save_native(self, messages, metadata):
+        from amplifier_core.utils.truncate import redact_secrets
+        from amplifier_foundation import sanitize_message
+
+        def native_message(message):
+            # JSON provider continuation fields already are portable. The CLI's
+            # older sanitizer drops content_blocks/thinking_block even when they
+            # are plain JSON, so apply it only to non-serializable runtime values.
+            try:
+                json.dumps(message, allow_nan=False)
+            except TypeError:
+                return sanitize_message(message)
+            return message
+
+        self._owner.check()
+        self._native_sources()
+        self.history_store.save(messages, redact_secrets(metadata), sanitizer=native_message)
 
     def assert_current(self):
-        from .cli_compat import shared_session_entry
-
-        shared_session_entry(
-            self.canonical_launch["cli_home"], self.canonical_launch["cwd"], self.identity
-        )
+        self._owner.check()
         if self._read_canonical()[1] != self.canonical_digest:
             raise ValueError(
                 "CLI transcript changed while this client was open; close and resume again. Nothing overwritten."
@@ -731,6 +853,7 @@ class SharedConversationStore(ConversationStore):
         self._save_marker(self.canonical_messages, len(self.restored_events), None, True)
 
     def _save_marker(self, messages, sequence, fingerprint, ready):
+        self._owner.check()
         self.journal.flush()
         os.fsync(self.journal.fileno())
         marker = dict(
@@ -745,26 +868,51 @@ class SharedConversationStore(ConversationStore):
 
     def checkpoint(self, messages, sequence, fingerprint, ready):
         self.assert_current()
-        # Mark pending before the CLI's two-file save. A crash is uncertainty,
+        # Mark pending before Foundation's two-file save. A crash is uncertainty,
         # never permission to reuse an older UI snapshot as canonical context.
         self._save_marker(messages, sequence, fingerprint, False)
-        self.cli_store.save(self.identity, messages, self._metadata(self.identity, messages))
+        self._save_native(messages, self._metadata(self.identity, messages))
         self.canonical_messages, self.canonical_digest = self._read_canonical()
         self._save_marker(self.canonical_messages, sequence, fingerprint, ready)
         os.utime(self.path / "metadata.json", None)
 
     def set_title(self, title, *, generated=False, description=None):
+        from amplifier_core.utils.truncate import redact_secrets
+
+        self.assert_current()
         if not super().set_title(title, generated=generated, description=description):
             return False
-        self.cli_store.update_metadata(
-            self.identity,
-            {
-                "name": self.metadata["title"],
-                **(
-                    {"description": self.metadata["description"]}
-                    if "description" in self.metadata
-                    else {}
-                ),
-            },
+        self.history_store.save_metadata(
+            redact_secrets(
+                {
+                    **self.canonical_metadata,
+                    "name": self.metadata["title"],
+                    **(
+                        {"description": self.metadata["description"]}
+                        if "description" in self.metadata
+                        else {}
+                    ),
+                }
+            )
         )
         return True
+
+    def record(self, event):
+        self._owner.check()
+        super().record(event)
+
+    def save_draft(self, text):
+        self._owner.check()
+        super().save_draft(text)
+
+    def naming_metadata(self, completed_turns):
+        self._owner.check()
+        return super().naming_metadata(completed_turns)
+
+    def close(self):
+        try:
+            super().close()
+        finally:
+            # The host calls close only after child/runtime cleanup has settled.
+            # Never write HeldSession's separate checkpoint: native files own history.
+            self._owner.release()

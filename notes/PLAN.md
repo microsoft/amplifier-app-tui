@@ -15,13 +15,17 @@ Disposable test journals do not establish a migration or compatibility obligatio
 | READ-09 | presentation.v1:3, interaction.v1:3 | Semantic links without URL clutter | Labels remain readable while the actual target/location remains inspectable and safely usable through terminals/tmux | Conservative duplicate-target suppression implemented; nonredundant targets remain visible without OSC links |
 | SHARED-04 | presentation.v1:4, ecosystem.v1:2, ecosystem.v1:6 | Cross-client accounting and controls | Known CLI usage survives return without double-counting; pins/modes/goals/children retain supported ownership and state | Recorded accounting and current resume summary implemented; private-control interchange remains pending |
 | RETURN-01 | interaction.v1:1, continuity.v1:3 | CLI return-list accuracy | Transcript-line counts are labelled messages; log-only directories do not masquerade as resumable sessions | Implemented and pinned; CLI PR346 merged into main after green CI |
-| SHARED-03 | continuity.v1:1, continuity.v1:5, ecosystem.v1:5 | Writer ownership and interrupted/private state | Cooperative clients refuse simultaneous writes; crash recovery never invents tool outcomes | TUI stale-write detection implemented; close one client before opening the other; cooperative CLI lease/recovery pending |
+| SHARED-03 | continuity.v1:1, continuity.v1:5, ecosystem.v1:5 | Foundation writer ownership and native history | Cooperating CLI/TUI/web writers contend on one lock; backups preserve complete messages and corrupt history never becomes empty | Implemented; actual CLI/TUI and real Unified storage-adapter gates pass; full web runtime remains separate |
+| SHARED-05 | continuity.v1:3, presentation.v1:4, performance.v1:5 | Shared activity without duplicated history | Scoped CI observations enrich canonical messages with bounded reads, exact attribution and no event replay or duplicate accounting | Implemented; on-demand in-memory source and common accounting reader; existing TUI admission/observation sidecars retained |
+| SHARED-06 | ecosystem.v1:2, continuity.v1:2, session.v1:7 | Propose portable controls and recovery upstream | DRAFT Foundation proposal identifies data ownership, unsupported participants, no-replay boundaries and cross-client checks | Proposed in Foundation PR397; review/adapter implementation remain, no ratification or conformance claim |
 | READY-05 | ecosystem.v1:6, performance.v1:1 | Representative ecosystem acceptance | Actual persistent-context entrypoint switching and policy-matched responsiveness have reproducible evidence | Module/store combinations pass; broader entrypoint/policy comparison remains |
 | READY-06 | ecosystem.v1:6 | External integrations | Explicitly scoped provider/account/device checks establish real behavior | Paid calls, personal service writes and physical devices require a named test scope |
 
 Use owned temporary homes and synthetic histories for execution tests. Personal
 sessions may be inspected when requested, never silently reused as writable fixtures.
 Native fixtures, real-module integration and live-provider evidence are distinct.
-The next adoption boundary is cooperative writer ownership and private-state
-interchange. Reading improvements and recorded accounting do not establish safe
-simultaneous clients or restore controls that lack a common representation.
+The manager owns dependency integration, current direction, cross-client/terminal gates
+and reviewed publication. Parallel agents share this working copy with disjoint file
+ownership; these are not Converge worktree lanes. Shared ownership/history adoption
+uses existing APIs; portable-control design is proposed separately and does not imply
+that current clients enforce new contracts or recover arbitrary private-module state.
