@@ -35,6 +35,8 @@ pub(super) enum Action {
     Interact,
     InlineToggle,
     Transcript,
+    HistoryPage(usize),
+    HistoryItem(Value, usize),
     Export,
     ExportJson,
     ClearContext,
@@ -267,6 +269,8 @@ fn action_group(action: &Action) -> &'static str {
         | Action::Interact
         | Action::InlineToggle
         | Action::Transcript
+        | Action::HistoryPage(_)
+        | Action::HistoryItem(_, _)
         | Action::Export
         | Action::CodeBlocks
         | Action::WorkspaceChanges
@@ -365,6 +369,7 @@ impl App {
                     choice("Native scrollback — return to normal terminal", Action::NativeScrollback),
                     choice("Interact — click conversation details", Action::Interact),
                     choice("Transcript — inspect, reflow and select text", Action::Transcript),
+                    choice("Earlier history — browse 100 items at a time", Action::HistoryPage(self.earlier_history_offset())),
                     choice("Export conversation — private Markdown file", Action::Export),
                     choice("Modes — choose session tool policy", Action::Modes),
                     choice("Goal — set condition and turn limit (insert unsent)", Action::CommandDraft("/goal --max-turns 5 ".into())),
@@ -597,6 +602,19 @@ impl App {
                 self.view = 0;
                 self.expanded = false;
                 self.anchors[0] = self.tail();
+            }
+            Action::HistoryPage(offset) => self.history_page(offset),
+            Action::HistoryItem(item, offset) => {
+                let kind = string(&item, "kind");
+                let text = if kind == "tool" { string(&item, "detail") } else { string(&item, "text") };
+                self.menu(format!("History preview · {kind}"), vec![
+                    choice("‹ Back to history page", Action::HistoryPage(offset)),
+                    choice("Copy displayed source", Action::CopyText(text.clone())),
+                ]);
+                let menu = self.ui.menu.as_mut().unwrap();
+                menu.detail = text;
+                menu.prose = kind == "assistant";
+                menu.secondary = kind != "assistant" && kind != "user";
             }
             Action::Interact => {
                 self.interacting = !self.interacting;

@@ -236,7 +236,7 @@ def test_large_native_history_streams_without_import_limits_or_whole_file_copy(
             assert row_reads == count  # Revision validation does not reread transcript bodies.
             projected = store.projection()
             assert projected[0]["id"] == "history:window"
-            assert 1 < len(projected) <= 1002
+            assert 1 < len(projected) <= 102
             assert any(row["text"].startswith(f"Synthetic row {count - 1}:") for row in projected)
             assert len(json.dumps(projected).encode()) < 9 * 1024 * 1024
             assert len(store.canonical_messages) == count  # View paging never trims context.

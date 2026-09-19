@@ -26,10 +26,20 @@ metadata and backup bytes and nanosecond modification times. Native reads accept
 over 66 MiB / 11,000 messages and 900 KiB metadata in one streaming transcript pass.
 The actual native entrypoint also passes at that scale: Ready, visible latest answer,
 editable unsent draft, no transcript rewrite or private events journal. Rendering
-alone uses a disclosed latest-1000/8-MiB window and bounded UTF-8 previews; canonical
+alone uses a disclosed latest-100/8-MiB window and bounded UTF-8 previews; canonical
 transcript and runtime context retain the complete native messages. Export is a
 readable display projection, not a lossless canonical backup; it has a separate
 32 MiB rendered-output limit.
+
+Actions → Earlier history browses the saved resume snapshot in read-only pages of
+up to 100 items, with source previews/copy and older/newer controls. Byte-limited
+pages return to their actual preceding boundary, not a guessed 100-item offset.
+The large-entrypoint probe exercises paging, preview/copy, narrow resize and return
+to an unsent draft; native history/context and transcript modification time survive.
+Transport-fixture mouse tests expand/collapse and select across empty Markdown and
+hidden child items at 175×50 and 40×20. Rust checks also cover stale anchors, all-empty
+views, both transcript views and widths down to zero. These are synthetic records,
+not a reproduction using private user messages or a paid provider.
 
 The real Unified storage adapter at `54f3337` passes same-ID TUI → Unified → CLI-read
 → TUI round trips and mutual ownership contention. Unknown metadata and JSON provider
@@ -50,14 +60,16 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The default Python suite passes **752 tests, 327 opt-in skips** (142.45s), recorded
-privately in `.evidence/native-shared-default.xml`. Rust renderer/native tests pass
-**73 tests**, with release build and strict Clippy clean. Ruff lint/format and
+The default Python suite passes **754 tests, 329 opt-in skips**, recorded
+privately in `.evidence/history-selection-default.xml`. Rust renderer/native tests pass
+**75 tests**, with release build and strict Clippy clean. Ruff lint/format and
 direction checks pass. The shared history/ownership/activity, CLI compatibility and
 independent loop/context gates pass **186 tests** (45.21s), with opt-ins enabled and
 no skips, in `.evidence/native-shared-integration.xml`.
-Native Activity/navigation/flow/tmux regressions pass **29 tests** (49.54s), recorded
-in `.evidence/native-shared-terminal.xml`. The actual-entrypoint shared-session
+Focused native history/host restoration/shared activity checks pass **53 tests** in
+`.evidence/history-selection-focused.xml`. Native Activity/navigation/flow/tmux
+regressions pass **31 tests** in `.evidence/history-selection-terminal.xml`.
+The actual-entrypoint shared-session
 probe additionally passes busy-owner/draft and shared Activity inspection at 175×50;
 round trips cover 40×20 as well. Reference-font captures were inspected privately.
 The actual-entrypoint round-trip probe also checks the visible reconciled On resume

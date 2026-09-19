@@ -77,6 +77,99 @@ pub fn thumbnail_lines(value: &Value, width: usize) -> Vec<Line<'static>> {
 }
 
 impl App {
+    pub fn earlier_history_offset(&self) -> usize {
+        self.items
+            .iter()
+            .find(|item| item.id == "history:window")
+            .and_then(|item| serde_json::from_str::<Value>(&item.detail).ok())
+            .and_then(|detail| detail["next_offset"].as_u64())
+            .unwrap_or(0) as usize
+    }
+
+    pub fn history_page(&mut self, offset: usize) {
+        if self.disconnected || !self.durable {
+            self.status = "Earlier history requires a connected saved conversation".into();
+            return;
+        }
+        self.insights.watching = None;
+        self.insights.lookup = Some((self.request + 1).to_string());
+        self.menu("Earlier history · loading", vec![]);
+        self.send(json!({"op":"history_page","offset":offset}));
+    }
+
+    pub fn history_page_result(&mut self, value: Value) {
+        if value["session_id"] != self.nav.session
+            || self
+                .insights
+                .lookup
+                .as_ref()
+                .is_none_or(|id| value["request_id"] != *id)
+            || self
+                .ui
+                .menu
+                .as_ref()
+                .is_none_or(|m| m.title != "Earlier history · loading")
+        {
+            return;
+        }
+        self.insights.lookup = None;
+        if let Some(error) = value["error"].as_str() {
+            self.menu("Earlier history · unavailable", vec![]);
+            self.ui.menu.as_mut().unwrap().detail = safe(error);
+            return;
+        }
+        let offset = value["offset"].as_u64().unwrap_or(0) as usize;
+        let mut choices = vec![];
+        if let Some(next) = value["next_offset"].as_u64() {
+            choices.push(Choice {
+                label: "‹ Older 100 items".into(),
+                action: Action::HistoryPage(next as usize),
+                detail: String::new(),
+            });
+        }
+        if let Some(previous) = value["previous_offset"].as_u64() {
+            choices.push(Choice {
+                label: "Newer 100 items ›".into(),
+                action: Action::HistoryPage(previous as usize),
+                detail: String::new(),
+            });
+        }
+        for item in value["items"].as_array().unwrap_or(&vec![]) {
+            let label = if item["kind"] == "tool" {
+                serde_json::from_value::<Item>(item.clone())
+                    .ok()
+                    .and_then(|item| {
+                        native::ordinary_lines(&item, 120)
+                            .first()
+                            .map(ToString::to_string)
+                    })
+                    .unwrap_or_else(|| "Tool observation".into())
+            } else {
+                format!(
+                    "{} · {}",
+                    string(item, "kind"),
+                    native::one_line(&string(item, "text"), 120)
+                )
+            };
+            choices.push(Choice {
+                label,
+                action: Action::HistoryItem(item.clone(), offset),
+                detail: format!(
+                    "{}\nEnter/click to read or copy this preview",
+                    native::one_line(&string(item, "text"), 220)
+                ),
+            });
+        }
+        self.menu(
+            format!(
+                "Earlier history · {}–{} of {}",
+                value["start"], value["end"], value["total"]
+            ),
+            choices,
+        );
+        self.ui.menu.as_mut().unwrap().detail = "Saved history at resume · read-only, up to 100 items per page. Long previews are shortened explicitly. Escape returns to your draft; no work replayed.".into();
+    }
+
     pub fn model_catalog_result(&mut self, value: Value) {
         if value["session_id"] != self.nav.session
             || self
@@ -850,6 +943,44 @@ pub fn attachment_location(value: &Value) -> String {
 #[cfg(test)]
 mod thumbnail_tests {
     use super::*;
+
+    #[test]
+    fn history_pages_use_reported_boundaries_and_ignore_late_responses() {
+        let mut app = App::new(vec!["true".into()]).unwrap();
+        app.child.wait().unwrap();
+        app.nav.session = "fixture".into();
+        app.draft.insert_str("Unsent draft");
+        let page = json!({"session_id":"fixture", "request_id":"page",
+            "offset":126, "previous_offset":63, "start":112, "end":174, "total":300,
+            "next_offset":189,"items":[]});
+        app.insights.lookup = Some("page".into());
+        app.menu("Earlier history · loading", vec![]);
+        let mut stale = page.clone();
+        stale["session_id"] = json!("other");
+        app.history_page_result(stale);
+        assert_eq!(
+            app.ui.menu.as_ref().unwrap().title,
+            "Earlier history · loading"
+        );
+        app.history_page_result(page.clone());
+        let menu = app.ui.menu.as_ref().unwrap();
+        assert_eq!(menu.choices[0].action, Action::HistoryPage(189));
+        assert_eq!(menu.choices[1].action, Action::HistoryPage(63));
+        app.insights.lookup = Some("page".into());
+        app.ui.menu = None;
+        app.history_page_result(page);
+        assert!(app.ui.menu.is_none()); // Escape cannot be undone by a late reply.
+        app.menu("Earlier history · loading", vec![]);
+        app.history_page_result(
+            json!({"session_id":"fixture", "request_id":"page", "error":"Unavailable"}),
+        );
+        assert_eq!(
+            app.ui.menu.as_ref().unwrap().title,
+            "Earlier history · unavailable"
+        );
+        assert_eq!(app.draft.lines().join("\n"), "Unsent draft");
+        assert!(!app.native.has_work());
+    }
     #[test]
     fn saved_activity_snapshot_stops_polling_but_live_activity_keeps_it() {
         let mut insights = Insights {

@@ -310,6 +310,19 @@ class WorkspaceBridge(RuntimeBridge):
                 }
             )
             return True, "Inspecting memory-only provider observation; no model request"
+        if op == "history_page":
+            if identity != self.host.session_id:
+                return False, "History belongs to another conversation"
+            store = self.host.store
+            if not store or not hasattr(store, "history_page"):
+                return False, "Earlier history requires a shared saved conversation"
+            if self.lookup_task and not self.lookup_task.done():
+                return False, "A lookup is still running"
+            offset = request.get("offset", 0)
+            if type(offset) is not int or offset < 0:
+                return False, "Invalid history page"
+            self.lookup_task = asyncio.create_task(self.inspect_history(request))
+            return True, "Reading earlier history; no execution"
         if op == "inspect" and request.get("category") == "activity_tree" and self.host.store:
             if identity != self.host.session_id:
                 return False, "Activity belongs to another conversation"
@@ -793,6 +806,20 @@ class WorkspaceBridge(RuntimeBridge):
         except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
             value["error"] = "Local lookup unavailable or outside the working directory"
         if identity == self.host.session_id:
+            self.emit(value)
+
+    async def inspect_history(self, request):
+        host = self.host
+        value = {
+            "type": "history_page",
+            "session_id": host.session_id,
+            "request_id": request.get("request_id"),
+        }
+        try:
+            value.update(await asyncio.to_thread(host.store.history_page, request.get("offset", 0)))
+        except (OSError, ValueError) as exc:
+            value["error"] = str(exc)
+        if host is self.host:
             self.emit(value)
 
     async def workspace_review(self, request):

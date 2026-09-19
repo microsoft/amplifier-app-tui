@@ -481,6 +481,7 @@ impl App {
                     .collect();
                 self.ui.history.reverse();
             }
+            "history_page" => self.history_page_result(v),
             "input_history" if v["session_id"] == self.nav.session => {
                 self.ui.prior_history = Some(
                     v["entries"]

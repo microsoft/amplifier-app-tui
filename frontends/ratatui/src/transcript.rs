@@ -71,10 +71,10 @@ impl App {
         }
     }
     pub fn begin_selection(&mut self, x: u16, y: u16) {
-        let Some(mut end) = self.anchors[self.view].or_else(|| self.tail()) else {
+        let Some(end) = self.viewport_end() else {
+            self.selection = selection::Selection::default();
             return;
         };
-        end.row = end.row.min(self.layout(end.item).len()).max(1);
         let mut anchor = end;
         let mut rows = Vec::new();
         let mut bytes = 0;
@@ -112,6 +112,13 @@ impl App {
         self.anchor_offsets[0] = None;
         self.view = 0;
         self.expanded = false;
+        let Some(item) = self
+            .following_item(item)
+            .or_else(|| self.preceding_item(item))
+        else {
+            self.anchors[0] = None;
+            return;
+        };
         self.selected = item;
         let mut anchor = Anchor { item, row: 1 };
         for _ in 1..self.body.height {
@@ -192,27 +199,71 @@ impl App {
         &self.layouts[index].as_ref().unwrap().lines
     }
 
-    fn preceding_item(&self, end: usize) -> Option<usize> {
-        if self.view == 0 {
-            return (0..end).rev().find(|&i| !native::hidden(&self.items[i]));
+    fn preceding_item(&mut self, end: usize) -> Option<usize> {
+        let mut end = end.min(self.items.len());
+        loop {
+            let item = if self.view == 0 {
+                (0..end).rev().find(|&i| !native::hidden(&self.items[i]))
+            } else {
+                let at = self.tool_indices.partition_point(|&i| i < end);
+                self.tool_indices[..at]
+                    .iter()
+                    .rev()
+                    .copied()
+                    .find(|&i| !native::hidden(&self.items[i]))
+            }?;
+            // Not every source item paints a row (empty assistant messages,
+            // Markdown-only definitions, hidden observations). A row anchor must.
+            if !self.layout(item).is_empty() {
+                return Some(item);
+            }
+            end = item;
         }
-        let at = self.tool_indices.partition_point(|&i| i < end);
-        self.tool_indices[..at]
-            .iter()
-            .rev()
-            .copied()
-            .find(|&i| !native::hidden(&self.items[i]))
     }
 
-    fn following_item(&self, start: usize) -> Option<usize> {
-        if self.view == 0 {
-            return (start..self.items.len()).find(|&i| !native::hidden(&self.items[i]));
+    fn following_item(&mut self, mut start: usize) -> Option<usize> {
+        loop {
+            let item = if self.view == 0 {
+                (start..self.items.len()).find(|&i| !native::hidden(&self.items[i]))
+            } else {
+                self.tool_indices
+                    .iter()
+                    .skip(self.tool_indices.partition_point(|&i| i < start))
+                    .copied()
+                    .find(|&i| !native::hidden(&self.items[i]))
+            }?;
+            if !self.layout(item).is_empty() {
+                return Some(item);
+            }
+            start = item + 1;
         }
-        self.tool_indices
-            .iter()
-            .skip(self.tool_indices.partition_point(|&i| i < start))
-            .copied()
-            .find(|&i| !native::hidden(&self.items[i]))
+    }
+
+    fn viewport_end(&mut self) -> Option<Anchor> {
+        let Some(anchor) = self.anchors[self.view] else {
+            return self.tail();
+        };
+        if let Some(item) = self.items.get(anchor.item)
+            && !native::hidden(item)
+            && (self.view == 0 || item.kind == "tool")
+        {
+            let len = self.layout(anchor.item).len();
+            if len > 0 {
+                return Some(Anchor {
+                    row: anchor.row.clamp(1, len),
+                    ..anchor
+                });
+            }
+        }
+        // A formerly visible item may disappear while the reader is anchored.
+        // Prefer the preceding visible boundary, then the first remaining row.
+        if let Some(item) = self.preceding_item(anchor.item.saturating_add(1)) {
+            return Some(Anchor {
+                item,
+                row: self.layout(item).len(),
+            });
+        }
+        self.following_item(0).map(|item| Anchor { item, row: 1 })
     }
 
     pub fn tail(&mut self) -> Option<Anchor> {
@@ -250,10 +301,9 @@ impl App {
 
     pub fn scroll_lines(&mut self, amount: isize) {
         self.anchor_offsets[self.view] = None;
-        let Some(mut anchor) = self.anchors[self.view].or_else(|| self.tail()) else {
+        let Some(mut anchor) = self.viewport_end() else {
             return;
         };
-        anchor.row = anchor.row.min(self.layout(anchor.item).len()).max(1);
         for _ in 0..amount.unsigned_abs() {
             let next = if amount > 0 {
                 self.previous(anchor)
@@ -289,10 +339,9 @@ impl App {
     }
 
     pub fn transcript_rows(&mut self) -> Vec<(usize, Line<'static>)> {
-        let Some(mut anchor) = self.anchors[self.view].or_else(|| self.tail()) else {
+        let Some(mut anchor) = self.viewport_end() else {
             return vec![];
         };
-        anchor.row = anchor.row.min(self.layout(anchor.item).len()).max(1);
         let mut rows = Vec::new();
         for _ in 0..self.body.height {
             if let Some(line) = self.layout(anchor.item).get(anchor.row - 1) {
@@ -582,6 +631,93 @@ fn cell_anchor(old: &[String], new: &[String], row: usize) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn selection_skips_zero_row_items_and_repairs_stale_anchors() {
+        let mut app = App::new(vec!["true".into()]).unwrap();
+        app.child.wait().unwrap();
+        app.draft.insert_str("Keep this draft");
+        for (id, kind, text, detail) in [
+            ("empty-first", "assistant", "", json!({})),
+            ("a", "assistant", "First visible answer", json!({})),
+            ("empty-middle", "assistant", "   \n\n", json!({})),
+            (
+                "tool",
+                "tool",
+                "Probe",
+                json!({"name":"fixture_probe","result":"done"}),
+            ),
+            (
+                "hidden",
+                "tool",
+                "Child",
+                json!({"name":"fixture_probe","child_id":"child","parent_item_id":"tool"}),
+            ),
+            ("b", "assistant", "Last visible answer", json!({})),
+            (
+                "empty-last",
+                "assistant",
+                "[ref]: https://example.org",
+                json!({}),
+            ),
+        ] {
+            app.upsert(Item {
+                id: id.into(),
+                kind: kind.into(),
+                text: text.into(),
+                status: "succeeded".into(),
+                detail: detail.to_string(),
+            });
+        }
+        for width in [175, 40, 1, 0] {
+            app.resize_transcript(width);
+            app.body = Rect::new(0, 0, width, 20);
+            for view in 0..2 {
+                app.view = view;
+                for item in [0, 2, 4, 6, 99] {
+                    app.anchors[view] = Some(Anchor { item, row: 999 });
+                    app.transcript_rows();
+                    app.begin_selection(0, 0);
+                    app.scroll_lines(100);
+                    app.scroll_lines(-100);
+                    assert!(!app.selection.snapshot.is_empty());
+                }
+            }
+        }
+        app.view = 0;
+        app.body.width = 175;
+        app.anchors[0] = None;
+        app.begin_selection(0, 0);
+        let text = app.selection.snapshot.join("\n");
+        assert!(text.contains("First visible answer"));
+        assert!(text.contains("Last visible answer"));
+        assert_eq!(app.draft.lines().join("\n"), "Keep this draft");
+        // A valid anchor can become empty after an observed update.
+        app.anchors[0] = Some(Anchor { item: 5, row: 1 });
+        app.upsert(Item {
+            id: "b".into(),
+            kind: "assistant".into(),
+            ..Default::default()
+        });
+        app.begin_selection(0, 0);
+        assert!(
+            !app.selection
+                .snapshot
+                .join("\n")
+                .contains("Last visible answer")
+        );
+        for index in [1, 3] {
+            app.upsert(Item {
+                id: app.items[index].id.clone(),
+                kind: "assistant".into(),
+                ..Default::default()
+            });
+        }
+        app.begin_selection(0, 0);
+        assert!(app.transcript_rows().is_empty());
+        assert!(app.selection.snapshot.is_empty());
+        assert!(app.tail().is_none());
+    }
 
     #[test]
     fn expanded_commands_keep_source_roles_and_bound_wrapped_output() {

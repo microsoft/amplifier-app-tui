@@ -20,6 +20,62 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+@pytest.mark.parametrize("size", [(175, 50), (40, 20)])
+def test_interact_mouse_selection_crosses_empty_history_without_crashing(tmp_path, size):
+    # Transport fixture deliberately retains zero-row source items. This exercises
+    # real mouse routing, expansion, selection and resize, not provider behavior.
+    program = """
+import json, sys
+def emit(**value):
+ print(json.dumps({'version':1, 'session_id':'fixture', **value}), flush=True)
+def item(identity, kind, text='', detail=None):
+ return dict(id=identity, kind=kind, text=text, status='succeeded', detail=json.dumps(detail or {}))
+items = [item('first', 'assistant'),
+ item('tool', 'tool', 'fixture_probe', {'name':'fixture_probe','arguments':{'path':'example.txt'},'result':'Done'}),
+ item('blank', 'assistant', '   \\n\\n'),
+ item('child', 'tool', 'Hidden child', {'name':'fixture_probe','child_id':'child','parent_item_id':'tool'}),
+ item('answer', 'assistant', 'Visible answer marker'),
+ item('last', 'assistant', '[reference]: https://example.org')]
+emit(type='snapshot', ready=True, mode='TRANSPORT FIXTURE', title='Empty-row selection fixture', items=items)
+emit(type='state', ready=True, busy=False, status='Ready')
+for line in sys.stdin:
+ request = json.loads(line)
+ if request['op'] == 'shutdown': break
+ if request['op'] in ('submit','queue'): raise RuntimeError('Inspection sent work')
+ emit(type='ack', request_id=request.get('request_id'), accepted=True)
+"""
+    p = Probe(
+        [
+            str(ROOT / "frontends/ratatui/target/release/amplifier-ratatui"),
+            "--host-json",
+            json.dumps([sys.executable, "-u", "-c", program]),
+        ],
+        cols=size[0],
+        rows=size[1],
+    )
+    try:
+        p.wait("Ready")
+        p.send(b"Unsent selection draft")
+        action(p, "Interact —", "Interact ·")
+        click(p, "fixture_probe")
+        p.wait("Request · fixture_probe")
+        click(p, "fixture_probe")
+        p.wait("Request · fixture_probe", absent=True)
+        click(p, "Visible answer marker")  # Used to panic while snapshotting zero-row items.
+        p.wait("Select with drag")
+        p.wait("Unsent selection draft")
+        capture(p, f"interact-empty-history-{size[0]}")
+        p.resize(80, 30)
+        p.wait("Visible answer marker")
+        click(p, "Visible answer marker")
+        p.wait("Unsent selection draft")
+        assert "panicked" not in p.raw.decode(errors="replace")
+        p.send(b"\x1b")
+        p.wait("Unsent selection draft")
+    finally:
+        p.close()
+
+
 @pytest.mark.parametrize("size", [(175, 50), (40, 20), (32, 12)])
 def test_activity_click_and_keyboard_details_preserve_draft_without_replay(tmp_path, size):
     p = start(tmp_path)

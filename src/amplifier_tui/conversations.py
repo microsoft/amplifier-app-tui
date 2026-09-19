@@ -417,23 +417,35 @@ class SharedConversationStore(ConversationStore):
     HeldSession.check alone is not atomic with release.
     """
 
-    def projection(self):
-        from collections import deque
+    def history_page(self, offset=0):
+        """Read-only pages of the resume snapshot, newest page first.
 
-        from .inspection import CallUsage, bounded_projection
+        Live events never shift offsets. Keep source identities, not rendered rows;
+        the full canonical context is independent of this bounded IPC projection.
+        """
+        from .inspection import bounded_projection
 
-        transcript = Transcript()
-        for event in self.restored_events:
-            transcript.apply(event)
-        count = len(transcript.items)
-        # Native replay already paints at most 1000 historical items. Bound the
-        # corresponding IPC snapshot too, not the canonical runtime context.
+        if type(offset) is not int or offset < 0:
+            raise ValueError("Invalid history page")
+        if getattr(self, "_history_sequence", None) != len(self.restored_events):
+            transcript = Transcript()
+            for event in self.restored_events:
+                transcript.apply(event)
+            self._history_items = list(transcript.items.values())
+            self._history_sequence = len(self.restored_events)
+            self._history_previous = {}
+        count = len(self._history_items)
+        if offset > count:
+            raise ValueError("History page is outside this resume snapshot")
+        end = count - offset
         retained, size = [], 0
-        for item in reversed(deque(transcript.items.values(), maxlen=1000)):
+        for item in reversed(self._history_items[max(0, end - 100) : end]):
             detail, limited = bounded_projection(item.detail, 65536)
             text = item.text[:65536].encode("utf-8")[:65536].decode("utf-8", errors="ignore")
             if len(item.text) > len(text):
-                text += "\n[Historical preview shortened; the canonical transcript retains the source.]"
+                text += (
+                    "\n[Historical preview shortened; the canonical transcript retains the source.]"
+                )
                 limited = True
             if limited and isinstance(detail, dict):
                 detail = {
@@ -456,10 +468,28 @@ class SharedConversationStore(ConversationStore):
             retained.append(value)
             size += encoded_size
         items = list(reversed(retained))
-        if len(retained) != count:
+        next_offset = offset + len(items)
+        if next_offset < count:
+            self._history_previous[next_offset] = offset
+        return {
+            "items": items,
+            "total": count,
+            "offset": offset,
+            "start": end - len(items) + 1 if items else 0,
+            "end": end,
+            "next_offset": next_offset if next_offset < count else None,
+            "previous_offset": self._history_previous.get(offset, 0) if offset else None,
+        }
+
+    def projection(self):
+        from .inspection import CallUsage
+
+        page = self.history_page()
+        items, count = page["items"], page["total"]
+        if len(items) != count:
             notice = (
-                f"Showing latest {len(retained)} of {count} historical items. "
-                "The canonical transcript and runtime context retain the complete history."
+                f"Showing latest {len(items)} of {count} historical items. "
+                "Actions → Earlier history to browse more. Full context retained."
             )
             items = [
                 {
@@ -467,7 +497,7 @@ class SharedConversationStore(ConversationStore):
                     "kind": "notice",
                     "text": notice,
                     "status": "",
-                    "detail": notice,
+                    "detail": json.dumps({"text": notice, "next_offset": page["next_offset"]}),
                 },
                 *items,
             ]

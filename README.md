@@ -55,6 +55,9 @@ transcript, metadata and session-scoped settings. After closing the TUI, use
 New TUI conversations use that same native store from creation. Resume reads shared
 history directly, without a TUI journal or import-size limit. Ordinary Activity includes
 recorded shared tool observations; there is no separate Shared-history workflow.
+Resume displays the latest 100 historical items. **Actions → Earlier history** opens
+older/newer pages of up to 100 items; select an item to read or copy its preview, then Escape
+returns to your draft. This does not trim model context or replay any work.
 Switch sequentially. Current cooperating clients share Foundation's writer lock;
 an already-open session refuses a second writer. Older clients may not participate.
 See [switching limits](docs/MIGRATION.md).

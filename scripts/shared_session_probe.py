@@ -16,7 +16,7 @@ from decimal import Decimal
 from importlib.metadata import requires
 from pathlib import Path
 
-from interaction_probe import action, capture
+from interaction_probe import action, capture, click
 from terminal_probe import ROOT, Probe
 
 READING_REPLY = """## Shared project review
@@ -419,6 +419,26 @@ def run(cli=None):
         p.send(b"Retained draft, not submitted")
         p.wait("Retained draft, not submitted")
         capture(p, "shared-session-large-native-175")
+        assert "latest 100 of" in p.raw.decode(errors="replace")
+        action(p, "Earlier history", "Earlier history ·")
+        p.wait("Older 100 items")
+        capture(p, "shared-session-history-page-175")
+        click(p, "Older 100 items")
+        p.wait("Earlier history · 5203–5302 of 5502")
+        click(p, "Newer 100 items")
+        p.wait("Earlier history · 5303–5402 of 5502")
+        p.send(b"fixture_probe\r")
+        p.wait("History preview · tool")
+        p.wait("Copy displayed source")
+        capture(p, "shared-session-history-preview-175")
+        p.resize(40, 20)
+        p.wait("History preview · tool")
+        capture(p, "shared-session-history-preview-40")
+        click(p, "Copy displayed source")
+        p.wait("copied")
+        p.send(b"\x1b")
+        p.wait("Actions / choices", absent=True)
+        p.wait("Retained draft, not submitted")
         assert (large_transcript.stat().st_size, large_transcript.stat().st_mtime_ns) == before
         assert not (large_path / ".tui/events.jsonl").exists()
     finally:
@@ -436,6 +456,7 @@ def run(cli=None):
         "busy_tui_keeps_draft_without_execution": True,
         "shared_activity_snapshot_inspected": True,
         "large_native_entrypoint_no_replay": True,
+        "history_pages_preview_copy_and_draft": True,
         "terminal_sizes": [[175, 50], [40, 20]],
         "scope": "Actual CLI/TUI entrypoints and ownership contention; deterministic provider and tool; no full web-client proof",
     }

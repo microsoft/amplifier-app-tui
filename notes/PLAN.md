@@ -7,6 +7,7 @@ Disposable test journals do not establish a migration or compatibility obligatio
 
 | Item | Source promises | Work | Observable completion / falsifier | State |
 |---|---|---|---|---|
+| READ-11 | presentation.v1:3, presentation.v1:5, performance.v1:5 | Bounded return and safe selection | Latest 100 historical items, explicit older/newer pages, draft/source unchanged; empty/hidden rows and stale anchors never crash Interact | Implemented; native mouse, resize, byte-limited page reversal and large-session entrypoint checks pass |
 | SHARED-01 | continuity.v1:1, continuity.v1:3, ecosystem.v1:1 | Canonical session return | Same-project CLI/TUI/CLI round trips retain ID and messages without import or replay | Implemented; actual entrypoint and native picker checks in ACCEPTANCE |
 | SHARED-02 | continuity.v1:2, ecosystem.v1:2 | Shared configuration and display state | Names, unknown metadata, session settings and drafts survive; newer CLI history replaces stale display projections | Implemented within documented controls/accounting limits |
 | READ-08 | presentation.v1:3, presentation.v1:6, presentation.v1:7 | Structural Markdown layout | Lists retain indentation; ATX/setext headings use typography without source delimiters at 40/80/175 columns, including disabled colour, streaming and exact copy | Implemented; terminal-cell style, source-copy and streaming checks pass |

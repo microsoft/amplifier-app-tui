@@ -40,7 +40,7 @@ This project uses the Converge method; it is not the Converge service or steward
 ## Principles
 ### 1. The person's words are valuable
 A half-written correction or answer is retained work, never permission to submit after recovery.
-Typing does not compete with the assistant's output.
+Typing does not compete with the assistant's output. Return starts with the latest 100 items; read-only pages expose earlier work without flooding terminal history or trimming context.
 Deciding when words take effect is part of expressing intent.
 The composer makes that timing understandable and wraps at word boundaries without inserting newlines; oversized words split only as needed, with cursor and selection preserved.
 

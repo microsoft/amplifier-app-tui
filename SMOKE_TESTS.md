@@ -21,6 +21,15 @@ Run `tests/test_native_host_restore.py` for provider-field readback, mounted sta
 instructions, first-execute resume lifecycle, canonical naming counts, scoped reused
 tool IDs and drained result pairs. Missing outcomes remain unknown, never replayed.
 Every fixture owns `AMPLIFIER_SESSION_STATE_HOME`; never contend with a user's lock.
+Resume paging checks in `test_native_host_restore.py` require a 100-item default,
+complete nonoverlapping older pages, unchanged native bytes/context and stable offsets
+during live updates. Invalid/stale requests must not execute work or expose another session.
+`test_activity_terminal.py -k empty_history` reproduces mouse expansion/collapse and
+selection across empty Markdown/hidden children at 175×50 and 40×20, then resizes.
+Zero rendered rows must never become row-one anchors; test traversal, selection and
+stale anchors together rather than guarding only a single indexing expression.
+The shared-session entrypoint probe browses earlier/newer pages of its large fixture,
+inspects/copies a preview and returns to an unsent draft without canonical writes.
 CI tests cover relocation, exact Foundation association, identity conflicts and physical
 row/byte bounds. Missing/partial optional logs cannot block ordinary canonical reading.
 Run `tests/test_shared_activity.py` for lazy snapshot loading, exact turn/utility/unassociated

@@ -108,9 +108,9 @@ the root events log is a fallback only when CI is absent, never a second summed 
 The host owns bounded descriptor-relative no-follow opens; a narrow read-only Path
 adapter supplies its opened stream to the shared reader until that API accepts streams.
 On-demand shared Activity is an in-memory snapshot, not a live file-polling mechanism.
-Existing TUI observation/accounting and admission records remain sidecars; their full
-retirement is not claimed. Canonical source bytes are read-only. Missing, conflicting,
-bounded or uncorrelated evidence stays partial.
+Historical observations/accounting are derived from shared sources in memory; only
+local intent/admission receipts remain sidecars. Inspection keeps canonical source
+bytes read-only. Missing, conflicting, bounded or uncorrelated evidence stays partial.
 Full private-control interchange remains in [PLAN](PLAN.md).
 
 ## Verification and publication

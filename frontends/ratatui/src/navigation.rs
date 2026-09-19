@@ -22,6 +22,16 @@ impl App {
         self.lookup_page(None, query, offset);
     }
     pub fn reject_lookup(&mut self, id: &str) {
+        if self.insights.lookup.as_deref() == Some(id)
+            && self
+                .ui
+                .menu
+                .as_ref()
+                .is_some_and(|m| m.title == "Earlier history · loading")
+        {
+            self.insights.lookup = None;
+            self.ui.menu = None;
+        }
         if self.nav.lookup.as_ref().is_some_and(|p| p.id == id)
             && self.nav.lookup.take().unwrap().span.is_none()
         {

@@ -74,7 +74,7 @@ def test_native_projection_full_payload_budget_includes_notices(shared, tmp_path
     launch, cli, identity, _ = shared
     native = SessionHistoryStore(cli.base_dir / identity)
     messages = [
-        {"role": "assistant", "content": f"Item {index:04d}: " + "x" * 65500}
+        {"role": "assistant", "content": f"Item {index:04d}: " + "\\" * 65500}
         for index in range(130)
     ]
     native.save_messages(messages)
@@ -86,9 +86,101 @@ def test_native_projection_full_payload_budget_includes_notices(shared, tmp_path
         assert any(item["id"] == "history:window" for item in items)
         answers = [item for item in items if item["kind"] == "assistant"]
         assert answers and answers[-1]["text"] == messages[-1]["content"]
-        assert len(answers) < len(messages)
+        assert len(answers) < 100  # Escaping reaches the byte bound before the item bound.
+        first = store.history_page()
+        second = store.history_page(first["next_offset"])
+        third = store.history_page(second["next_offset"])
+        assert second["previous_offset"] == 0
+        assert third["previous_offset"] == second["offset"]
+        assert store.history_page(third["previous_offset"]) == second
+        assert third["next_offset"] is None
+        assert sum(len(page["items"]) for page in (first, second, third)) == len(messages)
         assert store.canonical_messages == messages
         assert native.transcript_path.read_bytes() == before
+    finally:
+        store.close()
+
+
+def test_resume_history_pages_are_complete_bounded_and_stable(shared, tmp_path):
+    from amplifier_foundation.session import SessionHistoryStore
+
+    from amplifier_tui.events import Event
+
+    launch, cli, identity, _ = shared
+    native = SessionHistoryStore(cli.base_dir / identity)
+    messages = [{"role": "assistant", "content": f"History marker {i:03d}"} for i in range(253)]
+    native.save_messages(messages)
+    before = (native.transcript_path.read_bytes(), native.transcript_path.stat().st_mtime_ns)
+    store = SharedConversationStore(tmp_path, launch, identity)
+    try:
+        initial = store.projection()
+        answers = [row for row in initial if row["kind"] == "assistant"]
+        assert len(answers) == 100
+        assert answers[0]["text"] == "History marker 153"
+        assert answers[-1]["text"] == "History marker 252"
+        assert "latest 100 of 253" in initial[0]["text"]
+        assert "Earlier history" in initial[0]["text"]
+        assert json.loads(initial[0]["detail"])["next_offset"] == 100
+        pages, offset = [], 0
+        while True:
+            page = store.history_page(offset)
+            assert len(page["items"]) <= 100
+            assert page["end"] - page["start"] + 1 == len(page["items"])
+            pages.append(page)
+            if page["next_offset"] is None:
+                break
+            offset = page["next_offset"]
+        all_items = [item for page in reversed(pages) for item in page["items"]]
+        assert [row["text"] for row in all_items] == [m["content"] for m in messages]
+        assert len({row["id"] for row in all_items}) == 253
+        store.record(Event(identity, 900, "new", "text.final", "new", {"text": "Live update"}))
+        assert store.history_page(100) == pages[1]  # Live work cannot shift saved offsets.
+        for invalid in (-1, True, "100", 254):
+            with pytest.raises(ValueError, match="[Hh]istory page"):
+                store.history_page(invalid)
+        assert store.canonical_messages == messages
+        assert (
+            native.transcript_path.read_bytes(),
+            native.transcript_path.stat().st_mtime_ns,
+        ) == before
+        assert not (store.path / "events.jsonl").exists()
+    finally:
+        store.close()
+
+
+async def test_history_page_protocol_is_scoped_and_read_only(shared, tmp_path):
+    from amplifier_tui.navigation import WorkspaceBridge
+
+    launch, _, identity, _ = shared
+    store = SharedConversationStore(tmp_path, launch, identity)
+    host = SessionHost(store)
+    frames = []
+    bridge = WorkspaceBridge(
+        host,
+        lambda _: None,
+        frames.append,
+        False,
+        Path(launch["cwd"]),
+        state_dir=tmp_path,
+        open_launch=lambda *_: None,
+    )
+    try:
+        request = {"op": "history_page", "session_id": identity, "request_id": "page", "offset": 0}
+        assert bridge.command(request)[0]
+        await bridge.lookup_task
+        assert frames[-1] == {
+            "type": "history_page",
+            "session_id": identity,
+            "request_id": "page",
+            **store.history_page(),
+        }
+        assert not host.session and not host.task  # No module or execution mounted.
+        assert not bridge.command({**request, "session_id": "different"})[0]
+        for invalid in (-1, True, "100"):
+            assert not bridge.command({**request, "offset": invalid})[0]
+        assert bridge.command({**request, "offset": 999999})[0]
+        await bridge.lookup_task
+        assert "outside" in frames[-1]["error"]
     finally:
         store.close()
 
