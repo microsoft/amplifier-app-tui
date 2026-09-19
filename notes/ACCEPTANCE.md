@@ -4,8 +4,9 @@
 
 All live TUI launches use Foundation's native history API and the CLI project/session format under the selected Amplifier
 home. Ordinary launch shares CLI configuration; explicit isolated policy uses its
-own home without creating a different live-session format. TUI drafts, observations
-and controls remain namespaced sidecars. Deterministic fixture journals are private
+own home without creating a different live-session format. TUI drafts, admission receipts
+and controls remain namespaced sidecars; historical presentation is derived in memory.
+No imported TUI journal/checkpoint is required. Deterministic fixture journals are private
 test infrastructure, not a supported user-session migration or compatibility path.
 
 The actual-entrypoint probe passes CLI → native startup Resume picker → CLI → native
@@ -20,6 +21,15 @@ TUI startup under a competing shared owner visibly refuses and retains editable 
 Common ownership spans native loading through runtime/child cleanup; crash/stale-handle
 and complete-backup recovery tests use real Foundation and isolated subprocesses.
 Backup recovery is visibly disclosed; repeated snapshots never rewrite source files.
+Both valid-primary and backup-recovery open/close tests preserve canonical transcript,
+metadata and backup bytes and nanosecond modification times. Native reads accept
+over 66 MiB / 11,000 messages and 900 KiB metadata in one streaming transcript pass.
+The actual native entrypoint also passes at that scale: Ready, visible latest answer,
+editable unsent draft, no transcript rewrite or private events journal. Rendering
+alone uses a disclosed latest-1000/8-MiB window and bounded UTF-8 previews; canonical
+transcript and runtime context retain the complete native messages. Export is a
+readable display projection, not a lossless canonical backup; it has a separate
+32 MiB rendered-output limit.
 
 The real Unified storage adapter at `54f3337` passes same-ID TUI → Unified → CLI-read
 → TUI round trips and mutual ownership contention. Unknown metadata and JSON provider
@@ -40,14 +50,14 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The default Python suite passes **718 tests, 327 opt-in skips** (142.53s), recorded
-privately in `.evidence/shared-foundation-default.xml`. Rust renderer/native tests pass
+The default Python suite passes **752 tests, 327 opt-in skips** (142.45s), recorded
+privately in `.evidence/native-shared-default.xml`. Rust renderer/native tests pass
 **73 tests**, with release build and strict Clippy clean. Ruff lint/format and
 direction checks pass. The shared history/ownership/activity, CLI compatibility and
-independent loop/context gates pass **138 tests** (37.69s), with opt-ins enabled and
-no skips, in `.evidence/shared-foundation-integration.xml`.
-Native Activity/navigation/flow/tmux regressions pass **29 tests** (51.28s), recorded
-in `.evidence/shared-foundation-native.xml`. The actual-entrypoint shared-session
+independent loop/context gates pass **186 tests** (45.21s), with opt-ins enabled and
+no skips, in `.evidence/native-shared-integration.xml`.
+Native Activity/navigation/flow/tmux regressions pass **29 tests** (49.54s), recorded
+in `.evidence/native-shared-terminal.xml`. The actual-entrypoint shared-session
 probe additionally passes busy-owner/draft and shared Activity inspection at 175×50;
 round trips cover 40×20 as well. Reference-font captures were inspected privately.
 The actual-entrypoint round-trip probe also checks the visible reconciled On resume
@@ -95,8 +105,9 @@ No user session was executed or changed by these checks; no paid model calls ran
 
 ## Recorded accounting and CLI discovery
 
-Historical root, child and utility usage comes from canonical event receipts plus
-identified native observations. Explicit metadata/fork ancestry determines child
+Historical root, child and utility usage comes from shared recorded event receipts.
+Live hooks supply current work without another persisted event history.
+Explicit metadata/fork ancestry determines child
 ownership. Kernel receipt identity joins observers, never token-value equality or
 time proximity. Imported receipts seed Session, not the next Turn, and remain
 inspectable in Activity. Reopening does not duplicate totals or canonical bytes.
@@ -109,11 +120,12 @@ reported costs and uses a mixed Markdown answer without paid model calls.
 
 Foundation now owns CI normalization and exact message/tool/prompt associations.
 The host honors CI relocation and uses the root logger only when CI is absent;
-dual captures are not summed. Activity → Shared session history reads a bounded
-in-memory snapshot, grouping exact turns, utility calls and unassociated observations.
-Reopening refreshes; snapshots do not poll, mutate logs or enter the accounting ledger.
+dual captures are not summed. Ordinary Activity shows canonical/live tool cards with
+exactly associated recorded observations beneath them, alongside explicit utility or
+unassociated groups when needed. No separate Shared chooser is required.
+Reopening refreshes; live timers use memory, never poll logs or duplicate accounting.
 Malformed/oversized optional records produce partial views, including hostile duration,
-Unicode and label cases. Existing TUI observation/accounting/admission sidecars remain;
+Unicode and label cases. TUI intent/control/admission receipts remain;
 this is not a claim that all intent or recovery state can be reconstructed from CI.
 
 CLI discovery requires a saved transcript, retaining log-only diagnostics on disk.
@@ -137,9 +149,9 @@ is not automatically upgraded by this source change.
 - Historical accounting is bounded to 512 directory metadata candidates, 128 event
   logs / 64 MiB and 10,000 receipts. Gaps are disclosed; unavailable costs are never
   estimated from transcript tokens or model prices.
-- Canonical loading is bounded to 10,000 messages / 8 MiB and metadata to 64 KiB.
-  Larger Unified effective-configuration metadata can exceed this bound; no universal
-  metadata or private-state compatibility is claimed. Full web runtime and broader
+- Native loading has no TUI-only import byte/message quota. Provider JSON fields are
+  compared directly on context restoration; lossy readback refuses before Send.
+  Full web runtime and broader
   actual-entrypoint persistent-context combinations need separate checks.
 - Real provider authorization, personal service destinations and physical devices
   are not certified by fixtures. Policy differences prevent a default CLI latency

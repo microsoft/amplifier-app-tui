@@ -6,7 +6,7 @@ import asyncio
 import json
 import os
 import sqlite3
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from pathlib import Path
 
 from .conversations import (
@@ -89,9 +89,9 @@ def session_choices(state_dir, current, *, cwd=None, offset=0, query="", cli_hom
         if not isinstance(launch, dict) or not isinstance(launch.get("cwd"), str):
             continue
         label = entry.get("title")
-        if not label:
-            # Older checkpoints predate title metadata. Inspect only a bounded
-            # prefix of this app's private journal, never the tool workspace.
+        if not label and not entry.get("shared_session"):
+            # Deterministic fixture journals can provide their prompt title.
+            # Product sessions use native metadata, never an imported journal.
             try:
                 with (entry_path(state_dir, entry) / "events.jsonl").open() as stream:
                     for line in stream.read(65536).splitlines():
@@ -107,8 +107,6 @@ def session_choices(state_dir, current, *, cwd=None, offset=0, query="", cli_hom
             try:
                 checkpoint = entry_path(state_dir, entry) / "checkpoint.json"
                 status_hint = checkpoint_status(checkpoint) if checkpoint.exists() else None
-                if entry.get("shared_session"):
-                    status = "shared CLI/TUI session · close other client before opening"
                 if status_hint is not None and status_hint != "ready":
                     status = (
                         "unavailable · shared session incomplete; export for inspection"
@@ -671,20 +669,22 @@ class WorkspaceBridge(RuntimeBridge):
 
     async def inspect_activity(self, request):
         host = self.host
-        path = host.store.path / "events.jsonl"
-        cache_key = (str(path), request.get("child"), request.get("offset", 0))
-        shared = getattr(host.store, "shared_session", False)
-        node = request.get("child")
-        if (
-            shared
-            and isinstance(node, str)
-            and (node == "shared:history" or node.startswith("shared:history:"))
-        ):
+        node, offset = request.get("child"), request.get("offset", 0)
+        if getattr(host.store, "shared_session", False):
             from .cli_compat import read_session_activity
 
+            # References only, not copies of canonical message bodies. Retain a
+            # bounded tail so a long history cannot evict today's live calls.
+            events = tuple(deque(host.store.activity_events(), maxlen=20001))
+            active = bool(host.task and not host.task.done())
             try:
-                key = (host.session_id, host.store.canonical_digest)
-                if self.shared_activity_snapshot is None or self.shared_activity_snapshot[0] != key:
+                # Explicit Activity opens refresh historical observations. The
+                # existing live timer reads only current in-memory observations.
+                if (
+                    self.shared_activity_snapshot is None
+                    or self.shared_activity_snapshot[0] != host.session_id
+                    or request.get("refresh_history") is True
+                ):
                     spec = host.store.canonical_launch
                     messages = list(host.store.canonical_messages)
                     activity = await asyncio.to_thread(
@@ -694,14 +694,16 @@ class WorkspaceBridge(RuntimeBridge):
                         host.session_id,
                         messages,
                     )
-                    self.shared_activity_snapshot = key, activity, messages
+                    self.shared_activity_snapshot = host.session_id, activity, messages
                 _, activity, messages = self.shared_activity_snapshot
                 value = await asyncio.to_thread(
-                    host.inspection.shared_activity_view,
+                    host.inspection.native_activity,
+                    events,
                     activity,
                     messages,
                     node,
-                    request.get("offset", 0),
+                    offset,
+                    active=active,
                 )
             except (
                 OSError,
@@ -712,70 +714,48 @@ class WorkspaceBridge(RuntimeBridge):
                 OverflowError,
                 RecursionError,
             ):
-                self.shared_activity_snapshot = None
-                value = host.inspection.shared_activity_view(
-                    {"events": [], "associations": [], "partial": True}, [], node
+                # A failed optional snapshot is still cached. Timer refreshes
+                # cannot become repeated file reads; explicit reopen retries.
+                self.shared_activity_snapshot = (
+                    host.session_id,
+                    {"events": [], "associations": [], "partial": True},
+                    [],
                 )
-                value["scope"] += (
-                    " Optional activity could not be projected; return to Activity or reopen to retry."
+                value = host.inspection.native_activity(
+                    events,
+                    {"events": [], "associations": [], "partial": True},
+                    [],
+                    node,
+                    offset,
+                    active=active,
                 )
-            if host is self.host:
-                self.emit(
-                    {
-                        "type": "inspection",
-                        "session_id": host.session_id,
-                        "request_id": request.get("request_id"),
-                        "category": "activity_tree",
-                        "child": node,
-                        **value,
-                    }
-                )
-            return
-        if node is None:
-            # Returning to the ordinary Activity root permits a fresh explicit
-            # open. Paging/back navigation within a shared snapshot never polls.
-            self.shared_activity_snapshot = None
-        try:
-            version = await asyncio.to_thread(host.inspection.journal_version, path)
-            cached = self.activity_pages.get(cache_key)
-            if cached and cached[0] == version:
-                self.activity_pages.move_to_end(cache_key)
-                value = cached[1]
-            else:
-                value = await asyncio.to_thread(
-                    host.inspection.journal_activity,
-                    path,
-                    request.get("child"),
-                    request.get("offset", 0),
-                )
-                journal_version = value.pop("_journal_version", None)
-                if journal_version is not None:
-                    self.activity_pages[cache_key] = (journal_version, value)
+                value["scope"] += " Optional saved activity could not be projected."
+        else:
+            # Deterministic fixture journals are a harness, not another live
+            # session format or a return/import path for product conversations.
+            path = host.store.path / "events.jsonl"
+            cache_key = (str(path), node, offset)
+            try:
+                version = await asyncio.to_thread(host.inspection.journal_version, path)
+                cached = self.activity_pages.get(cache_key)
+                if cached and cached[0] == version:
                     self.activity_pages.move_to_end(cache_key)
-                    while len(self.activity_pages) > 4:
-                        self.activity_pages.popitem(last=False)
-        except (OSError, ValueError, TypeError, KeyError):
-            value = host.inspection.activity_tree(request.get("child"))
-            value.update(
-                partial=True,
-                scope="Saved activity unavailable; showing bounded memory index. Export remains separate.",
-            )
-        if shared and node is None and request.get("offset", 0) == 0:
-            entry = host.inspection.shared_activity_entry()
-            retained, budget = [], 1024 * 1024 - 4096 - len(json.dumps(entry).encode())
-            for row in value["rows"][:99]:
-                size = len(json.dumps(row, ensure_ascii=False).encode())
-                if size > budget:
-                    break
-                retained.append(row)
-                budget -= size
-            value = {
-                **value,
-                "rows": [entry, *retained],
-                "next_offset": len(retained)
-                if len(value["rows"]) > len(retained)
-                else value.get("next_offset"),
-            }
+                    value = cached[1]
+                else:
+                    value = await asyncio.to_thread(
+                        host.inspection.journal_activity, path, node, offset
+                    )
+                    journal_version = value.pop("_journal_version", None)
+                    if journal_version is not None:
+                        self.activity_pages[cache_key] = (journal_version, value)
+                        self.activity_pages.move_to_end(cache_key)
+                        while len(self.activity_pages) > 4:
+                            self.activity_pages.popitem(last=False)
+            except (OSError, ValueError, TypeError, KeyError):
+                value = host.inspection.activity_tree(node)
+                value.update(
+                    partial=True, scope="Fixture activity unavailable; showing bounded memory."
+                )
         if host is self.host:
             self.emit(
                 {
@@ -783,7 +763,7 @@ class WorkspaceBridge(RuntimeBridge):
                     "session_id": host.session_id,
                     "request_id": request.get("request_id"),
                     "category": "activity_tree",
-                    "child": request.get("child"),
+                    "child": node,
                     **value,
                 }
             )

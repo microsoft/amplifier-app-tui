@@ -886,230 +886,324 @@ class Inspection:
             return info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns
 
     @staticmethod
-    def shared_activity_entry():
-        """A lazy source entry, not another copy of canonical tool identities."""
-        return {
-            "id": "shared:history",
-            "label": "Shared session history",
-            "status": "saved",
-            "source": "shared session activity",
-            "children": 1,
-            "summary": "open recorded observations",
-            "preview": "Read saved activity from other clients, grouped by exact transcript associations. "
-            "Loaded only when opened; no tool, provider or approval runs.",
-            "detail": "Transcript messages remain authoritative. Optional saved observations are a separate, "
-            "read-only source, not live jobs or another accounting ledger.",
-            "parent": None,
-            "partial": False,
-            "markdown": False,
-        }
-
-    @staticmethod
-    def shared_activity_view(activity, messages, node="shared:history", offset=0):
-        """One bounded page from an in-memory Foundation activity snapshot.
-
-        Groups are separate from native/live tool nodes. Only shared exact
-        associations assign a transcript turn; telemetry cannot become a job,
-        decision or accounting contribution. Only operational metadata and
-        bounded tool fields are projected, not raw provider request/response bodies.
-        """
-        root = "shared:history"
+    def _recorded_activity_row(event, association, identity, parent):
+        """A bounded optional observation, never execution or an extra cost total."""
 
         def excerpt(value, limit=160):
             if not isinstance(value, str):
                 return ""
             return value[:limit].encode("utf-8", errors="replace").decode("utf-8")
 
-        groups, observations = {}, {}
+        data = event["data"]
+        fields = (
+            "tool_name",
+            "name",
+            "tool_call_id",
+            "call_id",
+            "message_id",
+            "request_id",
+            "span_id",
+            "provider",
+            "model",
+            "purpose",
+            "usage",
+            "duration_ms",
+            "status",
+            "success",
+            "error",
+        )
+        if event["event"].startswith("tool:"):
+            fields += ("arguments", "input", "result")
+        selected = {key: data[key] for key in fields if key in data}
+        try:
+            projection, limited = bounded_projection(selected)
+        except (UnicodeError, OverflowError, ValueError, TypeError, RecursionError):
+            projection, limited = {"unavailable": "Malformed observed fields omitted"}, True
+        event_name = excerpt(event["event"])
+        detail, clipped = bounded(
+            {
+                "event": event_name,
+                "source_line": event["line"],
+                "session_id": excerpt(event.get("session_id")),
+                "timestamp": excerpt(event.get("timestamp")),
+                "association": {
+                    "method": association.method,
+                    "message_indices": association.message_indices,
+                    "turn_index": association.turn_index,
+                    "auxiliary": association.auxiliary,
+                },
+                "observed_fields": projection,
+            }
+        )
+        linked = (
+            "Saved message "
+            + ", ".join(str(index + 1) for index in association.message_indices)
+            + f" · exact {association.method} association"
+            if association.message_indices
+            else "Auxiliary observation; not assigned to a conversation turn."
+            if association.auxiliary
+            else "Unassociated observation; no unique message/tool evidence."
+        )
+        name = excerpt(data.get("tool_name") or data.get("name") or data.get("model"), 120)
+        preview = linked
+        if event["event"] == "llm:response":
+            try:
+                stamp = datetime.fromisoformat(
+                    excerpt(event.get("timestamp")).replace("Z", "+00:00")
+                )
+            except ValueError:
+                preview += "\n\nCall timestamp unavailable; usage is retained in observed fields."
+            else:
+                duration = event.get("duration_ms", data.get("duration_ms"))
+                if type(duration) not in (int, float) or not 0 <= duration < 2**53:
+                    duration = None
+                preview += "\n\n" + call_usage_text(
+                    usage_values(data.get("usage")),
+                    {key: excerpt(data.get(key)) for key in ("provider", "model", "basis")},
+                    timestamp=stamp,
+                    duration_ms=duration,
+                )
+        return {
+            "id": identity,
+            "parent": parent,
+            "label": event_name + (f" · {name}" if name else ""),
+            "status": "observed",
+            "source": "shared session activity",
+            "children": 0,
+            "summary": f"source line {event['line']}",
+            "preview": preview,
+            "detail": detail,
+            "partial": limited or clipped or event_name != event["event"],
+            "markdown": False,
+        }
+
+    @staticmethod
+    def native_activity(events, activity, messages, node=None, offset=0, *, active=False):
+        """One ordinary Activity tree over canonical, live and CI observations.
+
+        The store supplies in-memory canonical/live events. Foundation alone
+        associates optional CI events to saved messages. No imported journal or
+        origin-specific chooser is involved; display bounds never cap execution.
+        """
+        events = deque(events, maxlen=20001)
+        partial = activity["partial"] or len(events) > 20000
+        if len(events) > 20000:
+            events.popleft()
+        headers, by_message, by_call, receipts = {}, {}, {}, set()
+        kinds = {
+            "tool.updated",
+            "tool.progress",
+            "tool.ended",
+            "child.observed",
+            "activity.observed",
+            "activity.progress",
+            "display.message",
+        }
+        identities = dict.fromkeys(
+            event.item_id
+            for event in reversed(events)
+            if event.kind in kinds
+            and (
+                event.kind != "display.message"
+                or event.payload.get("source") in ("usage", "thinking")
+            )
+        )
+        if len(identities) > 10000:
+            partial = True
+        retained = set(list(identities)[:10000])
+        for event in events:
+            payload, key = event.payload, event.item_id
+            if event.kind not in kinds or (
+                event.kind == "display.message"
+                and payload.get("source") not in ("usage", "thinking")
+            ):
+                continue
+            if key not in retained:
+                continue
+            if key not in headers:
+                headers[key] = {
+                    "parent": payload.get("parent_item_id"),
+                    "label": str(payload.get("name", payload.get("source", event.kind)))[:256],
+                    "status": payload.get("status", "observed"),
+                }
+            if payload.get("status") is not None:
+                headers[key]["status"] = payload["status"]
+            if payload.get("name") is not None:
+                headers[key]["label"] = str(payload["name"])[:256]
+            title = activity_task_title(payload)
+            if title:
+                headers[key]["label"] = title + " · " + headers[key]["label"]
+            index = payload.get("canonical_message_index")
+            if type(index) is int:
+                by_message.setdefault(index, set()).add(key)
+            call = payload.get("tool_call_id")
+            if isinstance(call, str):
+                by_call.setdefault(call, set()).add(key)
+            receipt = payload.get("usage_receipt_id")
+            if isinstance(receipt, str):
+                receipts.add(receipt)
+
+        extras = {}
         for association in activity["associations"]:
             event = activity["events"][association.event_index]
-            anchor = association.turn_message_index
-            group = (
-                f"{root}:utility"
-                if association.auxiliary
-                else f"{root}:turn:{anchor}"
-                if anchor is not None
-                else f"{root}:unassociated"
-            )
-            if group not in groups:
-                text = messages[anchor].get("content") if anchor is not None else None
-                preview = " ".join(excerpt(text, 400).split())
-                groups[group] = {
-                    "id": group,
-                    "parent": root,
-                    "label": "Utility calls"
-                    if association.auxiliary
-                    else f"Turn {association.turn_index + 1}"
-                    if anchor is not None
-                    else "Unassociated observations",
-                    "preview": preview
-                    or (
-                        "Auxiliary naming/summarization; not assigned to conversation turns."
-                        if association.auxiliary
-                        else "No unique message/tool association was recorded; timing is not used to guess one."
-                    ),
-                    "children": 0,
-                    "anchor": anchor,
-                }
-            groups[group]["children"] += 1
-            observations[f"{root}:event:{event['line']}"] = (group, event, association)
-
-        def row(identity):
-            if identity == root:
-                value = Inspection.shared_activity_entry()
-                value.update(
-                    children=len(groups),
-                    summary=f"{len(observations)} recorded observations",
-                    preview=f"{len(observations)} recorded observations in this session's capture. "
-                    "This is a saved snapshot, not live state. Reopen Shared session history from Activity to refresh.",
-                )
-                if not observations:
-                    value["preview"] += (
-                        " No readable observations in the bounded capture; conversation history is unaffected."
-                    )
-                return value
-            if identity in groups:
-                value = {k: v for k, v in groups[identity].items() if k != "anchor"}
-                return {
-                    **value,
-                    "status": "saved",
-                    "summary": f"{value['children']} recorded observations",
-                    "detail": value["preview"],
-                    "source": "shared session activity",
-                    "markdown": False,
-                    "partial": False,
-                }
-            parent, event, association = observations[identity]
             data = event["data"]
-            fields = (
-                "tool_name",
-                "name",
-                "tool_call_id",
-                "call_id",
-                "message_id",
-                "request_id",
-                "span_id",
-                "provider",
-                "model",
-                "purpose",
-                "usage",
-                "duration_ms",
-                "status",
-                "success",
-                "error",
-            )
-            if event["event"].startswith("tool:"):
-                fields += ("arguments", "input", "result")
-            selected = {key: data[key] for key in fields if key in data}
-            try:
-                projection, limited = bounded_projection(selected)
-            except (UnicodeError, OverflowError, ValueError, TypeError, RecursionError):
-                projection, limited = {"unavailable": "Malformed observed fields omitted"}, True
-            event_name = excerpt(event["event"])
-            detail, clipped = bounded(
-                {
-                    "event": event_name,
-                    "source_line": event["line"],
-                    "session_id": excerpt(event.get("session_id")),
-                    "timestamp": excerpt(event.get("timestamp")),
-                    "association": {
-                        "method": association.method,
-                        "message_indices": association.message_indices,
-                        "turn_index": association.turn_index,
-                        "auxiliary": association.auxiliary,
-                    },
-                    "observed_fields": projection,
-                }
-            )
-            linked = (
-                "Saved message "
-                + ", ".join(str(index + 1) for index in association.message_indices)
-                + f" · exact {association.method} association"
-                if association.message_indices
-                else "Auxiliary observation; not assigned to a conversation turn."
-                if association.auxiliary
-                else "Unassociated observation; no unique message/tool evidence."
-            )
-            name = excerpt(data.get("tool_name") or data.get("name") or data.get("model"), 120)
-            preview = linked
             if event["event"] == "llm:response":
-                try:
-                    stamp = datetime.fromisoformat(
-                        excerpt(event.get("timestamp")).replace("Z", "+00:00")
-                    )
-                except ValueError:
-                    preview += (
-                        "\n\nCall timestamp unavailable; usage is retained in observed fields."
-                    )
+                observed = {
+                    **data,
+                    **{
+                        key: event[key]
+                        for key in ("session_id", "request_id", "span_id")
+                        if key in event
+                    },
+                    "timestamp": event.get("timestamp"),
+                }
+                if usage_receipt_id(observed) in receipts:
+                    continue
+            matched = set()
+            if association.message_indices and not association.auxiliary:
+                call = data.get("tool_call_id") or data.get("call_id")
+                if association.method == "tool_call_id" and isinstance(call, str):
+                    matched.update(by_call.get(call, ()))
                 else:
-                    duration = event.get("duration_ms", data.get("duration_ms"))
-                    if type(duration) not in (int, float) or not 0 <= duration < 2**53:
-                        duration = None
-                    preview += "\n\n" + call_usage_text(
-                        usage_values(data.get("usage")),
-                        {key: excerpt(data.get(key)) for key in ("provider", "model", "basis")},
-                        timestamp=stamp,
-                        duration_ms=duration,
+                    for index in association.message_indices:
+                        matched.update(by_message.get(index, ()))
+            parent = next(iter(matched)) if len(matched) == 1 else None
+            if parent is None:
+                anchor = association.turn_message_index
+                if association.auxiliary:
+                    parent, label = "observations:utility", "Utility calls"
+                    preview = "Recorded auxiliary calls; not assigned to conversation turns."
+                elif anchor is not None:
+                    parent, label = (
+                        f"observations:turn:{anchor}",
+                        f"Turn {association.turn_index + 1} observations",
                     )
-            return {
-                "id": identity,
-                "parent": parent,
-                "label": event_name + (f" · {name}" if name else ""),
-                "status": "observed",
-                "source": "shared session activity",
-                "children": 0,
-                "summary": f"source line {event['line']}",
-                "preview": preview,
-                "detail": detail,
-                "partial": limited or clipped or len(event_name) != len(event["event"]),
-                "markdown": False,
-            }
-
-        valid = node == root or node in groups or node in observations
-        focus = row(node) if valid else None
-        children = (
-            sorted(
-                groups,
-                key=lambda key: (groups[key]["anchor"] is None, groups[key]["anchor"] or 0, key),
-            )
-            if node == root
-            else [key for key, (parent, _, _) in observations.items() if parent == node]
-        )
-        rows, budget = [], 1024 * 1024 - 4096 - len(json.dumps(focus).encode())
-        for identity in children[offset : offset + 100]:
-            value = row(identity)
-            size = len(json.dumps(value, ensure_ascii=False).encode())
-            if size > budget:
+                    text = messages[anchor].get("content")
+                    preview = " ".join(text[:400].split()) if isinstance(text, str) else ""
+                else:
+                    parent, label = "observations:unassociated", "Unassociated observations"
+                    preview = "No unique message/tool association was recorded; timing is never used to guess one."
+                if parent not in headers:
+                    if len(headers) >= 10000:
+                        partial = True
+                        break
+                    headers[parent] = {"parent": None, "label": label, "status": "observed"}
+                    extras[parent] = {
+                        "id": parent,
+                        "parent": None,
+                        "label": label,
+                        "status": "observed",
+                        "preview": preview.encode("utf-8", errors="replace").decode("utf-8"),
+                        "detail": preview.encode("utf-8", errors="replace").decode("utf-8"),
+                        "source": "saved activity",
+                        "partial": False,
+                        "markdown": False,
+                    }
+            key = f"observation:{event['line']}"
+            if len(headers) >= 10000:
+                partial = True
                 break
-            rows.append(value)
+            headers[key] = {
+                "parent": parent,
+                "label": str(event["event"])[:160]
+                .encode("utf-8", errors="replace")
+                .decode("utf-8"),
+                "status": "observed",
+            }
+            extras[key] = (event, association)
+
+        selected = [
+            key
+            for key, header in headers.items()
+            if header["parent"] == node or (node is None and header["parent"] not in headers)
+        ]
+        wanted = set(selected[offset : offset + 100])
+        if node in headers:
+            wanted.add(node)
+        index = Inspection()
+        for event in events:
+            if event.item_id in wanted:
+                index.observe(event)
+        base = index.activity_tree(node)
+        projected = {
+            row["id"]: row for row in base["rows"] + ([base["focus"]] if base["focus"] else [])
+        }
+        for key in wanted:
+            if key in extras:
+                extra = extras[key]
+                projected[key] = (
+                    dict(extra)
+                    if isinstance(extra, dict)
+                    else Inspection._recorded_activity_row(*extra, key, headers[key]["parent"])
+                )
+
+        adjacency = {}
+        for key, header in headers.items():
+            adjacency.setdefault(header["parent"], []).append(key)
+        for key, row in projected.items():
+            row["label"] = str(row["label"])[:282]
+            row["children"] = len(adjacency.get(key, ()))
+            row["parent"] = headers[key]["parent"]
+            pending, seen, counts = list(adjacency.get(key, ())), set(), {}
+            while pending:
+                child = pending.pop()
+                if child in seen:
+                    continue
+                seen.add(child)
+                status = headers[child]["status"]
+                if isinstance(status, str):
+                    counts[status] = counts.get(status, 0) + 1
+                pending.extend(adjacency.get(child, ()))
+            row["summary"] = " · ".join(
+                f"{count} {status}"
+                for status, count in counts.items()
+                if status
+                in ("running", "waiting", "failed", "unknown", "interrupted", "warning", "error")
+            )
+        focus = projected.get(node)
+        rows, budget = [], 1024 * 1024 - 4096 - len(json.dumps(focus).encode())
+        for key in selected[offset : offset + 100]:
+            row = projected.get(key)
+            if row is None:
+                partial = True
+                continue
+            size = len(json.dumps(row, ensure_ascii=False).encode())
+            if size > budget:
+                partial = True
+                break
+            rows.append(row)
             budget -= size
-        parent = focus["parent"] if focus else root
-        trail = ["Shared session history"]
-        if node in observations:
-            trail += [groups[parent]["label"], focus["label"]]
-        elif node in groups:
-            trail.append(focus["label"])
+        trail, seen, cursor = [], set(), node
+        while cursor in headers and cursor not in seen:
+            seen.add(cursor)
+            trail.append(str(headers[cursor]["label"])[:282])
+            cursor = headers[cursor]["parent"]
+        # Bounded breadcrumbs also protect a pathological nested activity tree.
+        breadcrumb = " / ".join(reversed(trail[-12:]))[:2048]
         return {
             "rows": rows,
             "focus": focus,
             "node": node,
-            "parent": parent,
-            "breadcrumb": " / ".join(trail),
+            "parent": headers[node]["parent"] if node in headers else None,
+            "breadcrumb": breadcrumb,
             "offset": offset,
             "next_offset": offset + len(rows)
-            if rows and offset + len(rows) < len(children)
+            if rows and offset + len(rows) < len(selected)
             else None,
-            "partial": activity["partial"]
-            or not valid
-            or len(rows) < min(100, len(children[offset:])),
-            "snapshot": True,
-            "scope": "Saved shared-session observations, not live state or an additional cost total. "
-            "Selected session only; child captures are separate. Exact message/tool associations; no timing joins. "
-            "Limits: 16 MiB / 5000 physical lines, 100 rows / 1 MiB per page, 16 KiB detail excerpts. "
-            "Only operational metadata and bounded tool fields are shown; raw provider bodies are omitted. "
-            "No log writes, execution or approval. Reopen this source from Activity to refresh."
-            + (" Capture incomplete or unavailable." if activity["partial"] else "")
-            + (" Selected observation is unavailable in this snapshot." if not valid else ""),
+            "partial": partial or (node is not None and node not in headers),
+            "snapshot": not active,
+            "scope": "Conversation and observed work · canonical history plus current activity. "
+            "Saved observations attach only by Foundation's exact message/tool associations; "
+            "unassociated and utility observations remain explicit. No replay or extra accounting contribution. "
+            "CI is read on explicit open, never polled; live updates use memory. "
+            "Display limits: latest 20,000 events / latest 10,000 identities, CI 16 MiB / 5000 lines, "
+            "100 rows / 1 MiB per page, 16 KiB detail excerpts. "
+            "Only operational metadata and bounded tool fields are shown; raw provider bodies are omitted."
+            + (
+                " Some saved activity is unavailable or outside display bounds; canonical history is unchanged."
+                if partial
+                else ""
+            ),
         }
 
     @staticmethod

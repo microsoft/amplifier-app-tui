@@ -14,8 +14,66 @@ from .conversations import ConversationStore, atomic_json, resolve_resume
 from .events import Event, Transcript
 
 
+def native_resume_messages(messages):
+    """Validate captured tool pairing without imposing import/display budgets.
+
+    IDs may repeat in later completed batches; module instructions may interleave.
+    This neither repairs missing outcomes nor drops unknown provider JSON fields.
+    A drained call/result pair needs no invented closing assistant response.
+    """
+    from amplifier_foundation.session import is_real_user_message
+
+    if not isinstance(messages, list):
+        raise ValueError("Canonical messages must be a list")
+    pending = set()
+    for message in messages:
+        if (
+            not isinstance(message, dict)
+            or not isinstance(message.get("role"), str)
+            or not message["role"]
+        ):
+            raise ValueError("Canonical messages require an object with a role")
+        role = message.get("role")
+        metadata = message.get("metadata")
+        ephemeral = isinstance(metadata, dict) and metadata.get("ephemeral")
+        if role in ("system", "developer") or (
+            role == "user"
+            and not message.get("tool_calls")
+            and (ephemeral or not is_real_user_message(message))
+        ):
+            continue
+        if role == "tool":
+            identity = message.get("tool_call_id")
+            if not isinstance(identity, str) or identity not in pending:
+                raise ValueError(
+                    "Unpaired tool result in canonical history; inspect before continuing"
+                )
+            pending.remove(identity)
+            continue
+        if pending:
+            raise ValueError("Unfinished tool calls require explicit interrupted-work recovery")
+        calls = message.get("tool_calls") or []
+        if not isinstance(calls, list) or (calls and role != "assistant"):
+            raise ValueError("Unsupported canonical tool-call representation")
+        for call in calls:
+            identity = call.get("id") if isinstance(call, dict) else None
+            if not isinstance(identity, str) or not identity or identity in pending:
+                raise ValueError("Missing or duplicate pending tool-call identity")
+            pending.add(identity)
+    if pending:
+        raise ValueError("Unfinished tool calls require explicit interrupted-work recovery")
+    return messages
+
+
 def public_history(messages, *, repair=False):
-    """Validate portable tool pairing; missing outcomes are explicit, never executed."""
+    """Validate an explicit bounded public-context import/recovery operation.
+
+    This is not a canonical-session admission validator: its import bounds and
+    deliberately narrow public tool/role representation must not reject native
+    CLI/Unified history. Native reads use Foundation SessionHistoryStore and
+    execution safety uses the owning runtime's shared transcript diagnosis.
+    Missing imported outcomes are explicit, never executed here.
+    """
     if not isinstance(messages, list) or len(messages) > 10000:
         raise ValueError("Public context must contain at most 10000 messages")
     encoded = json.dumps(messages, allow_nan=False).encode()
@@ -276,14 +334,17 @@ def history(state_dir, identity, *, structured=False, cwd=None, cli_home=None):
     directory = entry_path(state_dir, entry)
     rows = None
     if entry.get("shared_session"):
-        from .cli_compat import read_session_file
+        from .cli_compat import native_history
 
-        raw = read_session_file(cli_home, cwd, identity, "transcript.jsonl", 8 * 1024 * 1024)
-        checkpoint = directory / "checkpoint.json"
-        marker = json.loads(checkpoint.read_text()) if checkpoint.exists() else {}
-        if marker.get("canonical_sha256") != hashlib.sha256(raw).hexdigest():
-            messages = [json.loads(line) for line in raw.splitlines() if line.strip()]
-            rows = [asdict(e) for e in SharedConversationStore.observations(messages, identity)]
+        native = native_history(cli_home, cwd, identity)
+        if any(d.code == "changed_during_read" for d in native.diagnostics):
+            raise ValueError("Native history changed during export; retry after work finishes")
+        rows = [
+            asdict(e)
+            for e in SharedConversationStore.observations(
+                native.messages, identity, limit_details=False
+            )
+        ]
     if rows is None:
         with (directory / "events.jsonl").open("rb") as stream:
             data = stream.read(16 * 1024 * 1024 + 1)

@@ -896,9 +896,9 @@ class Children:
         ):
             raise ValueError("Inherited child mode changed; create a new delegation")
         if row["status"] == "interrupted":
-            from .recovery import public_history
+            from .recovery import native_resume_messages
 
-            public_history(row["messages"])  # Validate again; never synthesize outcomes.
+            native_resume_messages(row["messages"])  # Validate; never synthesize outcomes.
         updates = None
         if provider_preferences or model_role or row.get("routing") or row.get("model_role"):
             base = row.get("_routing_base")
@@ -980,9 +980,9 @@ class Children:
         ):
             raise ValueError("Invalid child canonical context")
         if row["status"] == "interrupted":
-            from .recovery import public_history
+            from .recovery import native_resume_messages
 
-            public_history(row["messages"])
+            native_resume_messages(row["messages"])
         self.restoring[identity] = row
         try:
             return await self.spawn(
@@ -1471,10 +1471,10 @@ class Children:
                     "execution_uncertain"
                 )
                 if row["status"] == "interrupted" and not row.get("execution_uncertain"):
-                    from .recovery import public_history
+                    from .recovery import native_resume_messages
 
                     try:
-                        public_history(row["messages"])
+                        native_resume_messages(row["messages"])
                         row["resumable"] = True
                     except (TypeError, ValueError):
                         pass

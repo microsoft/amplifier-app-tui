@@ -257,6 +257,7 @@ class SessionHost:
                 display_system=self,
                 interactive_approval=self.interactive_questions,
                 observer=self._observe,
+                is_resumed=self.store is not None and self.store.saved is not None,
             )
             if self._closed:
                 raise RuntimeError("Session was closed during startup")
@@ -267,10 +268,22 @@ class SessionHost:
                 h.get("module") == "hooks-session-naming"
                 for h in prepared.mount_plan.get("hooks", [])
             ):
-                self.naming_turns = sum(
-                    e.kind == "turn.ended" and e.payload.get("status") == "completed"
-                    for e in self.store.restored_events
-                )
+                if getattr(self.store, "shared_session", False):
+                    from amplifier_foundation.session import is_real_user_message
+
+                    self.naming_turns = sum(
+                        is_real_user_message(message)
+                        and not (
+                            isinstance(message.get("metadata"), dict)
+                            and message["metadata"].get("ephemeral")
+                        )
+                        for message in self.store.canonical_messages
+                    )
+                else:
+                    self.naming_turns = sum(
+                        e.kind == "turn.ended" and e.payload.get("status") == "completed"
+                        for e in self.store.restored_events
+                    )
                 coordinator.session_dir = str(self.store.naming_metadata(self.naming_turns))
                 coordinator.hooks.register(
                     "prompt:complete", self._prepare_naming, priority=90, name="tui-naming-metadata"
@@ -312,18 +325,24 @@ class SessionHost:
 
                     def comparable(messages):
                         if shared:
-                            from amplifier_foundation import sanitize_message
-
                             messages = [
-                                sanitize_message(m)
-                                for m in messages
-                                if m.get("role") not in ("system", "developer")
+                                m for m in messages if m.get("role") not in ("system", "developer")
                             ]
                         return portable_history(messages)
 
                     restored = comparable(self.store.saved["messages"])
-                    if comparable(await context.get_messages()) != restored:
-                        await context.set_messages(copy.deepcopy(self.store.saved["messages"]))
+                    current = await context.get_messages()
+                    if comparable(current) != restored:
+                        messages = copy.deepcopy(self.store.saved["messages"])
+                        if shared and not any(
+                            m.get("role") in ("system", "developer") for m in messages
+                        ):
+                            # Older context modules keep a static bundle prompt;
+                            # current modules own an independent prompt factory.
+                            messages = [
+                                m for m in current if m.get("role") in ("system", "developer")
+                            ] + messages
+                        await context.set_messages(messages)
                     if comparable(await context.get_messages()) != restored:
                         raise RuntimeError(
                             "Context module did not restore canonical history; resume refused"
@@ -474,7 +493,13 @@ class SessionHost:
                 self.emit(
                     "display.message", "recovery", text=self.store.metadata["recovery_notice"]
                 )
-            if self.store:
+            if self.store and shared and self.store.saved:
+                # Opening a native conversation is not a save operation. Context
+                # modules may stamp private sequence fields during restoration;
+                # never rewrite canonical history merely to paint the old work.
+                self.store.checkpoint_auxiliary(self.sequence)
+                self.store.saved["fingerprint"] = self.fingerprint
+            elif self.store:
                 self.store.checkpoint(
                     await context.get_messages(), self.sequence, self.fingerprint, True
                 )
@@ -772,10 +797,15 @@ class SessionHost:
                 try:
                     messages = await self.session.coordinator.get("context").get_messages()
                     if status == "interrupted" and not self._execution_uncertain:
-                        from .recovery import public_history
-
                         try:
-                            public_history(messages)  # Validate; never repair implicitly.
+                            if getattr(self.store, "shared_session", False):
+                                from .recovery import native_resume_messages
+
+                                native_resume_messages(messages)
+                            else:
+                                from .recovery import public_history
+
+                                public_history(messages)
                             resumable = True
                         except (ValueError, TypeError):
                             pass
@@ -1114,6 +1144,7 @@ class SessionHost:
             self.emit(
                 "tool.updated",
                 item_id,
+                tool_call_id=data.get("tool_call_id"),
                 name=data.get("tool_name", "unknown tool"),
                 status=status,
                 arguments=data.get("tool_input"),

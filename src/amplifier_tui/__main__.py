@@ -104,6 +104,8 @@ def run(args, runtime_output=None):
         os.environ["AMPLIFIER_HOME"] = str(args.cli_home)
         os.environ["AMPLIFIER_CONTEXT_INTELLIGENCE_BASE_PATH"] = str(
             args.state_dir.resolve() / "context-intelligence"
+            if args.fixture
+            else args.cli_home / "projects"
         )
     from .composition import SourceMap, prepare
     from .host import SessionHost
@@ -122,6 +124,7 @@ def run(args, runtime_output=None):
             sources,
             install_deps=not args.no_install,
             progress=target.background,
+            native_home=args.cli_home if not args.fixture else None,
             cli_policy={
                 "cwd": args.cwd.resolve(),
                 "home": args.cli_home,
@@ -204,6 +207,7 @@ def run(args, runtime_output=None):
                 SourceMap.read(Path(launch["sources"]) if launch["sources"] else None),
                 install_deps=not args.no_install,
                 progress=target.background,
+                native_home=Path(launch["cli_home"]) if not fixture else None,
                 cli_policy={
                     "cwd": Path(launch["cwd"]),
                     "home": Path(launch["cli_home"]),

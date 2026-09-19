@@ -409,8 +409,8 @@ class ConversationStore:
 class SharedConversationStore(ConversationStore):
     """Foundation owns native history and writer coordination across clients.
 
-    The .tui sidecar holds local admission/display state, not canonical context.
-    Ownership spans construction through runtime cleanup and close; digest checks
+    The .tui sidecar holds only local UI intent/admission receipts, not history.
+    Ownership spans construction through runtime cleanup and close; revision checks
     additionally detect older, non-cooperating writers, not arbitrary races.
     Mutations and close run synchronously on the owning event loop, without an
     await between check and write. Cross-thread callers need synchronization;
@@ -418,9 +418,59 @@ class SharedConversationStore(ConversationStore):
     """
 
     def projection(self):
-        from .inspection import CallUsage
+        from collections import deque
 
-        items = super().projection()
+        from .inspection import CallUsage, bounded_projection
+
+        transcript = Transcript()
+        for event in self.restored_events:
+            transcript.apply(event)
+        count = len(transcript.items)
+        # Native replay already paints at most 1000 historical items. Bound the
+        # corresponding IPC snapshot too, not the canonical runtime context.
+        retained, size = [], 0
+        for item in reversed(deque(transcript.items.values(), maxlen=1000)):
+            detail, limited = bounded_projection(item.detail, 65536)
+            text = item.text[:65536].encode("utf-8")[:65536].decode("utf-8", errors="ignore")
+            if len(item.text) > len(text):
+                text += "\n[Historical preview shortened; the canonical transcript retains the source.]"
+                limited = True
+            if limited and isinstance(detail, dict):
+                detail = {
+                    **detail,
+                    "preview_limited": True,
+                    "preview_note": "The canonical transcript retains the source.",
+                }
+            value = {
+                "id": item.id,
+                "kind": item.kind,
+                "text": text,
+                "status": item.status,
+                "detail": json.dumps(detail, ensure_ascii=False, indent=2),
+            }
+            encoded_size = len(json.dumps(value, ensure_ascii=False).encode())
+            # Leave room for separators, the snapshot envelope and bounded
+            # accounting/recovery notices appended below.
+            if size + encoded_size > 8 * 1024 * 1024 - 128 * 1024:
+                break
+            retained.append(value)
+            size += encoded_size
+        items = list(reversed(retained))
+        if len(retained) != count:
+            notice = (
+                f"Showing latest {len(retained)} of {count} historical items. "
+                "The canonical transcript and runtime context retain the complete history."
+            )
+            items = [
+                {
+                    "id": "history:window",
+                    "kind": "notice",
+                    "text": notice,
+                    "status": "",
+                    "detail": notice,
+                },
+                *items,
+            ]
         if any(e.payload.get("accounting_snapshot") for e in self.restored_events):
             # Historical footers are receipts from that point in time. Show the
             # reconciled baseline separately; never rewrite history or journal a
@@ -503,13 +553,26 @@ class SharedConversationStore(ConversationStore):
                     raise ValueError("Shared session sidecar metadata exceeds limit")
                 if json.loads(prior).get("archived"):
                     raise ValueError("Conversation is archived")
-            existing = (path / "events.jsonl").exists()
-            super().__init__(
-                state_dir, launch, identity if existing else None, _path=path, _identity=identity
-            )
-            if not existing:
-                self._seed_view()
+            self.path = path
+            if path.is_symlink():
+                raise ValueError("Shared session sidecar directory cannot be a symlink")
+            path.mkdir(mode=0o700, exist_ok=True)
+            for name in ("metadata.json", "checkpoint.json", "draft.json"):
+                if (path / name).is_symlink():
+                    raise ValueError("Shared session sidecar files cannot be symlinks")
+            self.metadata = {"version": 1, "id": identity, "launch": launch}
+            if prior_metadata.exists():
+                self.metadata.update(json.loads(prior))
+                self.metadata["launch"] = launch
+            self.draft = ""
+            if (path / "draft.json").exists():
+                self.draft = json.loads((path / "draft.json").read_text())["text"]
+            self.restored_events = self.observations(self.canonical_messages, identity)
+            self._live_events = []
+            self.saved = self.load_checkpoint() if resume else None
             self._restore_accounting()
+            if self.saved:
+                self.saved["sequence"] = len(self.restored_events)
             if not resume:
                 # Fresh forks/imports must reach the host's explicit transfer path.
                 self.saved = None
@@ -544,39 +607,47 @@ class SharedConversationStore(ConversationStore):
         }
 
     def _native_sources(self):
-        """Preserve descriptor-relative bounded reads around shared native I/O."""
-        import hashlib
+        """Check secure native revisions without reading history repeatedly."""
+        from amplifier_foundation.session.history import file_stamp
 
-        from .cli_compat import read_session_file
+        from .cli_compat import _NativeHistoryPath
 
         launch = self.canonical_launch
         sources = {}
-        for name, limit in (("transcript.jsonl", 8 * 1024 * 1024), ("metadata.json", 65536)):
-            for filename in (name, name + ".backup"):
-                try:
-                    raw = read_session_file(
-                        launch["cli_home"], launch["cwd"], self.identity, filename, limit
-                    )
-                except FileNotFoundError:
-                    sources[filename] = None
-                else:
-                    sources[filename] = hashlib.sha256(raw).hexdigest()
+        for key, filename in (
+            ("transcript", "transcript.jsonl"),
+            ("transcript_backup", "transcript.jsonl.backup"),
+            ("metadata", "metadata.json"),
+            ("metadata_backup", "metadata.json.backup"),
+        ):
+            sources[key] = file_stamp(
+                _NativeHistoryPath(launch["cli_home"], launch["cwd"], self.identity, filename)
+            )
         return sources
 
-    def _read_canonical(self):
+    @staticmethod
+    def _revision_key(revision):
         import hashlib
 
+        return hashlib.sha256(
+            json.dumps(
+                {k: asdict(v) if v is not None else None for k, v in revision.items()},
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+
+    def _read_canonical(self):
         from .cli_compat import native_history
-        from .recovery import public_history
+        from .recovery import native_resume_messages
 
         self._owner.check()
-        before = self._native_sources()
-        if not any(before[name] for name in ("transcript.jsonl", "transcript.jsonl.backup")):
-            raise ValueError("Canonical transcript is missing; no empty history substituted")
-        if not any(before[name] for name in ("metadata.json", "metadata.json.backup")):
-            raise ValueError("Canonical metadata is missing; resume refused")
         launch = self.canonical_launch
         history = native_history(launch["cli_home"], launch["cwd"], self.identity)
+        before = history.revision
+        if not any(before[name] for name in ("transcript", "transcript_backup")):
+            raise ValueError("Canonical transcript is missing; no empty history substituted")
+        if not any(before[name] for name in ("metadata", "metadata_backup")):
+            raise ValueError("Canonical metadata is missing; resume refused")
         if before != self._native_sources() or any(
             diagnostic.code == "changed_during_read" for diagnostic in history.diagnostics
         ):
@@ -590,16 +661,10 @@ class SharedConversationStore(ConversationStore):
             != Path(self.canonical_launch["cwd"]).resolve()
         ):
             raise ValueError("Session belongs to another working directory")
-        public_history(history.messages)  # Validate only; never repair or execute old tools.
+        native_resume_messages(history.messages)  # No import limits, mutation or replay.
         self.canonical_metadata = metadata
         self.history_diagnostics = history.diagnostics
-        # Include the backup: when recovery used it, a concurrent backup change
-        # is every bit as significant as a changed primary transcript.
-        transcript = {
-            name: value for name, value in before.items() if name.startswith("transcript.")
-        }
-        digest = hashlib.sha256(json.dumps(transcript, sort_keys=True).encode()).hexdigest()
-        return history.messages, digest
+        return history.messages, self._revision_key(before)
 
     def _save_native(self, messages, metadata):
         from amplifier_core.utils.truncate import redact_secrets
@@ -621,56 +686,37 @@ class SharedConversationStore(ConversationStore):
 
     def assert_current(self):
         self._owner.check()
-        if self._read_canonical()[1] != self.canonical_digest:
+        if self._revision_key(self._native_sources()) != self.canonical_digest:
             raise ValueError(
                 "CLI transcript changed while this client was open; close and resume again. Nothing overwritten."
             )
 
     def load_checkpoint(self):
-        saved = super().load_checkpoint()
-        if saved.get("status") != "ready":
+        # Only an explicit unfinished admission receipt gates execution. Missing
+        # private UI files never gate an otherwise valid native conversation.
+        path = self.path / "checkpoint.json"
+        saved = json.loads(path.read_text()) if path.exists() else {}
+        if saved and saved.get("status") != "ready":
             raise ValueError(
                 "Shared session has uncertain/incomplete work; inspect before resuming"
             )
-        if saved.get("canonical_sha256") != self.canonical_digest:
-            events = [
-                json.loads(line) for line in (self.path / "events.jsonl").read_text().splitlines()
-            ]
-            if len(events) != saved.get("sequence") or any(
-                e.get("sequence") != i or e.get("session_id") != self.identity
-                for i, e in enumerate(events, 1)
-            ):
-                raise ValueError("TUI journal contains incomplete work; shared resume refused")
-            # Preserve prior observations. Only the derived view is rebuilt; drafts
-            # and child receipts are retained. No history becomes pending work.
-            archive = self.path / "views" / uuid.uuid4().hex
-            self._prior_usage = [
-                Event(**e)
-                for e in events
-                if isinstance(e.get("payload", {}).get("usage_call"), dict)
-            ]
-            archive.mkdir(parents=True, mode=0o700)
-            for name in ("events.jsonl", "checkpoint.json"):
-                (self.path / name).rename(archive / name)
-            self.journal = os.fdopen(
-                os.open(self.path / "events.jsonl", os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600),
-                "w",
-            )
-            try:
-                self._seed_view()
-                saved = super().load_checkpoint()
-            finally:
-                self.journal.close()
-                self.journal = None
-        return {**saved, "messages": self.canonical_messages, "fingerprint": None}
+        return {
+            "version": 1,
+            "status": "ready",
+            "sequence": len(self.restored_events),
+            "messages": self.canonical_messages,
+            "fingerprint": None,
+        }
 
     @staticmethod
-    def observations(messages, identity):
+    def observations(messages, identity, *, limit_details=True):
         from .cli_compat import session_message_visible
         from .events import tool_status
+        from .inspection import bounded_projection
 
         events = []
         turn = 0
+        pending = {}
 
         def emit(kind, item, **payload):
             event = Event(identity, len(events) + 1, f"history:{turn}", kind, item, payload)
@@ -692,7 +738,7 @@ class SharedConversationStore(ConversationStore):
             elif role == "assistant":
                 if content:
                     emit("text.final", f"history:text:{index}", text=content)
-                for call in message.get("tool_calls") or []:
+                for call_index, call in enumerate(message.get("tool_calls") or []):
                     function = call.get("function", call)
                     arguments = function.get("arguments", {})
                     if isinstance(arguments, str):
@@ -700,36 +746,40 @@ class SharedConversationStore(ConversationStore):
                             arguments = json.loads(arguments)
                         except ValueError:
                             arguments = {"raw": arguments}
+                    item_id = f"history:tool:{index}:{call_index}"
+                    pending[call["id"]] = item_id
+                    arguments, limited = (
+                        bounded_projection(arguments) if limit_details else (arguments, False)
+                    )
                     emit(
                         "tool.updated",
-                        call["id"],
+                        item_id,
+                        tool_call_id=call["id"],
+                        canonical_message_index=index,
                         name=function.get("name") or function.get("tool", "tool"),
                         arguments=arguments,
+                        preview_limited=limited,
                         status="unknown",
                     )
             elif role == "tool":
+                result, limited = bounded_projection(content) if limit_details else (content, False)
                 emit(
                     "tool.ended",
-                    message["tool_call_id"],
-                    result=content,
+                    pending.pop(message["tool_call_id"], f"history:result:{index}"),
+                    tool_call_id=message["tool_call_id"],
+                    canonical_result_index=index,
+                    result=result,
+                    preview_limited=limited,
                     status=tool_status("tool:post", content),
                 )
         return events
 
-    def _seed_view(self):
-        self.metadata["shared_history_unaccounted"] = bool(self.canonical_messages)
-        self.restored_events = self.observations(self.canonical_messages, self.identity)
-        for event in self.restored_events:
-            self.record(event)
-        self._save_marker(self.canonical_messages, len(self.restored_events), None, True)
-
     def _restore_accounting(self):
-        """Reconcile receipts into a sidecar-only historical session baseline.
+        """Derive an in-memory session baseline from shared recorded receipts.
 
         Canonical logs and conversation bytes are read-only here. Evidence rows
         live in Activity, not as hundreds of replayed conversation notices.
         """
-        import hashlib
         from datetime import datetime
 
         from .cli_compat import historical_usage
@@ -739,61 +789,16 @@ class SharedConversationStore(ConversationStore):
             return
         launch = self.canonical_launch
         logged, partial = historical_usage(launch["cli_home"], launch["cwd"], self.identity)
-        if not logged and not self.metadata.get("shared_history_unaccounted"):
-            # A TUI-owned history remains authoritative even without a logging
-            # module. External CLI history without receipts is different.
-            partial = False
-        records = {row["usage_receipt_id"]: row for row in logged}
-        logged_owners = {row["usage_session_id"] for row in logged}
-        sources = [*getattr(self, "_prior_usage", ()), *self.restored_events]
-        for event in sources:
-            payload = event.payload
-            if not isinstance(payload.get("usage_call"), dict):
-                continue
-            key = payload.get("usage_receipt_id")
-            owner = payload.get("usage_session_id") or payload.get("child_id") or self.identity
-            if key is None and owner in logged_owners:
-                # The two observers cannot be joined without identity. Use the
-                # canonical receipts and disclose the gap instead of guessing
-                # equivalence from equal amounts or neighboring timestamps.
-                partial = True
-                continue
-            key = (
-                key or payload.get("accounting_key") or f"native:{event.session_id}:{event.item_id}"
-            )
-            if key in records:
-                if usage_values(records[key]["usage_call"]) != usage_values(payload["usage_call"]):
-                    partial = True
-                continue
-            records[key] = {
-                "accounting_key": key,
-                "usage_receipt_id": payload.get("usage_receipt_id"),
-                "usage_session_id": owner,
-                "usage_call": payload["usage_call"],
-                "provider": payload.get("provider", {}),
-                "timestamp": payload.get("timestamp"),
-                "duration_ms": payload.get("duration_ms"),
-                "purpose": payload.get("purpose"),
-                "text": payload.get("text", "Usage details unavailable"),
-            }
-        if self.metadata.get("shared_history_unaccounted") and not logged:
+        if not logged:
             partial = True
+        records = {row["usage_receipt_id"]: row for row in logged}
         snapshot = usage_totals()
         for row in records.values():
             add_usage(snapshot, usage_values(row["usage_call"]))
         snapshot["totals"] = {
             k: str(v) if k == "cost_usd" else v for k, v in snapshot["totals"].items()
         }
-        fingerprint = hashlib.sha256(
-            json.dumps([records, partial], sort_keys=True).encode()
-        ).hexdigest()
-        previous = next(
-            (e for e in reversed(self.restored_events) if e.payload.get("accounting_snapshot")),
-            None,
-        )
         self.metadata["shared_history_unaccounted"] = partial
-        if previous and previous.payload.get("accounting_fingerprint") == fingerprint:
-            return
 
         def retain(item, **payload):
             event = Event(
@@ -804,7 +809,6 @@ class SharedConversationStore(ConversationStore):
                 item,
                 payload,
             )
-            self.record(event)
             self.restored_events.append(event)
 
         retain(
@@ -812,13 +816,12 @@ class SharedConversationStore(ConversationStore):
             name="Earlier session usage",
             status="partial" if partial else "observed",
             accounting_snapshot=snapshot,
-            accounting_fingerprint=fingerprint,
             partial=partial,
             text=f"{snapshot['requests']} recorded calls. Historical session accounting, not next-turn usage. "
             + (
                 "Some earlier receipts are unavailable or cannot be correlated."
                 if partial
-                else "Canonical and native receipts reconciled by observed identity."
+                else "Shared recorded receipts reconciled by observed identity."
             ),
         )
         for key, row in records.items():
@@ -850,18 +853,14 @@ class SharedConversationStore(ConversationStore):
                 status="observed",
                 **row,
             )
-        self._save_marker(self.canonical_messages, len(self.restored_events), None, True)
 
     def _save_marker(self, messages, sequence, fingerprint, ready):
         self._owner.check()
-        self.journal.flush()
-        os.fsync(self.journal.fileno())
         marker = dict(
             version=1,
             status="ready" if ready else "uncertain",
             sequence=sequence,
             fingerprint=fingerprint,
-            canonical_sha256=self.canonical_digest,
         )
         atomic_json(self.path / "checkpoint.json", marker)
         self.saved = {**marker, "messages": messages}
@@ -895,11 +894,34 @@ class SharedConversationStore(ConversationStore):
                 }
             )
         )
+        self.canonical_metadata = {**self.canonical_metadata, "name": self.metadata["title"]}
+        self.canonical_digest = self._revision_key(self._native_sources())
         return True
 
     def record(self, event):
         self._owner.check()
-        super().record(event)
+        self._live_events.append(event)
+        if event.kind == "turn.accepted":
+            # Admission uncertainty is durable before execution, but displayed
+            # events themselves remain observations, never a second transcript.
+            self._save_marker(self.canonical_messages, event.sequence, None, False)
+            if not self.metadata.get("title"):
+                self.metadata["title"] = " ".join(event.payload["text"].split())[:100]
+                self.metadata["title_source"] = "prompt"
+                atomic_json(self.path / "metadata.json", self.metadata)
+
+    def activity_events(self):
+        from itertools import chain
+
+        return chain(self.restored_events, self._live_events)
+
+    def check_open(self):
+        self._owner.check()
+
+    def checkpoint_auxiliary(self, sequence):
+        self._owner.check()
+        if self.saved:
+            self.saved["sequence"] = sequence
 
     def save_draft(self, text):
         self._owner.check()

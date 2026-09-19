@@ -13,6 +13,13 @@ receipts, recorded forks, repeat-resume deduplication, conflicting/missing/symli
 logs and capture bounds. Preserve canonical bytes; earlier costs never enter a new Turn.
 Ownership checks use real subprocess contention/crash, stale handles and cleanup awaits.
 History checks exercise backup recovery, unknown provider fields and path-swap refusal.
+Native-scale checks load a synthetic transcript over 66 MiB with over 11,000 messages
+and 900 KiB metadata through the complete store in one streamed transcript pass.
+No private events journal or imported checkpoint is created. Native history is not an
+explicit import; do not reuse import budgets or sanitizers at this boundary.
+Run `tests/test_native_host_restore.py` for provider-field readback, mounted static
+instructions, first-execute resume lifecycle, canonical naming counts, scoped reused
+tool IDs and drained result pairs. Missing outcomes remain unknown, never replayed.
 Every fixture owns `AMPLIFIER_SESSION_STATE_HOME`; never contend with a user's lock.
 CI tests cover relocation, exact Foundation association, identity conflicts and physical
 row/byte bounds. Missing/partial optional logs cannot block ordinary canonical reading.
@@ -34,7 +41,7 @@ The probe mounts actual hooks-logging and reconciles fixture usage across return
 While TUI owns the idle session, actual CLI continuation must refuse busy ownership
 without changing transcript/metadata/log bytes; continuation succeeds after TUI closes.
 The reverse busy-startup test must keep typed text editable without submission. Open
-Activity → Shared session history → Turn 1 and inspect the shared observation source;
+ordinary Activity → a historical tool and inspect its associated shared observations;
 opening it must not change history or execute recorded calls. Renderer snapshot replies
 stop live polling; ordinary live Activity continues refreshing. Build Rust and run
 `TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q tests/test_activity_terminal.py tests/test_navigation_terminal.py tests/test_flow_terminal.py tests/test_tmux_scrollback.py` serially.

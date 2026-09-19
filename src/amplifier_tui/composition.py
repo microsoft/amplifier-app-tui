@@ -280,7 +280,13 @@ def provider_instances(bundle):
 
 
 async def compose(
-    source: str, overlays: list[str], state_dir: Path, sources: SourceMap, *, cli_policy=None
+    source: str,
+    overlays: list[str],
+    state_dir: Path,
+    sources: SourceMap,
+    *,
+    cli_policy=None,
+    native_home=None,
 ):
     registry = BundleRegistry(
         home=state_dir / "registry", strict=True, include_source_resolver=sources.resolve
@@ -314,12 +320,20 @@ async def compose(
             continue  # Preserve declared remote/logging policy, not a local-only replacement.
         config = hook.setdefault("config", {})
         if hook["module"] == "hooks-logging":
-            config["session_log_template"] = str(state_dir / "events" / "{session_id}.jsonl")
+            config["session_log_template"] = str(
+                Path(native_home) / "projects/{project}/sessions/{session_id}/events.jsonl"
+                if native_home is not None
+                else state_dir / "events" / "{session_id}.jsonl"
+            )
             config["strip_raw"] = True
             storage_overrides[hook["module"]] = "local event log; raw payloads excluded"
         elif hook["module"] == "hook-context-intelligence":
             config.update(
-                base_path=str(state_dir / "context-intelligence"),
+                base_path=str(
+                    Path(native_home) / "projects"
+                    if native_home is not None
+                    else state_dir / "context-intelligence"
+                ),
                 context_intelligence_server_url="",
                 context_intelligence_api_key="",
                 destinations={},
@@ -348,11 +362,21 @@ async def compose(
 
 
 async def prepare(
-    source, overlays, state_dir, sources, *, install_deps=True, cli_policy=None, progress=None
+    source,
+    overlays,
+    state_dir,
+    sources,
+    *,
+    install_deps=True,
+    cli_policy=None,
+    progress=None,
+    native_home=None,
 ):
     if progress:
         progress("Loading bundle and settings")
-    bundle, report = await compose(source, overlays, state_dir, sources, cli_policy=cli_policy)
+    bundle, report = await compose(
+        source, overlays, state_dir, sources, cli_policy=cli_policy, native_home=native_home
+    )
     if progress:
         progress("Preparing module dependencies")
     resolver = report.pop("_module_resolver", lambda _module, uri: sources.resolve(uri) or uri)

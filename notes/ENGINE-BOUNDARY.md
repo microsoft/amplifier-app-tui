@@ -16,10 +16,12 @@ global/project/local/session settings. Explicit isolated policy chooses its own 
 but uses the same session format. Directory-local discovery never falls back to a
 retired live TUI journal. Deterministic fixture journals are test harnesses only.
 
-The `.tui` sidecar owns observation history, drafts, held input and native controls.
-Its checkpoint stores a canonical digest and admission state, not another authoritative
-message history. If CLI history advances while TUI is closed, validate the completed
-journal, retain its observations and rebuild the display from canonical messages.
+The `.tui` sidecar owns drafts, held input and native control/admission receipts, not
+observation history. Its compact execution receipt never contains messages or gates
+native resume on an event-journal sequence. Every open rebuilds the in-memory display
+from canonical messages; configured CI/log receipts enrich ordinary Activity.
+Native transcript/metadata reads stream through Foundation without import-size quotas.
+Display previews and initial replay have separate bounds, never execution quotas.
 Preserve names, unknown canonical metadata and JSON provider continuation fields.
 Foundation validates native primary/backup files; invalid history never becomes empty.
 Never replay providers, tools,
@@ -34,7 +36,8 @@ process globals while another session is live.
 
 CLI public transcripts exclude system/developer messages. Persistent context modules
 own their private messages and may refuse set_messages after loading their files.
-Compare sanitized public readback before attempting restoration; preserve existing
+Compare native JSON public readback (ignoring only documented internal sequencing)
+before attempting restoration; never hide lost provider fields through sanitization. Preserve existing
 private context when public history already agrees. Unsupported readback refuses.
 
 ## Ownership and uncertainty
@@ -47,12 +50,12 @@ Never derive a different lock root from the client's Amplifier home. Busy owners
 refuses execution; a stale callback cannot borrow a later acquisition. Native writes
 and release stay synchronous on the host event loop; check() alone is not a generic
 thread-safe save transaction. Do not call HeldSession.write(): native files own history.
-The sidecar lock/digest remain additional admission defenses, not another shared lease.
+Secure canonical revision stamps detect stale writes without rereading whole files.
 Older/noncooperating writers and remote effects are not fenced by this local POSIX lock.
 
 Before Foundation's two-file save, mark the sidecar uncertain. Ready follows successful
-canonical validation and durable observation checkpointing. Incomplete pairing,
-corrupt metadata, uncertain journals and stale writes refuse continuation. Shared
+canonical validation. Incomplete pairing,
+corrupt metadata, unfinished admission receipts and stale writes refuse continuation. Shared
 crash recovery is not implemented; retain the original and export for inspection.
 No prior effect becomes undone merely because a session stopped.
 

@@ -52,6 +52,9 @@ To continue existing CLI work, close the CLI and run `amplifier-tui --resume` in
 that same project. Ordinary CLI-policy sessions share the CLI's session ID,
 transcript, metadata and session-scoped settings. After closing the TUI, use
 `amplifier resume ID` or `amplifier continue` to return to CLI. No import is needed.
+New TUI conversations use that same native store from creation. Resume reads shared
+history directly, without a TUI journal or import-size limit. Ordinary Activity includes
+recorded shared tool observations; there is no separate Shared-history workflow.
 Switch sequentially. Current cooperating clients share Foundation's writer lock;
 an already-open session refuses a second writer. Older clients may not participate.
 See [switching limits](docs/MIGRATION.md).

@@ -1,4 +1,4 @@
-"""Synthetic accounting receipts through the actual canonical/sidecar stores."""
+"""Synthetic shared accounting from canonical logs, never a TUI event copy."""
 
 import json
 from decimal import Decimal
@@ -66,10 +66,10 @@ def ci_logs(cli, owner, records, *, root=None):
 
 
 def ledger(store):
-    return CallUsage(store.restored_events)
+    return CallUsage(store.activity_events())
 
 
-def test_resume_projects_current_baseline_without_rewriting_old_totals(shared, tmp_path):
+def test_resume_derives_current_baseline_without_private_journal(shared, tmp_path):
     launch, cli, identity, messages = shared
     store = SharedConversationStore(tmp_path, launch, identity)
     old_text = "Turn: $0.25 · Session: $0.25 (earlier usage unavailable)"
@@ -83,20 +83,26 @@ def test_resume_projects_current_baseline_without_rewriting_old_totals(shared, t
     )
     store.record(old)
     store.checkpoint(messages, old.sequence, None, True)
+    assert any(event.item_id == "old-total" for event in store.activity_events())
+    assert not (store.path / "events.jsonl").exists()
+    marker = json.loads((store.path / "checkpoint.json").read_text())
+    assert marker["status"] == "ready" and "messages" not in marker
     store.close()
     logs(cli, identity, [receipt(identity, 0, "0.25"), receipt(identity, 1, "0.50")])
     canonical = cli.base_dir / identity / "transcript.jsonl"
     original = canonical.read_bytes()
     resumed = SharedConversationStore(tmp_path, launch, identity)
     try:
-        journal = resumed.path / "events.jsonl"
-        before = journal.read_bytes()
+        before = list(resumed.activity_events())
         first = resumed.projection()
         assert first == resumed.projection()
         assert first[-1]["text"] == "On resume · Session: $0.75"
-        assert [i for i in first if i["id"] == "old-total"][0]["text"] == "[usage] " + old_text
+        # Unlogged UI observations are not another shared history authority.
+        assert not any(i["id"] == "old-total" for i in first)
         assert canonical.read_bytes() == original
-        assert journal.read_bytes() == before  # Derived, never another durable receipt.
+        assert list(resumed.activity_events()) == before
+        assert not (resumed.path / "events.jsonl").exists()
+        assert json.loads((resumed.path / "checkpoint.json").read_text()) == marker
         assert ledger(resumed).progress("new-turn")["turn"]["calls"] == 0
     finally:
         resumed.close()
@@ -128,7 +134,7 @@ def test_root_nested_utility_receipts_are_read_only_deduplicated_and_session_sco
         assert usage.session["totals"]["cost_usd"] == Decimal("0.80")
         assert usage.progress("new-turn")["turn"]["calls"] == 0
         assert not usage.legacy
-        tree = Inspection.journal_activity(store.path / "events.jsonl", "shared:usage")
+        tree = Inspection(store.activity_events()).activity_tree("shared:usage")
         assert len(tree["rows"]) == 4
         assert tree["focus"]["label"] == "Earlier session usage"
         assert "4 recorded calls" in tree["focus"]["preview"]
@@ -147,7 +153,7 @@ def test_root_nested_utility_receipts_are_read_only_deduplicated_and_session_sco
     assert all(path.read_bytes() == original for path, original in before.items())
 
 
-def test_native_and_cli_observers_join_only_by_kernel_receipt_identity(shared, tmp_path):
+def test_canonical_receipts_replace_unpersisted_native_observations_on_resume(shared, tmp_path):
     launch, cli, identity, messages = shared
     root = receipt(identity, 0)
     logs(cli, identity, [root])
@@ -183,6 +189,8 @@ def test_native_and_cli_observers_join_only_by_kernel_receipt_identity(shared, t
         assert usage.session["requests"] == 2
         assert usage.session["totals"]["cost_usd"] == Decimal("0.50")
         assert not usage.legacy
+        assert not any(e.item_id == "native-observation" for e in resumed.activity_events())
+        assert not (resumed.path / "events.jsonl").exists()
     finally:
         resumed.close()
 
@@ -215,9 +223,8 @@ def test_missing_or_bad_receipts_never_invent_complete_cost(shared, tmp_path, da
         store.close()
 
 
-def test_receipt_without_identity_is_not_guessed_from_equal_amounts(shared, tmp_path):
+def test_unlogged_live_usage_never_becomes_shared_cost_authority(shared, tmp_path):
     launch, cli, identity, messages = shared
-    logs(cli, identity, [receipt(identity, 0)])
     store = SharedConversationStore(tmp_path, launch, identity)
     event = Event(
         identity,
@@ -237,8 +244,11 @@ def test_receipt_without_identity_is_not_guessed_from_equal_amounts(shared, tmp_
     resumed = SharedConversationStore(tmp_path, launch, identity)
     try:
         usage = ledger(resumed)
-        assert usage.session["totals"]["cost_usd"] == Decimal("0.25")
+        assert "cost_usd" not in usage.session["totals"]
         assert usage.legacy
+        assert "not reported" in usage.costs()
+        assert not any(e.item_id == "unidentified" for e in resumed.activity_events())
+        assert not (resumed.path / "events.jsonl").exists()
     finally:
         resumed.close()
 

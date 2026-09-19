@@ -18,7 +18,7 @@ pub struct Insights {
 impl Insights {
     fn received_activity(&mut self, value: &Value) {
         if value["snapshot"] == true {
-            // Saved CI inspection is explicitly opened, never a live log poll.
+            // An idle Activity snapshot never becomes a historical-log poll.
             // Reopening Activity still uses inspect(), which starts a new request.
             self.watching = None;
         }
@@ -305,7 +305,8 @@ impl App {
         self.insights.lookup = Some((self.request + 1).to_string());
         self.insights.watching = Some((category.clone(), child.clone(), Instant::now()));
         self.menu("Observed work · loading", vec![]);
-        self.send(json!({"op":"inspect","category":category,"child":child}));
+        let refresh_history = category == "activity_tree" && child.is_none();
+        self.send(json!({"op":"inspect","category":category,"child":child,"refresh_history":refresh_history}));
     }
 
     pub fn inspect_page(&mut self, child: Option<String>, offset: usize) {
@@ -854,7 +855,7 @@ mod thumbnail_tests {
         let mut insights = Insights {
             watching: Some((
                 "activity_tree".into(),
-                Some("shared:history".into()),
+                Some("fixture-call".into()),
                 Instant::now(),
             )),
             ..Default::default()

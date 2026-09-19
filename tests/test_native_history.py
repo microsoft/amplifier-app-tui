@@ -91,18 +91,22 @@ def test_log_only_session_is_not_a_resume_candidate(shared):
 
 
 def test_metadata_discovery_never_reads_conversation_or_activity(shared, monkeypatch):
+    from contextlib import contextmanager
+
     from amplifier_tui import cli_compat
 
     launch, _, identity, _ = shared
     opened = []
-    original = cli_compat.read_session_file
+    original = cli_compat._open_session_file
 
-    def metadata_only(home, cwd, session_id, filename, limit):
+    @contextmanager
+    def metadata_only(home, cwd, session_id, filename):
         opened.append(filename)
         assert filename in ("metadata.json", "metadata.json.backup")
-        return original(home, cwd, session_id, filename, limit)
+        with original(home, cwd, session_id, filename) as stream:
+            yield stream
 
-    monkeypatch.setattr(cli_compat, "read_session_file", metadata_only)
+    monkeypatch.setattr(cli_compat, "_open_session_file", metadata_only)
     entry = shared_session_entry(launch["cli_home"], launch["cwd"], identity)
     assert entry["title"] == "Shared fixture"
     assert opened == ["metadata.json"]
@@ -149,3 +153,170 @@ def test_native_corruption_diagnostic_never_echoes_payload(shared):
     assert marker not in str(caught.value)
     assert marker not in repr(caught.value.diagnostics)
     assert any(d.line == 2 for d in caught.value.diagnostics)
+
+
+@pytest.mark.parametrize("entrypoint", ["reader", "store"])
+def test_large_native_history_streams_without_import_limits_or_whole_file_copy(
+    shared, monkeypatch, tmp_path, entrypoint
+):
+    """A synthetic >66 MiB session is ordinary history, not a bounded import."""
+    from contextlib import contextmanager
+
+    from amplifier_tui import cli_compat
+
+    launch, cli, identity, _ = shared
+    root = cli.base_dir / identity
+    transcript, metadata = root / "transcript.jsonl", root / "metadata.json"
+    count = 11002  # Also exceeds the old public-import message limit.
+    with transcript.open("w") as stream:
+        for index in range(count):
+            stream.write(
+                json.dumps(
+                    {
+                        "role": "user" if index % 2 == 0 else "assistant",
+                        "content": f"Synthetic row {index}: " + "x" * 6500,
+                    }
+                )
+                + "\n"
+            )
+    assert transcript.stat().st_size > 66 * 1024 * 1024
+    extension = {"opaque": "m" * (900 * 1024)}
+    value = json.loads(metadata.read_text())
+    metadata.write_text(json.dumps({**value, "third_party_large": extension}))
+    before = [(path.stat().st_size, path.stat().st_mtime_ns) for path in (transcript, metadata)]
+    (root / "context-intelligence").mkdir()
+    (root / "context-intelligence/events.jsonl").mkdir()  # Native load never opens CI.
+    original = cli_compat._open_session_file
+    row_reads = 0
+
+    class TranscriptStream:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def fileno(self):
+            return self.stream.fileno()
+
+        def read(self, *_args, **_kwargs):
+            raise AssertionError("Native transcript must not be read as a whole byte string")
+
+        def __iter__(self):
+            nonlocal row_reads
+            for line in self.stream:
+                row_reads += 1
+                yield line
+
+    @contextmanager
+    def streaming_source(home, cwd, session_id, filename):
+        with original(home, cwd, session_id, filename) as stream:
+            yield TranscriptStream(stream) if filename.startswith("transcript.") else stream
+
+    monkeypatch.setattr(cli_compat, "_open_session_file", streaming_source)
+    entry = shared_session_entry(launch["cli_home"], launch["cwd"], identity)
+    assert entry["title"] == "Shared fixture"
+    assert row_reads == 0  # Discovery did not parse any transcript bodies.
+    if entrypoint == "reader":
+        history = native_history(launch["cli_home"], launch["cwd"], identity)
+        assert len(history.messages) == row_reads == count
+        assert history.messages[0]["content"].startswith("Synthetic row 0:")
+        assert history.messages[-1]["content"].startswith(f"Synthetic row {count - 1}:")
+        assert history.metadata["third_party_large"] == extension
+        assert not history.events and not history.diagnostics
+        assert not (root / ".tui").exists()
+    else:
+        from amplifier_tui.conversations import SharedConversationStore
+
+        store = SharedConversationStore(tmp_path, launch, identity)
+        try:
+            assert len(store.canonical_messages) == row_reads == count
+            assert store.saved["messages"] is store.canonical_messages
+            assert store.canonical_messages[0]["content"].startswith("Synthetic row 0:")
+            assert store.canonical_messages[-1]["content"].startswith(f"Synthetic row {count - 1}:")
+            assert store.canonical_metadata["third_party_large"] == extension
+            store.assert_current()
+            assert row_reads == count  # Revision validation does not reread transcript bodies.
+            projected = store.projection()
+            assert projected[0]["id"] == "history:window"
+            assert 1 < len(projected) <= 1002
+            assert any(row["text"].startswith(f"Synthetic row {count - 1}:") for row in projected)
+            assert len(json.dumps(projected).encode()) < 9 * 1024 * 1024
+            assert len(store.canonical_messages) == count  # View paging never trims context.
+            assert not store.history_diagnostics
+            assert not (store.path / "events.jsonl").exists()
+            assert not (store.path / "checkpoint.json").exists()
+        finally:
+            store.close()
+    assert [
+        (path.stat().st_size, path.stat().st_mtime_ns) for path in (transcript, metadata)
+    ] == before
+
+
+def test_oversized_latest_message_remains_visible_as_a_disclosed_preview(shared, tmp_path):
+    from amplifier_tui.conversations import SharedConversationStore
+
+    launch, cli, identity, _ = shared
+    transcript = cli.base_dir / identity / "transcript.jsonl"
+    text = "Synthetic latest answer " + "界" * (3 * 1024 * 1024)
+    with transcript.open("w") as stream:
+        json.dump({"role": "assistant", "content": text}, stream, ensure_ascii=False)
+        stream.write("\n")
+    before = (transcript.stat().st_size, transcript.stat().st_mtime_ns)
+    assert before[0] > 8 * 1024 * 1024
+    store = SharedConversationStore(tmp_path, launch, identity)
+    try:
+        projected = store.projection()
+        answer = next(row for row in projected if row["kind"] == "assistant")
+        assert answer["text"].startswith("Synthetic latest answer")
+        assert "preview shortened" in answer["text"].lower()
+        assert len(answer["text"]) < len(text)
+        assert isinstance(json.loads(answer["detail"]), dict)
+        assert store.canonical_messages[0]["content"] == text
+        assert (transcript.stat().st_size, transcript.stat().st_mtime_ns) == before
+    finally:
+        store.close()
+
+
+def test_native_parser_keeps_roles_and_reused_call_ids_accepted_by_foundation(shared):
+    """Import-only role/ID policy cannot narrow shared canonical read semantics."""
+    launch, cli, identity, _ = shared
+    root = cli.base_dir / identity
+    messages = [{"role": "developer", "content": "Synthetic provider instruction"}]
+    for number in range(2):
+        messages.extend(
+            [
+                {"role": "user", "content": f"Synthetic turn {number}"},
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "reused-call-id",
+                            "function": {"name": "synthetic_tool", "arguments": "{}"},
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "reused-call-id", "content": "Stored result"},
+                {"role": "assistant", "content": f"Synthetic answer {number}"},
+            ]
+        )
+    (root / "transcript.jsonl").write_text("".join(json.dumps(row) + "\n" for row in messages))
+    history = native_history(launch["cli_home"], launch["cwd"], identity)
+    assert history.messages == messages
+    assert not history.diagnostics
+
+
+def test_large_descendant_metadata_does_not_hide_shared_usage(shared):
+    from test_shared_usage import ci_logs, receipt
+
+    from amplifier_tui.cli_compat import historical_usage
+
+    launch, cli, identity, _ = shared
+    child = identity + "_synthetic-child"
+    cli.save(child, [], {"parent_id": identity, "config": {"opaque": "m" * (900 * 1024)}})
+    metadata = cli.base_dir / child / "metadata.json"
+    assert metadata.stat().st_size > 900 * 1024
+    before = metadata.read_bytes()
+    ci_logs(cli, identity, [receipt(identity, 0, "0.10")])
+    ci_logs(cli, child, [receipt(child, 1, "0.20")])
+    rows, partial = historical_usage(launch["cli_home"], launch["cwd"], identity)
+    assert {row["usage_session_id"] for row in rows} == {identity, child}
+    assert not partial
+    assert metadata.read_bytes() == before

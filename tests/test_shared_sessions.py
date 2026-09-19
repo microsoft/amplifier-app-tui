@@ -68,7 +68,7 @@ def test_cli_sessions_in_ordinary_directory_picker_search_and_recall(shared, tmp
         tmp_path / "new-search-cache", None, cwd=cwd, cli_home=home, query="violet"
     )
     assert [r["id"] for r in choices["sessions"]] == [identity]
-    assert "shared CLI/TUI" in choices["sessions"][0]["status"]
+    assert choices["sessions"][0]["status"] == "saved · validated when opened"
     assert recall(tmp_path, cwd, None, cli_home=home)["entries"] == [messages[0]["content"]]
     assert catalog(tmp_path, cwd=tmp_path, cli_home=home) == []
     assert not (cli.base_dir / identity / ".tui").exists()  # Discovery never adopts/writes.
@@ -146,7 +146,8 @@ async def test_cli_tui_cli_tui_same_identity_context_and_no_replay(shared, prepa
         assert second.draft == "Unsent TUI draft"
         assert second.metadata["title"] == "CLI renamed"
         assert sum(i["text"] == "CLI continuation" for i in second.projection()) == 1
-        assert list((second.path / "views").iterdir())  # Old observations retained.
+        assert not (second.path / "views").exists()
+        assert not (second.path / "events.jsonl").exists()  # Native history is the sole source.
         await resumed.open(*prepared, tmp_path)
         assert not resumed.session.coordinator.get("providers")["fixture"].calls
         assert resumed.session.coordinator.get("tools")["fixture_probe"].calls == 0
@@ -287,14 +288,15 @@ def test_shared_export_and_archive_are_source_preserving(shared, tmp_path):
     assert (cli.base_dir / identity / "transcript.jsonl").read_bytes() == original
 
 
-def test_shared_uncertain_marker_or_ahead_journal_refuses_without_rewriting(shared, tmp_path):
+def test_shared_uncertain_receipt_refuses_but_ready_sequence_is_not_authority(shared, tmp_path):
     from amplifier_tui.conversations import atomic_json
 
     launch, cli, identity, messages = shared
     store = SharedConversationStore(tmp_path, launch, identity)
     path = store.path / "checkpoint.json"
     store.close()
-    marker = json.loads(path.read_text())
+    assert not path.exists()  # Viewing history alone creates no execution receipt.
+    marker = {"version": 1, "status": "ready", "sequence": 99}
     atomic_json(path, {**marker, "status": "uncertain"})
     original = (cli.base_dir / identity / "transcript.jsonl").read_bytes()
     with pytest.raises(ValueError, match="uncertain/incomplete"):
@@ -302,8 +304,12 @@ def test_shared_uncertain_marker_or_ahead_journal_refuses_without_rewriting(shar
     assert (cli.base_dir / identity / "transcript.jsonl").read_bytes() == original
     atomic_json(path, {**marker, "sequence": 0})
     cli.save(identity, messages + [{"role": "user", "content": "Later CLI request"}], {})
-    with pytest.raises(ValueError, match="incomplete work"):
-        SharedConversationStore(tmp_path, launch, identity)
+    resumed = SharedConversationStore(tmp_path, launch, identity)
+    try:
+        assert resumed.saved["messages"][-1]["content"] == "Later CLI request"
+        assert not (resumed.path / "events.jsonl").exists()
+    finally:
+        resumed.close()
 
 
 def test_shared_symlink_and_corrupt_metadata_do_not_overwrite_sources(shared, tmp_path):
@@ -322,7 +328,7 @@ def test_shared_symlink_and_corrupt_metadata_do_not_overwrite_sources(shared, tm
     # Restore the synthetic metadata explicitly before the independent link test.
     metadata.write_text(json.dumps({"working_dir": launch["cwd"]}))
     cli.save(identity, messages, {"working_dir": launch["cwd"]})
-    (store.path / "draft.json").unlink()
+    (store.path / "draft.json").unlink(missing_ok=True)
     external = tmp_path / "untouched"
     external.write_text('{"text":"external"}')
     (store.path / "draft.json").symlink_to(external)

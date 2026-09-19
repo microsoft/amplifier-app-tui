@@ -76,3 +76,35 @@ async def test_headless_denies_during_open_and_execution(host):
     assert tool.calls == 0
     rows = [json.loads(line) for line in output.getvalue().splitlines()]
     assert sum(row["kind"] == "approval.resolved" for row in rows) == 2
+
+
+async def test_isolated_native_capture_uses_shared_layout_without_external_dispatch(tmp_path):
+    from amplifier_tui.composition import compose
+
+    source = tmp_path / "capture.yaml"
+    source.write_text(
+        json.dumps(
+            {
+                "bundle": {"name": "capture", "version": "1"},
+                "hooks": [
+                    {"module": "hooks-logging", "config": {}},
+                    {
+                        "module": "hook-context-intelligence",
+                        "config": {
+                            "destinations": {"test": {"url": "https://example.invalid"}},
+                            "context_intelligence_server_url": "https://example.invalid",
+                        },
+                    },
+                ],
+            }
+        )
+    )
+    home = tmp_path / "owned-home"
+    bundle, _ = await compose(str(source), [], tmp_path / "state", SourceMap({}), native_home=home)
+    configs = {hook["module"]: hook["config"] for hook in bundle.hooks}
+    assert configs["hooks-logging"]["session_log_template"] == str(
+        home / "projects/{project}/sessions/{session_id}/events.jsonl"
+    )
+    assert configs["hook-context-intelligence"]["base_path"] == str(home / "projects")
+    assert configs["hook-context-intelligence"]["destinations"] == {}
+    assert configs["hook-context-intelligence"]["context_intelligence_server_url"] == ""

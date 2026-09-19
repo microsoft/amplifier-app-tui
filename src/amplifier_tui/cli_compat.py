@@ -422,8 +422,9 @@ class _NativeHistoryPath:
     """Read-only Path facade; Foundation owns parsing and backup semantics.
 
     Foundation currently accepts Paths, not an opened-stream factory. Constrain
-    its read-only path operations here so adoption does not weaken no-follow and
-    byte-limit policy. Never use this facade with the Foundation write methods.
+    its read-only path operations here so adoption preserves no-follow regular-file
+    policy. Canonical history has Foundation's size semantics, not import/display
+    limits. Never use this facade with the Foundation write methods.
     """
 
     def __init__(self, home, cwd, identity, filename):
@@ -443,23 +444,35 @@ class _NativeHistoryPath:
             return os.fstat(stream.fileno())
 
     def read_bytes(self):
-        limit = 8 * 1024 * 1024 if self.name.startswith("transcript.") else 65536
-        return read_session_file(self.home, self.cwd, self.identity, self.name, limit)
+        # Foundation reads metadata as one JSON object. Its transcript reader
+        # instead iterates open("rb") below, never copying the whole JSONL file.
+        with self.open("rb") as stream:
+            return stream.read()
 
+    @contextmanager
     def open(self, mode):
-        import io
-
         if mode != "rb":
             raise ValueError("Native history adapter is read-only")
-        return io.BytesIO(self.read_bytes())
+        with _open_session_file(self.home, self.cwd, self.identity, self.name) as stream:
+            before = os.fstat(stream.fileno())
+            yield stream
+            after = os.fstat(stream.fileno())
+            if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (
+                after.st_size,
+                after.st_mtime_ns,
+                after.st_ctime_ns,
+            ):
+                raise ValueError("Canonical source changed during reading; retry under ownership")
 
 
 def native_history(home, cwd, identity, *, metadata_only=False):
-    """Shared native parser/recovery with bounded, no-follow host read policy.
+    """Shared native parser/recovery with secure, streaming canonical reads.
 
     No runtime, CLI bootstrap, event log or provider is loaded for discovery.
     Unknown JSON fields survive. Recovery is read-only; callers surface the
     returned history diagnostics and retry changed reads under shared ownership.
+    Canonical files have no TUI-only byte/message admission ceiling. Explicit
+    import/export and display projections apply their own independent budgets.
     """
     from amplifier_foundation.session import SessionHistoryStore
 
@@ -623,7 +636,6 @@ def historical_usage(
     Descendants require recorded parent metadata or fork events, not ID prefixes.
     Limits and missing/corrupt sources are accounting gaps, not resume failures.
     """
-    import json
     import re
     from itertools import islice
 
@@ -638,7 +650,7 @@ def historical_usage(
             if path.name == identity or path.is_symlink() or not path.is_dir():
                 continue
             try:
-                meta = json.loads(read_session_file(home, cwd, path.name, "metadata.json", 65536))
+                meta = native_history(home, cwd, path.name, metadata_only=True)
                 if isinstance(meta, dict) and isinstance(meta.get("parent_id"), str):
                     parents[path.name] = meta["parent_id"]
             except (OSError, ValueError, RecursionError):
@@ -750,7 +762,6 @@ def historical_usage(
 
 
 def session_catalog(home, cwd):
-    import json
     import time
 
     root = session_directory(home, cwd)
@@ -780,7 +791,7 @@ def session_catalog(home, cwd):
             partial = True
             break
         try:
-            metadata = json.loads(read_session_file(home, cwd, identity, "metadata.json", 65536))
+            metadata = native_history(home, cwd, identity, metadata_only=True)
             if not isinstance(metadata, dict):
                 raise ValueError("Invalid metadata")
             title = str(metadata.get("name") or metadata.get("title") or identity)[:160]

@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import uuid
 from decimal import Decimal
 from importlib.metadata import requires
 from pathlib import Path
@@ -243,12 +244,8 @@ def run(cli=None):
                 p.wait("Reading check complete.")
                 assert any(m.get("content") == "CLI return marker" for m in transcript())
             assert "<system-reminders>" not in p.text
-            journal = [
-                json.loads(line)
-                for line in (session / ".tui/events.jsonl").read_text().splitlines()
-            ]
-            baseline = next(
-                e["payload"] for e in reversed(journal) if e["payload"].get("accounting_snapshot")
+            assert not (session / ".tui/events.jsonl").exists(), (
+                "Native history must not be copied into an imported TUI journal"
             )
             canonical_calls = [
                 json.loads(line)
@@ -260,10 +257,6 @@ def run(cli=None):
                 (Decimal(str(r["data"]["usage"]["cost_usd"])) for r in canonical_calls), Decimal(0)
             )
             assert expected > 0
-            assert Decimal(baseline["accounting_snapshot"]["totals"]["cost_usd"]) == expected
-            assert not baseline["partial"], (
-                "Recorded call identity did not survive CLI/TUI observation"
-            )
             p.wait(f"On resume · Session: ${expected:.2f}")
             capture(p, f"shared-session-resume-{size[0]}")
             if index == 0:
@@ -282,14 +275,17 @@ def run(cli=None):
                 p.send(b"\x1b")
                 p.wait("Actions / choices", absent=True)
                 action(p, "expand tools", "Activity ·")
-                p.send(b"Shared session history\r")
-                p.wait("Activity · Shared session history")
-                p.wait("Turn 1")
-                capture(p, "shared-session-activity-groups-175")
-                p.send(b"Turn 1\r")
-                p.wait("Shared session history / Turn 1")
+                p.send(b"fixture_probe\r")
+                p.wait("Activity · fixture_probe")
                 p.wait("tool:post")
-                capture(p, "shared-session-activity-turn-175")
+                capture(p, "shared-session-tool-observations-175")
+                p.send(b"tool:post\r")
+                p.wait("fixture_probe / tool:post")
+                p.wait("Preview · observed content")
+                p.send(b"Preview\r")
+                p.wait("Preview · tool:post")
+                p.wait("Saved message")
+                capture(p, "shared-session-tool-detail-175")
                 p.send(b"\x1b")
                 p.wait("Actions / choices", absent=True)
                 assert transcript() == before, "Inspecting historical usage executed work"
@@ -368,6 +364,65 @@ def run(cli=None):
         assert (custom[0] / "transcript.jsonl").read_bytes() == before
     finally:
         p.close()
+    # Exercise the actual native entrypoint above former import quotas. Only
+    # synthetic repeated tool results; never copy a personal transcript fixture.
+    from amplifier_foundation.session import SessionHistoryStore
+
+    large_id = str(uuid.uuid4())
+    large_path = root / large_id
+    large_messages = [{"role": "user", "content": "Large native fixture request"}]
+    for _ in range(5500):
+        large_messages.extend(
+            [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "reused-in-later-batch",
+                            "type": "function",
+                            "function": {
+                                "name": "fixture_probe",
+                                "arguments": "{}",
+                            },
+                        },
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "reused-in-later-batch", "content": "x" * 12800},
+            ]
+        )
+    large_messages.append({"role": "assistant", "content": "Large native history ready marker"})
+    SessionHistoryStore(large_path, session_id=large_id).save(
+        large_messages,
+        {
+            "session_id": large_id,
+            "working_dir": str(cwd),
+            "bundle": bundle.as_uri(),
+            "extension": "x" * (900 * 1024),
+        },
+    )
+    del large_messages
+    large_transcript = large_path / "transcript.jsonl"
+    before = (large_transcript.stat().st_size, large_transcript.stat().st_mtime_ns)
+    assert before[0] > 66 * 1024 * 1024
+    p = Probe(
+        [*new_launch, "--resume", large_id],
+        cwd=cwd,
+        env=env,
+        cols=175,
+        rows=50,
+        guard_terminal_modes=True,
+    )
+    try:
+        p.wait("Ready", timeout=120)
+        p.wait("Large native history ready marker", timeout=60)
+        p.send(b"Retained draft, not submitted")
+        p.wait("Retained draft, not submitted")
+        capture(p, "shared-session-large-native-175")
+        assert (large_transcript.stat().st_size, large_transcript.stat().st_mtime_ns) == before
+        assert not (large_path / ".tui/events.jsonl").exists()
+    finally:
+        p.close()
     return {
         "cli_to_tui_to_cli_to_tui": True,
         "same_identity": True,
@@ -380,6 +435,7 @@ def run(cli=None):
         "actual_cli_refuses_live_tui_owner": True,
         "busy_tui_keeps_draft_without_execution": True,
         "shared_activity_snapshot_inspected": True,
+        "large_native_entrypoint_no_replay": True,
         "terminal_sizes": [[175, 50], [40, 20]],
         "scope": "Actual CLI/TUI entrypoints and ownership contention; deterministic provider and tool; no full web-client proof",
     }

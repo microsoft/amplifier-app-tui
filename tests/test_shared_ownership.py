@@ -78,6 +78,59 @@ else:
     return result.stdout.strip()
 
 
+def test_local_editor_read_refuses_file_and_directory_symlinks(tmp_path):
+    from amplifier_tui import local_drafts
+
+    actual, linked = tmp_path / "actual", tmp_path / "linked"
+    actual.mkdir()
+    target = tmp_path / "unrelated.json"
+    original = '{"version":1,"rows":[]}'
+    target.write_text(original)
+    (actual / "editors.json").symlink_to(target)
+    with pytest.raises(OSError):
+        local_drafts.read(actual)
+    linked.symlink_to(actual, target_is_directory=True)
+    with pytest.raises(OSError):
+        local_drafts.read(linked)
+    assert target.read_text() == original
+
+
+def test_local_editor_fifo_refuses_without_waiting_for_a_writer(tmp_path):
+    os.mkfifo(tmp_path / "editors.json")
+    code = """
+from pathlib import Path
+import sys
+from amplifier_tui.local_drafts import read
+try:
+    read(Path(sys.argv[1]))
+except ValueError as error:
+    assert str(error) == "Local editor record must be a regular file"
+else:
+    raise AssertionError("Nonregular local intent accepted")
+"""
+    # A regression must fail with a timeout, not block the entire test worker.
+    result = subprocess.run(
+        [sys.executable, "-c", code, str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=5,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_local_editor_missing_is_empty_but_malformed_intent_is_not_discarded(tmp_path):
+    from amplifier_tui import local_drafts
+
+    assert local_drafts.read(tmp_path / "absent") == []
+    assert local_drafts.read(tmp_path) == []
+    path = tmp_path / "editors.json"
+    original = '{"version":1,"rows":"incomplete"}'
+    path.write_text(original)
+    with pytest.raises(ValueError, match="Retain at most"):
+        local_drafts.read(tmp_path)
+    assert path.read_text() == original
+
+
 def test_shared_owner_blocks_before_any_history_read_or_sidecar(native, tmp_path, monkeypatch):
     launch, identity, history, _ = native
     held = SharedSessionStore(launch["cwd"], identity).acquire(app="synthetic-cli")
@@ -168,7 +221,7 @@ def test_native_backup_recovery_preserves_canonical_bytes_and_provider_fields(
         assert all((p.read_bytes() if p.exists() else None) == data for p, data in before.items())
         frames = []
         bridge = RuntimeBridge(SessionHost(store), None, frames.append, False, Path(launch["cwd"]))
-        journal = (store.path / "events.jsonl").read_bytes()
+        activity = list(store.activity_events())
         bridge.snapshot()
         bridge.snapshot()
         for frame in frames:
@@ -177,7 +230,9 @@ def test_native_backup_recovery_preserves_canonical_bytes_and_provider_fields(
             assert "transcript" in warning["text"] and "metadata" in warning["text"]
             assert warning["status"] == "warning"
             assert json.loads(warning["detail"])["level"] == "warning"
-        assert (store.path / "events.jsonl").read_bytes() == journal
+        assert list(store.activity_events()) == activity
+        assert not (store.path / "events.jsonl").exists()
+        assert not (store.path / "checkpoint.json").exists()
         assert all((p.read_bytes() if p.exists() else None) == data for p, data in before.items())
         store.checkpoint(messages, len(store.restored_events), None, True)
         assert history.load_messages() == messages
@@ -214,7 +269,7 @@ def test_released_callbacks_cannot_borrow_a_new_owner(native, tmp_path):
     second = SharedConversationStore(tmp_path, launch, identity)
     try:
         paths = [history.transcript_path, history.metadata_path, second.path / "draft.json"]
-        before = {path: path.read_bytes() for path in paths}
+        before = {path: path.read_bytes() if path.exists() else None for path in paths}
         actions = [
             lambda: first.checkpoint(messages, len(first.restored_events), None, True),
             lambda: first.save_draft("stale draft"),
@@ -225,7 +280,9 @@ def test_released_callbacks_cannot_borrow_a_new_owner(native, tmp_path):
         for action in actions:
             with pytest.raises(RuntimeError, match="no longer active"):
                 action()
-        assert all(path.read_bytes() == data for path, data in before.items())
+        assert all(
+            (path.read_bytes() if path.exists() else None) == data for path, data in before.items()
+        )
         first.close()  # Idempotent stale close never releases the new owner.
         assert contender(launch, identity) == "busy amplifier-tui"
     finally:

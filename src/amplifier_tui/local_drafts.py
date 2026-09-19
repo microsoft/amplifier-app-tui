@@ -1,6 +1,8 @@
 """Private UI intent, separate from admission and canonical model history."""
 
 import json
+import os
+import stat
 
 from .conversations import atomic_json
 
@@ -9,11 +11,23 @@ MAX_ROWS = 32
 
 
 def read(directory):
-    path = directory / "editors.json"
-    if not path.exists():
+    try:
+        parent = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    except FileNotFoundError:
         return []
-    with path.open("rb") as stream:
-        raw = stream.read(MAX_BYTES + 1)
+    try:
+        try:
+            descriptor = os.open(
+                "editors.json", os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent
+            )
+        except FileNotFoundError:
+            return []
+        with os.fdopen(descriptor, "rb") as stream:
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                raise ValueError("Local editor record must be a regular file")
+            raw = stream.read(MAX_BYTES + 1)
+    finally:
+        os.close(parent)
     if len(raw) > MAX_BYTES:
         raise ValueError("Local editor record exceeds 2 MiB")
     value = json.loads(raw)
@@ -45,8 +59,10 @@ def validate(rows):
 
 
 def save(store, request):
-    if not store or store.journal is None:
+    if not store or (not getattr(store, "shared_session", False) and store.journal is None):
         return False, "Local editor storage unavailable; copy text before exiting"
+    if getattr(store, "shared_session", False):
+        store.check_open()
     rows = read(store.path)
     if request.get("remove") is not None:
         rows = [row for row in rows if row["id"] != request["remove"]]

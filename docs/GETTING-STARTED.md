@@ -233,8 +233,9 @@ The picker, search, listing and `--resume latest` only consider that resolved di
 parent/child directories are separate, and an explicit ID cannot switch to another root.
 No local matches never falls back to conversations elsewhere.
 Reopening does not repeat tools or automatically release queued work. Normal installed
-CLI-policy sessions live in the CLI's project/session store, with TUI-specific
-sidecars. Close the TUI and use `amplifier resume ID` to continue in CLI, or close
+sessions live in the native project/session store from creation. Local drafts and
+control receipts are separate from canonical history; no TUI journal is required.
+Close the TUI and use `amplifier resume ID` to continue in CLI, or close
 CLI and use native `--resume` to return. `--state-dir` selects derived caches and
 test-harness storage, not a second canonical live-conversation history.
 Cleanly stopped work with validated saved context resumes normally. Unverified or
