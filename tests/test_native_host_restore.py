@@ -25,6 +25,62 @@ def native_result(identity="same", **extra):
     return {"role": "tool", "tool_call_id": identity, "content": "done", **extra}
 
 
+@pytest.mark.parametrize("receipt", ["pristine", "explicit", "pending", "unknown", "malformed"])
+async def test_changed_composition_only_refreshes_pristine_provider_receipt(
+    shared, prepared, tmp_path, receipt
+):
+    launch, cli, identity, _ = shared
+    host = SessionHost(SharedConversationStore(tmp_path, launch, identity))
+    await host.open(*prepared, tmp_path)
+    path = host.controls.path
+    try:
+        if receipt == "explicit":
+            assert host.controls.select(
+                {
+                    "op": "provider_select",
+                    "session_id": identity,
+                    "provider": "fixture",
+                    "revision": 0,
+                    "current": None,
+                    "request_id": "synthetic-selection",
+                }
+            )[0]
+    finally:
+        await host.close()
+    value = json.loads(path.read_text())
+    if receipt == "pending":
+        value["status"] = "pending"
+    elif receipt == "unknown":
+        value["unknown_control"] = True
+    elif receipt == "malformed":
+        value["revision"] = -1
+    path.write_text(json.dumps(value))
+    controls_before = path.read_bytes()
+    transcript = cli.base_dir / identity / "transcript.jsonl"
+    history_before = (transcript.read_bytes(), transcript.stat().st_mtime_ns)
+    bundle = copy.copy(prepared[0])
+    bundle.mount_plan = copy.deepcopy(bundle.mount_plan)
+    bundle.mount_plan["providers"][0].setdefault("config", {})["default_model"] = "fixture-new"
+    restored = SessionHost(SharedConversationStore(tmp_path, launch, identity))
+    try:
+        if receipt == "pristine":
+            await restored.open(bundle, prepared[1], tmp_path)
+            assert restored.ready
+            assert restored.fingerprint != value["fingerprint"]
+            assert restored.controls.state["revision"] == 0
+            assert restored.controls.state["changes"] == []
+            assert restored.controls.state["fingerprint"] == restored.fingerprint
+            assert not restored.session.coordinator.get("providers")["fixture"].calls
+        else:
+            with pytest.raises(ValueError, match="controls"):
+                await restored.open(bundle, prepared[1], tmp_path)
+            assert not restored.ready and restored.session is None
+            assert path.read_bytes() == controls_before
+        assert (transcript.read_bytes(), transcript.stat().st_mtime_ns) == history_before
+    finally:
+        await restored.close()
+
+
 @pytest.mark.parametrize(
     "instruction",
     [

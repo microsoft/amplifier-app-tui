@@ -74,6 +74,7 @@ class SessionHost:
         self._tool_ids = set()
         self._stop_requested = False
         self._force_requested = False
+        self._execution_uncertain = False
         self._request_index = 0
         self.turn_usage = usage_totals()
         self.call_usage = CallUsage(store.restored_events if store else ())
@@ -264,6 +265,7 @@ class SessionHost:
             if diagnostics.failed:
                 raise RuntimeError("Module initialization reported a failure; inspect diagnostics")
             coordinator = self.session.coordinator
+            coordinator.register_capability("session.durable_checkpoint", self.durable_checkpoint)
             if self.store and any(
                 h.get("module") == "hooks-session-naming"
                 for h in prepared.mount_plan.get("hooks", [])
@@ -1282,13 +1284,45 @@ class SessionHost:
             source=str(source)[:160],
         )
 
-    async def close(self):
+    async def durable_checkpoint(self):
+        """Called by supporting loops only after ordered tool-result append."""
+        if self.store is None:
+            return
+        self.store.check_open()
+        messages = await self.session.coordinator.get("context").get_messages()
+        self.store.checkpoint(messages, self.sequence, self.fingerprint, False)
+
+    async def prepare_release(self, progress=None):
+        """Close admission, finish calls, save and dispose; Foundation unlocks last."""
+        self._closed = True
+        self.stop(immediate=False)
+        if self.task and not self.task.done():
+            await asyncio.shield(self.task)
+        if self.children and self.children.active:
+            await self.children.drain(cancel=False)
+        if (
+            self._execution_uncertain
+            or not self.store.saved
+            or self.store.saved["status"] != "ready"
+        ):
+            raise RuntimeError("Execution is not safely saved; ownership retained")
+        if progress:
+            progress("persisting")
+        if self.session:
+            from .conversations import portable_history
+
+            messages = await self.session.coordinator.get("context").get_messages()
+            if portable_history(messages) != portable_history(self.store.canonical_messages):
+                self.store.checkpoint(messages, self.sequence, self.fingerprint, True)
+        await self.close(release_ownership=False)
+
+    async def close(self, *, release_ownership=True):
         self._closed = True
         if self._close_task is None:
             # Apply intent before yielding to the cleanup owner. Otherwise a
             # freshly admitted turn can enter the runtime before Stop takes effect.
             self.stop()
-            self._close_task = asyncio.create_task(self._close())
+            self._close_task = asyncio.create_task(self._close(release_ownership=release_ownership))
         cancelled = None
         while not self._close_task.done():
             try:
@@ -1301,7 +1335,7 @@ class SessionHost:
         if cancelled is not None:
             raise cancelled
 
-    async def _close(self):
+    async def _close(self, *, release_ownership=True):
         opening = self._opening
         if opening is not None and not opening.done():
             if not opening.cancelling():
@@ -1319,7 +1353,10 @@ class SessionHost:
             self.session = None
         self.ready = False
         if self.store:
-            self.store.close()
+            if getattr(self.store, "shared_session", False):
+                self.store.close(release_ownership=release_ownership)
+            else:
+                self.store.close()
 
 
 class RuntimeBridge:
@@ -1811,3 +1848,391 @@ class RuntimeBridge:
             await asyncio.sleep(0)
             self.pump.cancel()
             await asyncio.gather(self.pump, return_exceptions=True)
+
+
+class SharedRuntimeBridge(RuntimeBridge):
+    """View lifetime is independent of an acquisition-scoped, disposable host.
+
+    Retire modules before unlocking rather than lending old callbacks a new
+    handle. This conservative parking path works with finite ecosystem loops;
+    warm mounted reuse needs a separate module/activation capability contract.
+    """
+
+    idle_seconds = 15.0
+    view_operations = {
+        "draft",
+        "inspect",
+        "history_page",
+        "conversations",
+        "complete_path",
+        "file_snapshot",
+        "workspace_changes",
+        "workspace_diff",
+        "request_clear",
+        "cancel_switch",
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ownership_status = "owned"
+        self.ownership_message = "Ready"
+        self.blocked_owner = None
+        self.registration = None
+        self.ownership_lock = asyncio.Lock()
+        self.parking = None
+        self.release_waiter = None
+        self.last_interaction = time.monotonic()
+        self.closing = False
+        self.was_busy = False
+
+    def ownership(self, status, detail="", owner=None):
+        self.ownership_status = status
+        if owner is not None:
+            self.blocked_owner = owner
+        elif status in {"owned", "parked", "yielded"}:
+            self.blocked_owner = None
+        source = {
+            "amplifier-cli": "Amplifier CLI",
+            "amplifier-unified": "Amplifier Unified",
+            "amplifier-tui": "another TUI",
+        }.get((owner or {}).get("app"), "another app")
+        labels = {
+            "owned": "Ready",
+            "parked": "Ready · session released while idle",
+            "blocked": f"Open in {source} · Continue here to take over",
+            "yielding": "Finishing current calls before handing off",
+            "yielded": "Session handed off · Continue here to resume",
+            "taking-over": "Requesting ownership · draft stays editable",
+            "activating": "Restoring current session · draft stays editable",
+            "parking": "Saving and releasing idle session",
+            "failed": "Could not release safely · ownership retained",
+        }
+        self.ownership_message = detail or labels[status]
+        self.emit(
+            {
+                "type": "ownership",
+                "session_id": self.host.session_id,
+                "status": status,
+                "message": self.ownership_message,
+            }
+        )
+
+    async def open(self):
+        from .conversations import SharedConversationStore, SharedSessionBusy
+
+        try:
+            await super().open()
+        except SharedSessionBusy as busy:
+            store = SharedConversationStore(
+                busy.state_dir, busy.launch, busy.identity, read_only=True
+            )
+            self.host = SessionHost(store)
+            self.host.delivery_failed = self.failure
+            self.bind_host_observations()
+            self.snapshot()
+            self.ownership("blocked", owner=busy.owner)
+        else:
+            await self.register_owner()
+        if getattr(self.host.store, "shared_session", False):
+            self.parking = asyncio.create_task(self.park_when_idle())
+
+    async def register_owner(self):
+        if not getattr(self.host.store, "shared_session", False):
+            return
+        from amplifier_foundation.session import register_release_handler
+
+        host = self.host
+        try:
+            self.registration = await register_release_handler(
+                host.store._owner, prepare_release=lambda request: self.release_for(request, host)
+            )
+        except Exception:
+            host.ready = False
+            raise
+        self.ownership("owned")
+        self.last_interaction = time.monotonic()
+
+    def settled(self):
+        host = self.host
+        if not host.ready or host.validation_active or (host.task and not host.task.done()):
+            return False
+        if (
+            (host.children and host.children.active)
+            or any(not f.done() for f, _ in host._pending.values())
+            or host.questions.pending
+        ):
+            return False
+        for name in ("lookup_task", "review_task", "switch_task"):
+            task = getattr(self, name, None)
+            if task and not task.done():
+                return False
+        followups = getattr(self, "followups", None)
+        return not (
+            followups
+            and any(
+                r["state"] == "dispatched" or (r["state"] == "queued" and not followups.paused)
+                for r in followups.rows
+            )
+        )
+
+    async def park_when_idle(self):
+        while True:
+            await asyncio.sleep(1)
+            busy = not self.settled()
+            if busy or self.was_busy:
+                self.last_interaction = time.monotonic()
+            self.was_busy = busy
+            if time.monotonic() - self.last_interaction >= self.idle_seconds:
+                await self.park()
+
+    async def park(self):
+        async with self.ownership_lock:
+            if self.closing or self.ownership_status != "owned" or not self.settled():
+                return False
+            registration = self.registration
+            if registration and registration.pending and not registration.pending.done():
+                return False  # The admitted release request owns shutdown.
+            if registration:
+                await registration.close()
+            self.ownership("parking")
+            try:
+                await self.host.prepare_release()
+                self.host.store._owner.release()
+                await self.observe_released("parked")
+            except Exception:
+                self.ownership("failed")
+                return False
+            return True
+
+    async def release_for(self, request, host):
+        from amplifier_foundation.session import CannotRelease, ReadyToRelease
+
+        if (
+            any(
+                getattr(self, name, None) and not getattr(self, name).done()
+                for name in ("switch_task", "review_task", "lookup_task")
+            )
+            or host.validation_active
+        ):
+            return CannotRelease(
+                "busy", "A local session operation is still finishing; retry shortly."
+            )
+        async with self.ownership_lock:
+            if self.closing or host is not self.host:
+                return CannotRelease("owner_changed", "This view no longer owns that runtime.")
+            followups = getattr(self, "followups", None)
+            if followups:
+                followups.hold()
+            self.ownership("yielding")
+            request.report_progress("draining")
+            try:
+                await host.prepare_release(request.report_progress)
+            except Exception:
+                self.ownership("failed")
+                return CannotRelease(
+                    "shutdown_failed", "Saving or cleanup failed; ownership retained."
+                )
+            self.release_waiter = asyncio.create_task(self.released(self.registration))
+            return ReadyToRelease()
+
+    async def released(self, registration):
+        await asyncio.shield(registration.pending)
+        if not registration.held.active:
+            async with self.ownership_lock:
+                await self.observe_released("yielded")
+
+    async def replace_host(self, host):
+        if self.pump:
+            await asyncio.sleep(0)
+            self.pump.cancel()
+            await asyncio.gather(self.pump, return_exceptions=True)
+            self.pump = None
+        followups = getattr(self, "followups", None)
+        if followups:
+            from .followups import Followups
+
+            followups.close()
+            self.followups = Followups(host, self.emit)
+            self.followups.publish()
+        self.host = host
+        host.delivery_failed = self.failure
+        self.bind_host_observations()
+        self.pending, self.decisions, self.tools = None, {}, {}
+        if hasattr(self, "activity_pages"):
+            self.activity_pages.clear()
+            self.shared_activity_snapshot = None
+
+    async def observe_released(self, status):
+        from .conversations import SharedConversationStore
+
+        old = self.host.store
+        self.registration = None
+        try:
+            store = SharedConversationStore(
+                self.state_dir, old.canonical_launch, old.identity, read_only=True
+            )
+        except (OSError, ValueError):
+            # Another host may already be saving. Keep the last valid view, not
+            # an empty replacement; retry the canonical load on explicit action.
+            self.ownership(
+                status, "Ownership released · saved history is changing; Continue here to reload"
+            )
+            return
+        await self.replace_host(SessionHost(store))
+        self.ownership(status)
+
+    async def activate_owner(self, *, takeover=False):
+        from amplifier_foundation.session import SharedSessionStore, request_release
+
+        from .conversations import SharedConversationStore, SharedSessionBusy
+
+        old = self.host.store
+        launch, identity = old.canonical_launch, old.identity
+        previous_status = self.ownership_status
+        candidate = None
+        store = None
+        self.ownership("taking-over" if takeover else "activating")
+        try:
+            try:
+                store = SharedConversationStore(self.state_dir, launch, identity)
+            except SharedSessionBusy as busy:
+                if not takeover:
+                    raise
+                if self.blocked_owner and self.blocked_owner.get("acquisition_id") != (
+                    busy.owner or {}
+                ).get("acquisition_id"):
+                    raise
+                result = await request_release(
+                    SharedSessionStore(launch["cwd"], identity),
+                    expected_owner=busy.owner,
+                    request_id=uuid.uuid4().hex,
+                    requester_app="Amplifier TUI",
+                    timeout=30,
+                    on_progress=lambda stage: self.ownership(
+                        "taking-over",
+                        {
+                            "draining": "Waiting for current calls to finish in the other app",
+                            "persisting": "The other app is saving session history",
+                        }.get(stage, "Waiting for the other app to release ownership"),
+                    ),
+                )
+                try:
+                    store = SharedConversationStore(self.state_dir, launch, identity)
+                except SharedSessionBusy as current:
+                    self.ownership(
+                        "blocked",
+                        f"Takeover {result.status.replace('_', ' ')} · nothing sent; try Continue here again",
+                        current.owner,
+                    )
+                    return False
+            before = old.canonical_messages
+            candidate = SessionHost(store)
+            from .cli_compat import shared_session_entry
+
+            # The other client may have changed the saved bundle or session
+            # settings. Resolve under the new acquisition, not from the old view.
+            launch = shared_session_entry(launch["cli_home"], launch["cwd"], identity)["launch"]
+            store.canonical_launch = launch
+            store.metadata["launch"] = launch
+            await self.replace_host(candidate)
+            self.host.interactive_questions = True
+            self.host.auto_deny_approvals = True
+            self.pump = asyncio.create_task(self.events())
+            await self.open_launch(self.host, launch)
+            self.host.auto_deny_approvals = False
+            await self.register_owner()
+            # Keep committed terminal history. Only an exact native prefix
+            # licenses appending externally saved messages to this view.
+            if store.canonical_messages != before:
+                if store.canonical_messages[: len(before)] == before:
+                    previous = {e.item_id for e in store.observations(before, identity)}
+                    for item in store.projection():
+                        if item["id"].startswith("history:") and item["id"] not in previous:
+                            self.emit({"type": "item", "session_id": identity, **item})
+                else:
+                    self.emit(
+                        {
+                            "type": "error",
+                            "message": "Saved history changed; Earlier history shows the current version. Execution uses the freshly loaded context.",
+                        }
+                    )
+            return True
+        except SharedSessionBusy as busy:
+            self.ownership("blocked", owner=busy.owner)
+        except BaseException as exc:
+            if candidate is not None:
+                try:
+                    await candidate.close()
+                except BaseException:
+                    # Failed cleanup must remain reachable by the shutdown owner.
+                    self.host = candidate
+                    self.ownership("failed")
+                    raise
+                # Retain the read-only view and its draft on a mount failure.
+                await self.replace_host(SessionHost(old))
+            elif store is not None:
+                store.close()
+            if isinstance(exc, asyncio.CancelledError):
+                raise
+            self.ownership(
+                previous_status
+                if previous_status in {"blocked", "yielded", "parked"}
+                else "failed",
+                f"Could not resume: {type(exc).__name__}: {exc}. Nothing sent; draft retained.",
+            )
+        return False
+
+    async def dispatch(self, request):
+        """Async activation precedes synchronous, identified work admission."""
+        if not getattr(self.host.store, "shared_session", False):
+            return self.command(request)
+        if request.get("session_id") != self.host.session_id:
+            return False, "Conversation changed; stale request rejected"
+        op = request.get("op")
+        if op == "draft" and isinstance(request.get("text"), str):
+            try:
+                self.host.store.save_draft(request["text"])
+            except (OSError, ValueError, RuntimeError):
+                return False, "Could not save draft; keep this view open or copy it before exit"
+            return True, "Draft saved"
+        if op in self.view_operations or op == "stop":
+            return self.command(request)
+        if self.ownership_lock.locked():
+            return False, "Ownership is changing; draft retained"
+        async with self.ownership_lock:
+            if self.closing:
+                return False, "Session is closing"
+            if op == "switch" and self.ownership_status in {"blocked", "yielded", "parked"}:
+                return self.command(request)
+            if op == "continue_here":
+                if self.ownership_status == "owned":
+                    return True, "Already continuing here"
+                if self.ownership_status == "failed":
+                    return False, "Shutdown failed; ownership retained. Exit before reopening"
+                ok = await self.activate_owner(takeover=True)
+                return (
+                    ok,
+                    "Continue here; Send explicitly" if ok else self.ownership_message,
+                )
+            if self.ownership_status == "parked":
+                if not await self.activate_owner():
+                    return False, "Session is open elsewhere; choose Continue here. Draft retained"
+            if self.ownership_status != "owned":
+                return False, "Read-only conversation; choose Continue here. Draft retained"
+            self.last_interaction = time.monotonic()
+            return self.command(request)
+
+    async def close(self):
+        self.closing = True
+        if self.parking:
+            self.parking.cancel()
+            await asyncio.gather(self.parking, return_exceptions=True)
+        if self.registration:
+            await self.registration.close()
+        if self.release_waiter:
+            await asyncio.shield(self.release_waiter)
+        await super().close()
+        # A successful preparation may already have disposed modules without
+        # releasing its handle; normal explicit exit still owns that release.
+        if getattr(self.host.store, "shared_session", False):
+            self.host.store.close()

@@ -48,9 +48,9 @@ hooks may contact their configured services during startup. Sources are executab
 code; trust them before launching. First launch may download/install dependencies.
 Model calls cost money; filesystem and shell tools are not an OS sandbox.
 
-To continue existing CLI work, close the CLI and run `amplifier-tui --resume` in
+To continue existing CLI work, run `amplifier-tui --resume` in
 that same project. Ordinary CLI-policy sessions share the CLI's session ID,
-transcript, metadata and session-scoped settings. After closing the TUI, use
+transcript, metadata and session-scoped settings. Use
 `amplifier resume ID` or `amplifier continue` to return to CLI. No import is needed.
 New TUI conversations use that same native store from creation. Resume reads shared
 history directly, without a TUI journal or import-size limit. Ordinary Activity includes
@@ -58,8 +58,14 @@ recorded shared tool observations; there is no separate Shared-history workflow.
 Resume displays the latest 100 historical items. **Actions → Earlier history** opens
 older/newer pages of up to 100 items; select an item to read or copy its preview, then Escape
 returns to your draft. This does not trim model context or replay any work.
-Switch sequentially. Current cooperating clients share Foundation's writer lock;
-an already-open session refuses a second writer. Older clients may not participate.
+Only one client executes at a time. If another client owns the conversation, the TUI
+opens a read-only view with **Continue here**. That action requests a graceful handoff;
+it never sends your draft. The other client saves and cleans up before the TUI acquires
+ownership and reloads. The CLI can request the reverse handoff with `--takeover`.
+After 15 settled idle seconds, the TUI releases ownership but keeps the view and draft.
+Your next Send reacquires and remounts using current saved history/configuration. If
+another app acquired it, choose Continue here, then Send explicitly. Older clients may
+not participate; this is not simultaneous execution or migration of running work.
 See [switching limits](docs/MIGRATION.md).
 
 Use `--settings-policy isolated` to opt out of CLI configuration; its default preset
@@ -182,6 +188,9 @@ review before sharing. `--doctor`, exports, screenshots and raw state can contai
 private paths or work; they are not public bug-report attachments.
 
 ## Develop
+
+The [Amplifier Unified handoff](docs/UNIFIED-HANDOFF.md) maps the shared-session
+implementation, verification commands and remaining cross-client work.
 
 Read [AGENTS.md](AGENTS.md), [vision](docs/VISION.md), [plan](notes/PLAN.md) and
 [verification guide](SMOKE_TESTS.md). Bundles/modules own runtime policy; the TUI does

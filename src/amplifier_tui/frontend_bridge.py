@@ -541,6 +541,51 @@ class Admission:
 
     def __init__(self):
         self.replies = {}
+        self.inflight = {}
+
+    async def apply_async(self, request, dispatch):
+        """Reserve identity before any activation await; duplicate sends join it."""
+        identity = request.get("request_id")
+        reply = {"type": "reply", "request_id": identity, "accepted": False}
+        if request.get("version") != VERSION:
+            return {**reply, "reason": "Protocol version mismatch"}
+        if not isinstance(identity, str) or not identity or len(identity) > 128:
+            return {**reply, "reason": "Invalid request identity"}
+        transient = request.get("op") in {
+            "draft",
+            "editor_draft",
+            "inspect",
+            "file_snapshot",
+            "conversations",
+            "complete_path",
+            "workspace_changes",
+            "workspace_diff",
+        }
+        if not transient:
+            if identity in self.replies:
+                previous, result = self.replies[identity]
+                return result if previous == request else {**reply, "reason": "Identity reused"}
+            if identity in self.inflight:
+                previous, future = self.inflight[identity]
+                if previous != request:
+                    return {**reply, "reason": "Identity reused"}
+                return await asyncio.shield(future)
+            if len(self.replies) + len(self.inflight) >= MAX_REQUESTS:
+                return {**reply, "reason": "Request limit reached; restart explicitly"}
+            future = asyncio.get_running_loop().create_future()
+            self.inflight[identity] = (request.copy(), future)
+        result = {**reply, "reason": "Request interrupted; no automatic retry"}
+        try:
+            accepted, reason = await dispatch(request)
+            result = {**reply, "accepted": accepted, "reason": reason}
+        except (OSError, ValueError, TypeError, RuntimeError) as exc:
+            result = {**reply, "reason": f"Request failed: {type(exc).__name__}: {exc}"}
+        finally:
+            if not transient:
+                self.replies[identity] = (request.copy(), result)
+                self.inflight.pop(identity)
+                future.set_result(result)
+        return result
 
     def apply(self, request, dispatch):
         identity = request.get("request_id")
@@ -549,6 +594,8 @@ class Admission:
             return {**reply, "reason": "Protocol version mismatch"}
         if not isinstance(identity, str) or not identity or len(identity) > 128:
             return {**reply, "reason": "Invalid request identity"}
+        if identity in self.inflight:
+            return {**reply, "reason": "Identity already pending"}
         if request.get("op") in {
             "draft",
             "editor_draft",
@@ -615,6 +662,13 @@ async def serve(factory, output=None, trace=None, runtime_output=None):
         asyncio.create_task(source_failure.wait()) if source_failure is not None else None
     )
     failures = [overload] + ([source_overload] if source_overload is not None else [])
+    commands = set()
+
+    async def command(request):
+        if hasattr(backend, "dispatch"):
+            emit(await admission.apply_async(request, backend.dispatch))
+        else:
+            emit(admission.apply(request, backend.command))
 
     async def requests():
         while line := await reader.readline():
@@ -624,7 +678,23 @@ async def serve(factory, output=None, trace=None, runtime_output=None):
                     raise ValueError("Request must be an object")
                 if request.get("op") == "shutdown" and request.get("version") == VERSION:
                     break
-                emit(admission.apply(request, backend.command))
+                if len(commands) >= 64 and request.get("op") != "stop":
+                    emit(
+                        {
+                            "type": "reply",
+                            "request_id": request.get("request_id"),
+                            "accepted": False,
+                            "reason": "Controls busy; draft retained",
+                        }
+                    )
+                    continue
+                if request.get("op") == "stop":
+                    # Stop is synchronous intent even while a takeover awaits.
+                    emit(admission.apply(request, backend.command))
+                else:
+                    task = asyncio.create_task(command(request))
+                    commands.add(task)
+                    task.add_done_callback(commands.discard)
             except (ValueError, TypeError) as exc:
                 emit({"type": "error", "message": str(exc)})
 
@@ -667,6 +737,9 @@ async def serve(factory, output=None, trace=None, runtime_output=None):
         if source_overload is not None:
             source_overload.cancel()
         await asyncio.gather(opening, controls, *failures, return_exceptions=True)
+        for task in commands:
+            task.cancel()
+        await asyncio.gather(*commands, return_exceptions=True)
         try:
             await asyncio.wait_for(backend.close(), timeout=2)
             if not failed.is_set():

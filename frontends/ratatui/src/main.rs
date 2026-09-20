@@ -183,6 +183,7 @@ struct App {
     output: Receiver<Value>,
     disconnected: bool,
     ready: bool,
+    ownership: String,
     startup_failure: String,
     startup_recovery: Option<String>,
     rows: Vec<(u16, usize)>,
@@ -297,6 +298,7 @@ impl App {
             policy: "loading".into(),
             native: native::Journal::default(),
             status: "Starting · draft stays editable".into(),
+            ownership: String::new(),
             system: vec![],
             approval: None,
             view: 0,
@@ -371,6 +373,7 @@ impl App {
         }
         match v["type"].as_str().unwrap_or("") {
             "snapshot" => {
+                self.ownership.clear();
                 if v["reset"] == true {
                     self.startup_failure.clear();
                     self.startup_recovery = None;
@@ -588,9 +591,26 @@ impl App {
             {
                 self.flow.meter.phase = safe(&string(&v, "phase"));
             }
+            "ownership" if v["session_id"] == self.nav.session => {
+                self.ownership = string(&v, "status");
+                if matches!(self.ownership.as_str(), "blocked" | "yielded") {
+                    self.policy = "read-only".into();
+                }
+                self.ready = matches!(self.ownership.as_str(), "owned" | "parked");
+                self.status = safe(&string(&v, "message"));
+                self.startup_failure.clear();
+                self.background = if matches!(
+                    self.ownership.as_str(),
+                    "taking-over" | "activating" | "parking"
+                ) {
+                    self.status.clone()
+                } else {
+                    String::new()
+                };
+            }
             "state" => {
                 if let Some(ready) = v["ready"].as_bool() {
-                    self.ready = ready;
+                    self.ready = ready && (self.ownership.is_empty() || self.ownership == "owned");
                 }
                 self.flow.busy = v["busy"] == true;
                 if !self.flow.busy {
@@ -681,7 +701,7 @@ impl App {
                     self.reject_lookup(&id);
                     // Delayed autosave refusal after failed startup keeps
                     // admission and local-only draft state explicit.
-                    self.status = if self.ready {
+                    self.status = if self.ready || !self.ownership.is_empty() {
                         safe(&string(&v, "reason"))
                     } else {
                         format!(
@@ -886,6 +906,8 @@ impl App {
     fn not_ready(&mut self) {
         self.status = if self.disconnected {
             "Disconnected · draft is local only; copy before exiting · no retry".into()
+        } else if matches!(self.ownership.as_str(), "blocked" | "yielded") {
+            "Choose Continue here · draft retained".into()
         } else if self.startup_failure.is_empty() {
             "Session not ready · draft retained; send explicitly when ready".into()
         } else {
@@ -907,9 +929,10 @@ impl App {
             request["image_id"] = image["id"].clone();
         }
         if !self.ready
+            && !matches!(self.ownership.as_str(), "blocked" | "yielded")
             && !matches!(
                 request["op"].as_str(),
-                Some("draft" | "editor_draft" | "cancel_switch")
+                Some("draft" | "editor_draft" | "cancel_switch" | "stop" | "continue_here")
             )
         {
             self.not_ready();
@@ -927,6 +950,9 @@ impl App {
         let id = self.request.to_string();
         request["version"] = json!(1);
         request["request_id"] = json!(id);
+        if request["op"] == "continue_here" {
+            self.controls.requests.insert(id.clone());
+        }
         if !self.nav.session.is_empty() {
             request["session_id"] = json!(self.nav.session);
         }

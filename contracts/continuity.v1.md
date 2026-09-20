@@ -45,6 +45,14 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: A cancelled operation presented as undone misstates workspace state.
    Affected: the boundary's clients and the person relying on them.
 
+6. **Move ownership cooperatively.** Opening or focusing a busy conversation never requests takeover. Explicit Continue here asks only the observed Foundation acquisition to yield; progress remains visible and the draft stays editable. The current owner closes admission, holds queued work, gracefully settles descendants, saves valid native state and completes cleanup before Foundation releases. Failure retains ownership; requester timeout never forces cancellation or unlock. A successor acquires and reloads current native history/configuration before enabling work, and never silently retargets a competing owner. Stale controls and released callbacks cannot mutate a later acquisition.
+   Broken: A release receipt alone enables writes, or a retained draft is submitted after takeover without Send.
+   Affected: people switching clients and hosts participating in shared ownership.
+
+7. **Release settled idle work.** An idle view need not retain a writer. Parking requires no active execution, children, pending decisions, admitted automatic follow-ups or auxiliary mutations; persistence and cleanup settle before release. The next explicit mutation reacquires and validates saved state before execution. Retiring and remounting a host is permitted; warm reuse requires equivalent callback isolation and measured evidence. Local draft retention and read-only inspection remain available without canonical write ownership.
+   Broken: Idle release races accepted work, a stale mount overwrites another client's progress, or painting acquires execution authority.
+   Affected: people keeping several clients open and modules with asynchronous lifecycle work.
+
 ## Not in v1
 
 A promise that arbitrary remote tools can be interrupted or that every process survives host exit.

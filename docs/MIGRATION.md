@@ -1,9 +1,9 @@
 # Switch between CLI and TUI without migrating your conversation
 
 Ordinary CLI-policy launches now use the CLI's canonical project/session store.
-Close one client before opening the other. In the same working directory, run
+In the same working directory, run
 `amplifier-tui --resume` and choose your CLI conversation, or use `--resume ID` /
-`--resume latest`. After closing the TUI, `amplifier resume ID` or
+`--resume latest`. `amplifier resume ID` or
 `amplifier continue` uses the same identity and transcript. No import or conversion.
 The in-app Resume list, saved-message search and Up/Down recall include CLI sessions
 from that directory, not its parents, children or unrelated projects.
@@ -11,16 +11,25 @@ from that directory, not its parents, children or unrelated projects.
 Configuration reads global/project/local and session-scoped CLI settings without
 rewriting them. Credentials remain provider-owned. Canonical data stays under
 `$AMPLIFIER_HOME/projects/<project-slug>/sessions/<session-id>` (normally in
-`~/.amplifier`). The `.tui` child directory holds drafts, observation history and
-TUI controls, not an authoritative copy of the model conversation. If CLI history
-advances while TUI is closed, reopening rebuilds the displayed history and retains
-older TUI observations under `.tui/views`. Persisted injected reminders stay in
+`~/.amplifier`). The `.tui` child directory holds drafts and TUI controls, not a
+second observation journal or authoritative copy of the conversation. Reopening
+rebuilds the display from native history and configured shared observations.
+Persisted injected reminders stay in
 canonical context but do not appear as user messages or input recall.
 
 This is the first bidirectional session slice, **not complete feature parity**:
 
-- Close one client before opening the other. Foundation's common ownership lock
-  refuses a second cooperating writer, including while the first client is idle.
+- Foundation's common ownership lock refuses a second cooperating writer. A busy
+  TUI opens read-only: **Continue here** asks the owner to finish current calls,
+  save and clean up. A successful response still requires acquiring the real lock
+  and validating fresh history before execution. It never sends a retained draft.
+  The TUI accepts reciprocal release requests and stays open as a read-only view.
+  Timeout or refusal cannot steal ownership; retry explicitly after checking the
+  other app. A changed acquisition is shown before a new request can target it.
+  Fifteen settled idle seconds release ownership automatically. Next Send can
+  remount current modules/configuration, so it may take longer than a warm turn.
+  Pending decisions, running work and unresolved dispatched follow-ups prevent
+  idle release. Paused follow-ups stay paused and do not transfer to other apps.
   All clients must use the same `AMPLIFIER_SESSION_STATE_HOME` (or Foundation's
   platform default), working directory and session ID. Older clients can ignore
   this mechanism; it does not support simultaneous editing or fence remote jobs.
@@ -30,7 +39,7 @@ This is the first bidirectional session slice, **not complete feature parity**:
 - Historical costs are read from shared recorded model-call receipts.
   Earlier usage contributes to Session, not the next Turn;
   inspect its receipts in Activity. Missing logs, uncorrelated observations and
-  import limits disclose partial accounting rather than an invented complete total.
+  observation bounds disclose partial accounting rather than an invented complete total.
   The shared reader prefers context-intelligence capture, honors its configured base
   path and falls back to the root log only when CI is absent. Ordinary Activity reads
   bounded historical snapshots on demand, without a separate Shared view, replay or changing source logs.

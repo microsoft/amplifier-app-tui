@@ -1,5 +1,19 @@
 # Verification guide
 
+Cooperative handoff gate: run `uv run --no-sync pytest -q tests/test_shared_handoff.py`.
+Use real Foundation sockets/locks and mounted fixture modules for busy read-only
+startup, explicit takeover, incoming active-tool drain, failed save/cleanup, changed
+acquisitions, parking and fresh reload. CLI controller checks are mandatory; the
+Unified worker adapter check runs when Unified and loop-live are installed together
+in an isolated test environment, otherwise explicitly skips. It is not a web UI or
+paid-provider test. Do not overlay sibling Foundation/CLI imports on the daily runtime.
+After rebuilding Rust, run `TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q
+tests/test_handoff_terminal.py` serially with other PTY probes. At 175×50 and 40×20,
+verify readable busy history, unsent draft, Continue here, reciprocal yield, automatic
+idle release and explicit Send with externally advanced canonical history.
+Retain private captures only; pending actions must not accept a duplicate identity
+while awaiting ownership. Stop and draft controls must remain responsive.
+
 Shared-session gate: run `uv run --no-sync pytest -q tests/test_shared_sessions.py tests/test_shared_usage.py tests/test_shared_ownership.py tests/test_native_history.py`
 for actual CLI SessionStore round trips, same-ID canonical writeback, directory-local
 picker/search/recall, session settings, preserved unknown metadata, no-replay startup,
@@ -20,6 +34,9 @@ explicit import; do not reuse import budgets or sanitizers at this boundary.
 Run `tests/test_native_host_restore.py` for provider-field readback, mounted static
 instructions, first-execute resume lifecycle, canonical naming counts, scoped reused
 tool IDs and drained result pairs. Missing outcomes remain unknown, never replayed.
+Changed-composition resume must refresh only an exact pristine default provider-control
+receipt. Explicit choices, pending transitions, unknown fields and malformed records
+must retain their bytes and fail closed; none of these checks may call a provider.
 Every fixture owns `AMPLIFIER_SESSION_STATE_HOME`; never contend with a user's lock.
 Resume paging checks in `test_native_host_restore.py` require a 100-item default,
 complete nonoverlapping older pages, unchanged native bytes/context and stable offsets
@@ -47,9 +64,9 @@ Only the provider/tool are deterministic fixtures; no paid calls are authorized.
 Inspect private `shared-session-*` captures and require new-turn tool outcomes,
 no transcript growth before Send, unchanged root-session count and restored TTY.
 The probe mounts actual hooks-logging and reconciles fixture usage across returns.
-While TUI owns the idle session, actual CLI continuation must refuse busy ownership
+While TUI still owns the session, actual CLI continuation must refuse busy ownership
 without changing transcript/metadata/log bytes; continuation succeeds after TUI closes.
-The reverse busy-startup test must keep typed text editable without submission. Open
+The reverse busy-startup test must open read-only and keep typed text editable without submission. Open
 ordinary Activity → a historical tool and inspect its associated shared observations;
 opening it must not change history or execute recorded calls. Renderer snapshot replies
 stop live polling; ordinary live Activity continues refreshing. Build Rust and run

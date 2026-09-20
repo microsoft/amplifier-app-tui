@@ -1,5 +1,26 @@
 # Direction review: experience first, measured responsiveness
 
+## Default control receipts and changed composition
+
+A pristine TUI provider-control receipt records no user selection. Treating its
+whole-mount fingerprint as an immutable choice can block an otherwise valid shared
+resume after configuration changes. Continuity P2 requires current shared policy
+without inventing an override: only validated, ready, revision-zero receipts with
+no provider or changes may refresh under new ownership. Explicit choices, unknown
+fields and incomplete transitions still require compatibility checks or recovery.
+
+## Cooperative ownership and liveness
+
+The steward approved adopting the shared ownership lifecycle after reviewing
+Foundation's cooperative handoff and CLI/Unified integrations. A busy session
+currently becomes a startup error and an idle TUI holds ownership until exit.
+Continuity P6–7 now separate observation, deliberate takeover, settled parking and
+fresh writable activation. This moves toward interchangeable clients, without
+ratifying portable controls or promising transfer of running provider/tool calls.
+First-Ctrl-C graceful cancellation remains authoritative; the experimental live
+loop's immediate stop behavior must not silently replace it. Implementation and
+evidence belong to LIVE-01–04 in PLAN and ACCEPTANCE, not the vision.
+
 ## Integrated approachable-experience plan — 2026-09-16
 
 The steward requests one comprehensive plan, informed by their approximately
