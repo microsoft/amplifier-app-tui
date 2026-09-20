@@ -95,6 +95,10 @@ mode, goal and component controls retain their actual capability and enforcement
 scope; native control sidecars are not yet a common CLI control format. The proposed
 Foundation controls/intent/recovery contracts are not implemented or ratified. Mere
 preservation of unknown metadata does not make another client enforce its meaning.
+An automatically created, ready provider receipt with revision zero, no selection
+and no changes is not an override. Only that exact pristine native-session shape
+may refresh after composition changes; explicit, unknown or pending controls must
+not be cleared or rebound just to make resume succeed.
 
 ## Presentation and accounting
 

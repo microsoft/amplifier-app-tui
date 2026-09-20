@@ -1,5 +1,14 @@
 # Direction review: experience first, measured responsiveness
 
+## Default control receipts and changed composition
+
+A pristine TUI provider-control receipt records no user selection. Treating its
+whole-mount fingerprint as an immutable choice can block an otherwise valid shared
+resume after configuration changes. Continuity P2 requires current shared policy
+without inventing an override: only validated, ready, revision-zero receipts with
+no provider or changes may refresh under new ownership. Explicit choices, unknown
+fields and incomplete transitions still require compatibility checks or recovery.
+
 ## Cooperative ownership and liveness
 
 The steward approved adopting the shared ownership lifecycle after reviewing

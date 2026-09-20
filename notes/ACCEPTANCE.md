@@ -53,7 +53,7 @@ not a paid-model, personal-account, latency-parity or arbitrary private-state cl
 
 ## Current checks
 
-### Cooperative ownership candidate
+### Cooperative ownership
 
 Busy startup and Resume retain readable canonical history without mounting a second
 runtime. Continue here explicitly requests Foundation release, then acquires and
@@ -62,37 +62,40 @@ closes admission, pauses queued input, finishes current calls, saves and dispose
 modules before unlocking. Save/cleanup failure retains ownership. An owner change
 requires another explicit attempt; timeout never steals a lock or auto-submits.
 
-After 15 settled idle seconds, the candidate retires its runtime and releases the
+After 15 settled idle seconds, the TUI retires its runtime and releases the
 session while retaining the view. The next explicit action reacquires and remounts;
 old callbacks cannot borrow its new handle. Pending work/decisions prevent parking.
 This is conservative module retirement, not warm runtime reuse or background detach.
 
 The isolated cross-app environment passes **18 tests** in
-`.evidence/shared-handoff-cross-host.xml`: real Foundation locks/sockets, actual TUI
+`.evidence/unified-handoff-cross-host.xml`: real Foundation locks/sockets, actual TUI
 mounts with deterministic modules, and real CLI/Unified lifecycle adapters with
 synthetic collaborator sessions/cleanup. It does not prove actual web UI execution
 or arbitrary CLI/Unified runtime draining. Actual native-entrypoint PTYs pass at
 **175×50 and 40×20**, including reciprocal handoff, retained draft, automatic idle
 release and explicit Send after external history advances. Captures were inspected;
-`.evidence/shared-handoff-terminal.xml` records **2 passes**. Existing native
-Activity/navigation/flow/tmux checks pass **31 tests** in
-`.evidence/shared-handoff-regressions.xml`. Rust passes **75 tests** and strict Clippy.
-The currently pinned default environment passes **105 focused tests, 1 optional
-Unified skip** in `.evidence/shared-handoff-focused.xml`. The actual CLI/native TUI
-round-trip probe also passes in the isolated patched-Foundation environment, including
-the 66-MiB history, shared Activity inspection, busy read-only draft restoration and
-explicit replacement of that draft before the next Send. The CLI subprocess uses
-its pinned package and own disposable environment; no user session is exercised.
+`.evidence/unified-handoff-terminal.xml` records **33 passes** for handoff plus native
+Activity/navigation/flow/tmux regressions. The cross-app and terminal runs use the
+published exact Foundation `2c0063a` and CLI `b507233` pins, not sibling overrides.
+The actual CLI/native TUI round-trip probe also passes against these pins: new
+TUI → CLI, same-ID CLI → TUI → CLI → TUI, 66-MiB history, paging/preview/copy,
+shared Activity inspection and busy read-only draft restoration. The CLI subprocess
+uses its pinned package and a disposable environment; no personal session is executed.
 
-These handoff terminal and cross-app results use the local Foundation fork fix in
-[PR399](https://github.com/microsoft/amplifier-foundation/pull/399), not the currently
-pinned Foundation release. Forked-child cleanup otherwise removes or disarms the
-parent's handoff listener. The fix passes **2102 tests, 4 skips** in Foundation's own
-locked environment and all six upstream CI jobs. A separate mixed cross-app full
-Foundation run had two environment/integration failures; only its focused 94-test
-handoff/history/ownership gate passed. No full-suite cross-app success is claimed.
-PR399 awaits required review. The CLI and TUI exact Foundation pins must be advanced
-together after merge; **this candidate is not yet a merged-dependency release gate**.
+Foundation [PR399](https://github.com/microsoft/amplifier-foundation/pull/399) is merged:
+forked-child cleanup no longer removes or disarms the parent's handoff listener.
+The fix passes **2102 tests, 4 skips** in Foundation's own locked environment and all
+six upstream CI jobs. CLI [PR356](https://github.com/microsoft/amplifier-app-cli/pull/356)
+is merged with the coordinated Foundation pin; its default run passes **2436 tests,
+1 skip, 13 deselections and 1 expected failure**, its integration run passes **13 tests**,
+and all eight upstream CI jobs pass. No full-suite cross-app Foundation success is
+claimed; those checks use each project's own environment.
+
+Five native-host regression cases cover changed composition with pristine, explicit,
+pending, unknown-field and malformed provider-control receipts. Only the pristine
+default may refresh; other saved state and canonical transcript bytes remain intact,
+with no provider calls. The reported personal session has not been independently
+identified; this proves the reproduced empty-receipt defect, not its exact diagnosis.
 
 Coverage includes no-fallback discovery, canonical storage for explicit policy,
 metadata-only housekeeping, same-ID history/configuration, unknown metadata,
@@ -101,9 +104,9 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The current default Python run passes **770 tests, 332 opt-in skips**, recorded
-privately in `.evidence/shared-handoff-default.xml`; the additional takeover-timeout
-case is covered by the 18-test candidate run above. Rust renderer/native tests pass
+The current default Python run passes **776 tests, 332 opt-in skips**, recorded
+privately in `.evidence/unified-handoff-default.xml` against the exact published pins.
+Rust renderer/native tests pass
 **75 tests**, with release build and strict Clippy clean. Ruff lint/format and
 direction checks pass. The shared history/ownership/activity, CLI compatibility and
 independent loop/context gates pass **186 tests** (45.21s), with opt-ins enabled and
@@ -184,14 +187,13 @@ this is not a claim that all intent or recovery state can be reconstructed from 
 
 CLI discovery requires a saved transcript, retaining log-only diagnostics on disk.
 Resume lists label their nonblank transcript-line counts as messages, not user turns.
-The app pins CLI `f2b2989819a985fb283ee1d8ece4e7e6a3aa8a30` and Foundation
-`695f875c0908f45f8dc78b1fcde80ecddebffd7c`. The independent global CLI installation
+The app pins CLI `b5072330a28e7e898e5ffecd8efeb5e898351873` and Foundation
+`2c0063a187181173dfe2438ce031079e8723f894`, both merged main commits. The independent global CLI installation
 is not automatically upgraded by this source change.
 
 ## Remaining boundaries
 
-- Cooperating clients can read while another owns execution and explicitly hand off;
-  the fork-safe dependency update above remains a publication prerequisite.
+- Cooperating clients can read while another owns execution and explicitly hand off.
   They must share Foundation's owner-state root; the local POSIX lock does not fence older
   nonparticipants, other hosts or remote effects. Native saves remain per-file atomic,
   not a transcript/metadata transaction or a generic cross-thread save/release guarantee.

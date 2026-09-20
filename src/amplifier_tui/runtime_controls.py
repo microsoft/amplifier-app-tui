@@ -1290,7 +1290,7 @@ class RuntimeControls:
                 not isinstance(value, dict)
                 or value.get("version") != 1
                 or value.get("session_id") != host.session_id
-                or value.get("fingerprint") != host.fingerprint
+                or not isinstance(value.get("fingerprint"), str)
                 or value.get("status") != "ready"
                 or type(value.get("revision")) is not int
                 or not 0 <= value["revision"] <= 1000
@@ -1310,6 +1310,24 @@ class RuntimeControls:
                 or (value["changes"] and value["changes"][-1]["to"] != value["provider"])
             ):
                 raise ValueError("Invalid or uncertain runtime controls; resume refused")
+            if value["fingerprint"] != host.fingerprint:
+                # Shared history follows current composition. An automatically
+                # created, pristine receipt is not a user-selected provider pin.
+                # Never generalize this to explicit choices or unknown controls.
+                if (
+                    getattr(host.store, "shared_session", False)
+                    and set(value) == set(self.state)
+                    and value["revision"] == 0
+                    and value["provider"] is None
+                    and not value["changes"]
+                ):
+                    value = copy.deepcopy(self.state)
+                    self.save(value)
+                else:
+                    raise ValueError(
+                        "Saved provider controls belong to a different module configuration; "
+                        "review the saved selection before continuing. Nothing was reset."
+                    )
             self.state = value
             if self.pin is None and (value["provider"] is not None or value["revision"]):
                 raise ValueError("Saved conversation provider capability unavailable")

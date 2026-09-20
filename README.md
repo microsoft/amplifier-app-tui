@@ -189,6 +189,9 @@ private paths or work; they are not public bug-report attachments.
 
 ## Develop
 
+The [Amplifier Unified handoff](docs/UNIFIED-HANDOFF.md) maps the shared-session
+implementation, verification commands and remaining cross-client work.
+
 Read [AGENTS.md](AGENTS.md), [vision](docs/VISION.md), [plan](notes/PLAN.md) and
 [verification guide](SMOKE_TESTS.md). Bundles/modules own runtime policy; the TUI does
 not add UI policy to Amplifier's thin kernel. The [historical walkthrough](HISTORICAL-README.md)

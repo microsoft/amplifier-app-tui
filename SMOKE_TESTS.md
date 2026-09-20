@@ -34,6 +34,9 @@ explicit import; do not reuse import budgets or sanitizers at this boundary.
 Run `tests/test_native_host_restore.py` for provider-field readback, mounted static
 instructions, first-execute resume lifecycle, canonical naming counts, scoped reused
 tool IDs and drained result pairs. Missing outcomes remain unknown, never replayed.
+Changed-composition resume must refresh only an exact pristine default provider-control
+receipt. Explicit choices, pending transitions, unknown fields and malformed records
+must retain their bytes and fail closed; none of these checks may call a provider.
 Every fixture owns `AMPLIFIER_SESSION_STATE_HOME`; never contend with a user's lock.
 Resume paging checks in `test_native_host_restore.py` require a 100-item default,
 complete nonoverlapping older pages, unchanged native bytes/context and stable offsets
