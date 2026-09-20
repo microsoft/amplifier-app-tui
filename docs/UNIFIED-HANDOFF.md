@@ -21,7 +21,10 @@ mandatory orchestrator replacement was introduced.
 - Incoming release closes admission, holds follow-ups, finishes current calls and
   descendants, saves and disposes modules before Foundation unlocks. Save/cleanup
   failures retain ownership; requester timeout never cancels the owner's cleanup.
-- After 15 settled idle seconds, the runtime retires while the terminal view survives.
+- After five minutes without runtime work or observed user activity, the runtime
+  retires while the terminal view survives. Local editing/inspection renew the timer;
+  background polling does not. External editing prevents automatic parking. Native
+  terminal/tmux-owned copy/scroll events are outside the app's activity visibility.
   The next explicit mutation reacquires and remounts current saved configuration/history.
   This is not a warm, permanently mounted worker. Old callbacks retain old handles.
 - Native terminal history remains copyable and immutable. Resume renders the latest

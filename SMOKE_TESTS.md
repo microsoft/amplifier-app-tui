@@ -10,7 +10,14 @@ paid-provider test. Do not overlay sibling Foundation/CLI imports on the daily r
 After rebuilding Rust, run `TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q
 tests/test_handoff_terminal.py` serially with other PTY probes. At 175×50 and 40×20,
 verify readable busy history, unsent draft, Continue here, reciprocal yield, automatic
-idle release and explicit Send with externally advanced canonical history.
+idle release and explicit Send with externally advanced canonical history. The PTY
+fixture accelerates only the idle interval; clock-controlled host tests pin five
+minutes and last-input/work boundaries. Keep ownership through keyboard navigation,
+paste, mouse scrolling, focus return and resize without Send, then stop input and
+require release. Background polling must not extend idle time, external editing must
+prevent auto-release but not explicit handoff, and stale-session activity must not
+acquire or affect another session. An earlier autosave dispatching after editor-open
+must not end its hold. Verify focus reporting is disabled on exit.
 Retain private captures only; pending actions must not accept a duplicate identity
 while awaiting ownership. Stop and draft controls must remain responsive.
 

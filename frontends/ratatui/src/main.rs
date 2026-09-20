@@ -1,8 +1,9 @@
 use chrome as activity;
 use crossterm::{
     event::{
-        self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-        Event, KeyCode, KeyEventKind, KeyModifiers, MouseEventKind,
+        self, DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
+        EnableFocusChange, EnableMouseCapture, Event, KeyCode, KeyEventKind, KeyModifiers,
+        MouseEventKind,
     },
     execute,
 };
@@ -169,6 +170,7 @@ struct App {
     saved_draft: String,
     draft_changed: Instant,
     draft_pending: bool,
+    user_activity: UserActivity,
     expanded: bool,
     interacting: bool,
     interaction_focus: bool,
@@ -190,6 +192,31 @@ struct App {
     tab_y: u16,
     body: Rect,
     copy: Option<String>,
+}
+
+#[derive(Default)]
+struct UserActivity {
+    supported: bool,
+    pending: bool,
+    last_sent: Option<Instant>,
+    external_editor: bool,
+}
+
+impl UserActivity {
+    fn observe(&mut self, event: &Event) {
+        self.pending |= match event {
+            Event::Key(key) => key.kind != KeyEventKind::Release,
+            Event::Paste(_) | Event::Mouse(_) | Event::Resize(..) | Event::FocusGained => true,
+            Event::FocusLost => false,
+        };
+    }
+
+    fn due(&self, now: Instant) -> bool {
+        self.pending
+            && self
+                .last_sent
+                .is_none_or(|last| now.duration_since(last) >= Duration::from_millis(250))
+    }
 }
 
 fn string(v: &Value, key: &str) -> String {
@@ -310,6 +337,7 @@ impl App {
             saved_draft: String::new(),
             draft_changed: Instant::now(),
             draft_pending: false,
+            user_activity: UserActivity::default(),
             expanded: false,
             interacting: false,
             interaction_focus: false,
@@ -411,8 +439,10 @@ impl App {
                     self.draft = editor();
                     self.nav.lookup = None;
                     self.draft_pending = false;
+                    self.user_activity = UserActivity::default();
                 }
                 self.nav.session = string(&v, "session_id");
+                self.user_activity.supported = v["user_activity"] == true;
                 self.controls.auth_prompt = None;
                 self.controls.goal.clear();
                 // Older v1 scene adapters have no readiness field; real hosts emit it.
@@ -917,6 +947,34 @@ impl App {
             )
         };
     }
+    fn flush_user_activity(&mut self, force: bool) -> bool {
+        if !self.user_activity.supported || self.disconnected || self.nav.session.is_empty() {
+            return false;
+        }
+        let now = Instant::now();
+        if !force && !self.user_activity.due(now) {
+            return false;
+        }
+        // Leading and trailing coalescing: continuous input is bounded, and the
+        // final event still renews the timer. No request ID, reply or saved receipt.
+        let record = json!({"version":1,"op":"user_activity",
+            "session_id":self.nav.session,
+            "external_editor":self.user_activity.external_editor})
+        .to_string();
+        match self.input.try_send(record) {
+            Ok(()) => {
+                self.user_activity.pending = false;
+                self.user_activity.last_sent = Some(now);
+                true
+            }
+            Err(mpsc::TrySendError::Full(_)) => false, // Retry latest presence only.
+            Err(mpsc::TrySendError::Disconnected(_)) => {
+                self.receive(json!({"type":"disconnected"}));
+                false
+            }
+        }
+    }
+
     fn send(&mut self, mut request: Value) {
         if self.disconnected {
             self.not_ready();
@@ -1727,6 +1785,7 @@ fn main() -> io::Result<()> {
         let mut edge_tick = Instant::now();
         while !stop.load(Ordering::Relaxed) {
             if interrupt.swap(false, Ordering::Relaxed) {
+                app.user_activity.pending = true;
                 if !app.key(crossterm::event::KeyEvent::new(
                     KeyCode::Char('c'),
                     KeyModifiers::CONTROL,
@@ -1787,6 +1846,8 @@ fn main() -> io::Result<()> {
             }
             if event::poll(Duration::from_millis(if dirty { 1 } else { 8 }))? {
                 let event = event::read()?;
+                app.user_activity.observe(&event);
+                app.flush_user_activity(false);
                 match event {
                     Event::Key(key) => {
                         if !app.key(key) {
@@ -1918,8 +1979,19 @@ fn main() -> io::Result<()> {
                 app.status = "Source copied via OSC52 (terminal permission required)".into();
                 dirty = true;
             }
+            app.flush_user_activity(false);
             if std::mem::take(&mut app.insights.external_editor) {
-                terminal.external_editor(&mut app)?;
+                app.user_activity.external_editor = true;
+                if !app.user_activity.supported || app.flush_user_activity(true) {
+                    let result = terminal.external_editor(&mut app);
+                    app.user_activity.external_editor = false;
+                    app.user_activity.pending = true;
+                    app.flush_user_activity(true);
+                    result?;
+                } else {
+                    app.user_activity.external_editor = false;
+                    app.status = "Controls busy · try opening the editor again".into();
+                }
                 dirty = true;
             }
         }
@@ -1932,6 +2004,54 @@ fn main() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn presence_is_coalesced_with_a_trailing_input_notification() {
+        let start = Instant::now();
+        let mut activity = UserActivity::default();
+        assert!(!activity.due(start)); // Painting/time alone never sends presence.
+        activity.observe(&Event::Key(event::KeyEvent::new(
+            KeyCode::Left,
+            KeyModifiers::NONE,
+        )));
+        assert!(activity.due(start));
+        activity.pending = false;
+        activity.last_sent = Some(start);
+        for _ in 0..1000 {
+            activity.observe(&Event::Paste("draft".into()));
+        }
+        assert!(!activity.due(start + Duration::from_millis(249)));
+        assert!(activity.due(start + Duration::from_millis(250)));
+        activity.pending = false;
+        assert!(!activity.due(start + Duration::from_secs(300)));
+    }
+
+    #[test]
+    fn presence_counts_navigation_mouse_resize_and_focus_return_not_focus_loss() {
+        for event in [
+            Event::Key(event::KeyEvent::new(KeyCode::PageUp, KeyModifiers::NONE)),
+            Event::Mouse(event::MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column: 10,
+                row: 3,
+                modifiers: KeyModifiers::NONE,
+            }),
+            Event::Resize(175, 50),
+            Event::FocusGained,
+        ] {
+            let mut activity = UserActivity::default();
+            activity.observe(&event);
+            assert!(activity.pending);
+        }
+        let mut activity = UserActivity::default();
+        activity.observe(&Event::FocusLost);
+        activity.observe(&Event::Key(event::KeyEvent::new_with_kind(
+            KeyCode::Left,
+            KeyModifiers::NONE,
+            KeyEventKind::Release,
+        )));
+        assert!(!activity.pending);
+    }
+
     #[test]
     fn brand_text_roles_have_readable_contrast_on_both_surfaces() {
         let luminance = |c| {

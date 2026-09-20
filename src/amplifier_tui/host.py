@@ -1422,6 +1422,7 @@ class RuntimeBridge:
                 "session_id": self.host.session_id,
                 "reset": reset,
                 "navigation": self.navigation_enabled,
+                "user_activity": callable(getattr(self, "user_activity", None)),
                 "mode": "FIXTURE RUNTIME" if self.fixture else "LIVE RUNTIME",
                 "title": f"Amplifier / {self.host.session_id[:12]}",
                 "context": self.cwd.name,
@@ -1858,7 +1859,7 @@ class SharedRuntimeBridge(RuntimeBridge):
     warm mounted reuse needs a separate module/activation capability contract.
     """
 
-    idle_seconds = 15.0
+    idle_seconds = 300.0
     view_operations = {
         "draft",
         "inspect",
@@ -1881,7 +1882,9 @@ class SharedRuntimeBridge(RuntimeBridge):
         self.ownership_lock = asyncio.Lock()
         self.parking = None
         self.release_waiter = None
-        self.last_interaction = time.monotonic()
+        self._idle_clock = time.monotonic
+        self.last_interaction = self._idle_clock()
+        self.external_editor = False
         self.closing = False
         self.was_busy = False
 
@@ -1950,11 +1953,33 @@ class SharedRuntimeBridge(RuntimeBridge):
             host.ready = False
             raise
         self.ownership("owned")
-        self.last_interaction = time.monotonic()
+        self.last_interaction = self._idle_clock()
+
+    def user_activity(self, request):
+        """Ephemeral presence, never an execution admission or ownership request."""
+        if (
+            request.get("version") != 1
+            or not isinstance(request.get("session_id"), str)
+            or not request["session_id"]
+            or request["session_id"] != self.host.session_id
+            or type(request.get("external_editor", False)) is not bool
+        ):
+            return
+        if request.get("external_editor") is False:
+            self.external_editor = False
+        if self.ownership_status == "owned" and not self.closing:
+            self.last_interaction = self._idle_clock()
+            if "external_editor" in request:
+                self.external_editor = request["external_editor"]
 
     def settled(self):
         host = self.host
-        if not host.ready or host.validation_active or (host.task and not host.task.done()):
+        if (
+            self.external_editor
+            or not host.ready
+            or host.validation_active
+            or (host.task and not host.task.done())
+        ):
             return False
         if (
             (host.children and host.children.active)
@@ -1978,22 +2003,34 @@ class SharedRuntimeBridge(RuntimeBridge):
     async def park_when_idle(self):
         while True:
             await asyncio.sleep(1)
-            busy = not self.settled()
-            if busy or self.was_busy:
-                self.last_interaction = time.monotonic()
-            self.was_busy = busy
-            if time.monotonic() - self.last_interaction >= self.idle_seconds:
-                await self.park()
+            await self.idle_tick()
 
-    async def park(self):
+    async def idle_tick(self):
+        busy = not self.settled()
+        if busy or self.was_busy:
+            self.last_interaction = self._idle_clock()
+        self.was_busy = busy
+        return await self.park(require_idle=True)
+
+    def idle_due(self):
+        return self._idle_clock() - self.last_interaction >= self.idle_seconds
+
+    async def park(self, *, require_idle=False):
         async with self.ownership_lock:
             if self.closing or self.ownership_status != "owned" or not self.settled():
+                return False
+            if require_idle and not self.idle_due():
                 return False
             registration = self.registration
             if registration and registration.pending and not registration.pending.done():
                 return False  # The admitted release request owns shutdown.
             if registration:
                 await registration.close()
+            # Input can arrive while closing the listener. Recheck before retiring
+            # modules; explicit handoff uses a separate path and is not delayed.
+            if not self.settled() or (require_idle and not self.idle_due()):
+                await self.register_owner()
+                return False
             self.ownership("parking")
             try:
                 await self.host.prepare_release()
@@ -2190,6 +2227,8 @@ class SharedRuntimeBridge(RuntimeBridge):
             return False, "Conversation changed; stale request rejected"
         op = request.get("op")
         if op == "draft" and isinstance(request.get("text"), str):
+            if request["text"] != self.host.store.draft:
+                self.user_activity({"version": 1, "session_id": self.host.session_id})
             try:
                 self.host.store.save_draft(request["text"])
             except (OSError, ValueError, RuntimeError):
@@ -2219,7 +2258,7 @@ class SharedRuntimeBridge(RuntimeBridge):
                     return False, "Session is open elsewhere; choose Continue here. Draft retained"
             if self.ownership_status != "owned":
                 return False, "Read-only conversation; choose Continue here. Draft retained"
-            self.last_interaction = time.monotonic()
+            self.last_interaction = self._idle_clock()
             return self.command(request)
 
     async def close(self):

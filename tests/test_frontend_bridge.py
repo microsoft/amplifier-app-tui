@@ -66,6 +66,45 @@ async def test_large_replay_and_blocking_startup_do_not_kill_a_healthy_reader():
             await process.wait()
 
 
+async def test_user_activity_is_silent_and_does_not_consume_admission_capacity():
+    program = """
+import asyncio
+import amplifier_tui.frontend_bridge as wire
+wire.MAX_REQUESTS = 1
+class Backend:
+ def __init__(self, emit): self.count = 0
+ async def open(self): pass
+ async def close(self): pass
+ def user_activity(self, request): self.count += 1
+ def command(self, request): return True, str(self.count)
+asyncio.run(wire.serve(Backend))
+"""
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-c",
+        program,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        activity = b'{"version":1,"op":"user_activity","session_id":"synthetic"}\n'
+        process.stdin.write(activity * 5000)
+        process.stdin.write(b'{"version":1,"op":"probe","request_id":"only-admission"}\n')
+        await process.stdin.drain()
+        result = json.loads(await asyncio.wait_for(process.stdout.readline(), 5))
+        assert result["type"] == "reply" and result["accepted"]
+        assert result["reason"] == "5000"
+        process.stdin.write(b'{"version":1,"op":"shutdown"}\n')
+        await asyncio.wait_for(process.wait(), 4)
+        assert process.returncode == 0, (await process.stderr.read()).decode()
+        assert await process.stdout.read() == b""
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+
+
 @pytest.mark.parametrize("stalled", [False, True])
 async def test_pipe_writer_stall_detection_and_joined_shutdown(stalled):
     read_fd, write_fd = os.pipe()

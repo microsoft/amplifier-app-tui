@@ -52,9 +52,15 @@ Receipts never grant ownership: reacquire and reread canonical history and curre
 launch policy before mounting. Never retarget a changed acquisition automatically.
 Outbound handoff closes admission, holds follow-ups, gracefully drains current work,
 saves and disposes modules before Foundation unlocks. Save/cleanup failure keeps
-ownership. A settled 15-second idle interval uses the same conservative disposal
+ownership. Five minutes without runtime work or observed user activity use the same conservative disposal
 path; next explicit mutation remounts instead of reusing callbacks from the old host.
 The terminal and unsent draft survive. Partial source revisions remain read-only.
+Input activity is a coalesced, session-scoped, memory-only notification, not an
+admission or heartbeat from painting/polling. External editing holds off automatic
+parking; explicit remote handoff remains available. Native terminal/tmux-owned
+selection and scrolling are not observable input and must not require mouse capture.
+An ordinary activity pulse or delayed autosave does not end an external-editor hold;
+only the editor's explicit return does. Activity never becomes persistent intent.
 The optional session.durable_checkpoint capability persists ordered public context
 when a supporting loop calls it; it is not evidence that an unfinished turn completed.
 Never derive a different lock root from the client's Amplifier home. Busy ownership

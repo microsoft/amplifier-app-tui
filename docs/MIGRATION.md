@@ -26,7 +26,10 @@ This is the first bidirectional session slice, **not complete feature parity**:
   The TUI accepts reciprocal release requests and stays open as a read-only view.
   Timeout or refusal cannot steal ownership; retry explicitly after checking the
   other app. A changed acquisition is shown before a new request can target it.
-  Fifteen settled idle seconds release ownership automatically. Next Send can
+  Five minutes without runtime work or observed user activity release ownership
+  automatically. Editing and inspection reset the timer, but background refreshes
+  do not; external editing prevents auto-release. Native terminal/tmux-owned input
+  cannot be observed. Explicit handoff remains immediate. Next Send can
   remount current modules/configuration, so it may take longer than a warm turn.
   Pending decisions, running work and unresolved dispatched follow-ups prevent
   idle release. Paused follow-ups stay paused and do not transfer to other apps.

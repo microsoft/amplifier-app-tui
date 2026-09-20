@@ -1380,7 +1380,12 @@ impl Screen {
             old(info);
         }));
         let result = (|| {
-            execute!(io::stdout(), EnableBracketedPaste, DisableMouseCapture)?;
+            execute!(
+                io::stdout(),
+                EnableBracketedPaste,
+                EnableFocusChange,
+                DisableMouseCapture
+            )?;
             let size = tty::size()?;
             // Only rows ABOVE the shell's cursor are prior output. Scroll those
             // rows into history, not a full page of unused space below the prompt.
@@ -1757,6 +1762,7 @@ impl Screen {
             io::stdout(),
             tty::EnterAlternateScreen,
             DisableBracketedPaste,
+            DisableFocusChange,
             DisableMouseCapture,
             cursor::Show
         )?;
@@ -1764,7 +1770,7 @@ impl Screen {
         tty::disable_raw_mode()?;
         let result = crate::external_editor::edit(&app.draft.lines().join("\n"));
         tty::enable_raw_mode()?;
-        execute!(io::stdout(), EnableBracketedPaste)?;
+        execute!(io::stdout(), EnableBracketedPaste, EnableFocusChange)?;
         self.size = tty::size()?;
         self.leave_inspection()?;
         match result {
@@ -1789,6 +1795,7 @@ fn restore() {
         io::stdout(),
         tty::EndSynchronizedUpdate,
         DisableBracketedPaste,
+        DisableFocusChange,
         DisableMouseCapture,
         ResetColor,
         cursor::Show

@@ -1,5 +1,14 @@
 # Direction review: experience first, measured responsiveness
 
+## User-aware idle release
+
+The steward found a fifteen-second runtime-only timeout too short and requested
+five minutes of true inactivity. Continuity P7 now includes observed editing and
+inspection, not just admitted runtime commands. Activity notifications stay ephemeral,
+bounded and scoped to the displayed session; they neither acquire ownership nor
+become conversation/admission history. Native terminal/tmux selection stays outside
+the app's input ownership rather than sacrificing ordinary copy/scroll behavior.
+
 ## Default control receipts and changed composition
 
 A pristine TUI provider-control receipt records no user selection. Treating its
