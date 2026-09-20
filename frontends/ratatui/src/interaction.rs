@@ -7,6 +7,7 @@ pub(super) enum Action {
     Menu,
     Group(&'static str),
     Conversations,
+    ContinueHere,
     CliImport(String),
     CliImportConfirm(String),
     CliAdoptConfirm(String),
@@ -259,9 +260,11 @@ fn action_group(action: &Action) -> &'static str {
         | Action::Questions
         | Action::Decisions
         | Action::Modes => "Current task",
-        Action::Conversations | Action::Switch(_) | Action::Rename | Action::FindSaved => {
-            "Conversations"
-        }
+        Action::Conversations
+        | Action::ContinueHere
+        | Action::Switch(_)
+        | Action::Rename
+        | Action::FindSaved => "Conversations",
         Action::Find
         | Action::Replies
         | Action::CopySelection
@@ -320,6 +323,7 @@ impl App {
 
     pub fn activate(&mut self, action: Action) -> bool {
         if !self.ready
+            && !matches!(self.ownership.as_str(), "blocked" | "yielded")
             && !matches!(
                 action,
                 Action::Menu
@@ -331,6 +335,19 @@ impl App {
                     | Action::LocalDraft(..)
                     | Action::CopyText(..)
                     | Action::CancelSwitch
+                    | Action::ContinueHere
+                    | Action::Stop
+                    | Action::Interact
+                    | Action::InlineToggle
+                    | Action::Inspect(..)
+                    | Action::HistoryPage(..)
+                    | Action::HistoryItem(..)
+                    | Action::Message(..)
+                    | Action::CopyMessage(..)
+                    | Action::CopySource(..)
+                    | Action::CopySelection
+                    | Action::Conversations
+                    | Action::ConversationPage(..)
             )
         {
             self.not_ready();
@@ -343,6 +360,9 @@ impl App {
         self.ui.focus = None;
         self.review_request = None;
         match action {
+            Action::ContinueHere => {
+                self.send(json!({"op":"continue_here"}));
+            }
             Action::Group(group) => {
                 self.activate(Action::Menu);
                 let menu = self.ui.menu.as_mut().unwrap();
@@ -360,6 +380,7 @@ impl App {
             Action::Menu => self.menu(
                 "Actions · type to search",
                 vec![
+                    choice("Continue here — ask the other app to hand off safely", Action::ContinueHere),
                     choice("Getting started — Help for everyday tasks", Action::Help),
                     choice("Work — conversation", Action::View(0)),
                     choice("Latest — follow new output", Action::Latest),

@@ -18,7 +18,7 @@ from .conversations import (
     resolve_resume,
 )
 from .followups import Followups
-from .host import RuntimeBridge, SessionHost
+from .host import SessionHost, SharedRuntimeBridge
 
 
 def file_candidates(cwd, query):
@@ -131,7 +131,7 @@ def session_choices(state_dir, current, *, cwd=None, offset=0, query="", cli_hom
     }
 
 
-class WorkspaceBridge(RuntimeBridge):
+class WorkspaceBridge(SharedRuntimeBridge):
     def __init__(self, *args, state_dir, open_launch, **kwargs):
         super().__init__(*args, **kwargs)
         self.navigation_enabled = True
@@ -467,8 +467,21 @@ class WorkspaceBridge(RuntimeBridge):
             self.lookup_task = asyncio.create_task(self.lookup(request))
             return True, "Looking up local choices"
         if op == "switch":
-            if not self.host.ready or (self.host.task and not self.host.task.done()):
+            viewing = self.ownership_status in {"blocked", "yielded", "parked"}
+            if (not self.host.ready and not viewing) or (
+                self.host.task and not self.host.task.done()
+            ):
                 return False, "Finish or stop the active turn before changing conversations"
+            if viewing and any(
+                request.get(k) is not None
+                for k in (
+                    "conversion_overlay",
+                    "cli_import",
+                    "fork_turn",
+                    "recover",
+                )
+            ):
+                return False, "Continue here before branching or recovering runtime context"
             if not isinstance(request.get("draft"), str):
                 return False, "Switch requires the current draft"
             target = request.get("target")
@@ -866,6 +879,7 @@ class WorkspaceBridge(RuntimeBridge):
         fork_name=None,
     ):
         candidate = None
+        blocked_owner = None
         committed = False
         self.switch_committing = False
         try:
@@ -938,9 +952,20 @@ class WorkspaceBridge(RuntimeBridge):
                 transferred = context_transfer(messages, self.host.session_id)
             if not Path(launch["cwd"]).is_dir():
                 raise ValueError("Recorded working directory no longer exists")
-            candidate = SessionHost(
-                open_conversation(self.state_dir, launch, None if target == "new" else target)
-            )
+            from .conversations import SharedConversationStore, SharedSessionBusy
+
+            try:
+                candidate_store = open_conversation(
+                    self.state_dir, launch, None if target == "new" else target
+                )
+            except SharedSessionBusy as busy:
+                if target == "new" or transferred or imported:
+                    raise
+                candidate_store = SharedConversationStore(
+                    self.state_dir, launch, target, read_only=True
+                )
+                blocked_owner = busy.owner
+            candidate = SessionHost(candidate_store)
             if fork_name:
                 candidate.store.set_title(fork_name)
             if imported:
@@ -953,9 +978,10 @@ class WorkspaceBridge(RuntimeBridge):
             # cannot steal the source conversation's decision UI while preparing.
             candidate.auto_deny_approvals = True
             candidate.interactive_questions = True
-            await self.open_launch(candidate, launch)
+            if not getattr(candidate_store, "read_only", False):
+                await self.open_launch(candidate, launch)
             candidate.auto_deny_approvals = False
-            if not candidate.ready:
+            if not candidate.ready and not getattr(candidate_store, "read_only", False):
                 raise RuntimeError("Target did not become ready")
             next_followups = Followups(candidate, self.emit)
             from .input_history import recall
@@ -975,6 +1001,9 @@ class WorkspaceBridge(RuntimeBridge):
                 self.pump.cancel()
                 await asyncio.gather(self.pump, return_exceptions=True)
             await self.host.close()
+            if self.registration:
+                await self.registration.close()
+                self.registration = None
             self.followups.close()
             self.host = candidate
             self.host.delivery_failed = self.failure
@@ -988,6 +1017,10 @@ class WorkspaceBridge(RuntimeBridge):
             self.pending, self.decisions, self.tools = None, {}, {}
             self.snapshot(reset=True)
             self.pump = asyncio.create_task(self.events())
+            if getattr(candidate_store, "read_only", False):
+                self.ownership("blocked", owner=blocked_owner)
+            else:
+                await self.register_owner()
             self.emit({"type": "input_history", "session_id": candidate.session_id, **next_history})
             self.emit(
                 {

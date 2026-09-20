@@ -5,7 +5,7 @@ requires-python = ">=3.11"
 [[package]]
 name = "amplifier-app-cli"
 version = "0.1.1"
-source = { git = "https://github.com/microsoft/amplifier-app-cli?rev=120f7e54d5ddd6e493dc5815f300e04f5e2666da#120f7e54d5ddd6e493dc5815f300e04f5e2666da" }
+source = { git = "https://github.com/microsoft/amplifier-app-cli?rev=f2b2989819a985fb283ee1d8ece4e7e6a3aa8a30#f2b2989819a985fb283ee1d8ece4e7e6a3aa8a30" }
 dependencies = [
     { name = "amplifier-core" },
     { name = "amplifier-foundation" },
@@ -44,9 +44,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "amplifier-app-cli", git = "https://github.com/microsoft/amplifier-app-cli?rev=120f7e54d5ddd6e493dc5815f300e04f5e2666da" },
+    { name = "amplifier-app-cli", git = "https://github.com/microsoft/amplifier-app-cli?rev=f2b2989819a985fb283ee1d8ece4e7e6a3aa8a30" },
     { name = "amplifier-core", specifier = "==1.6.1" },
-    { name = "amplifier-foundation", git = "https://github.com/microsoft/amplifier-foundation?rev=b3bdab2adcc2a8fe477aca64c20b77528a95e1df" },
+    { name = "amplifier-foundation", git = "https://github.com/microsoft/amplifier-foundation?rev=695f875c0908f45f8dc78b1fcde80ecddebffd7c" },
     { name = "pillow", specifier = "==12.1.1" },
     { name = "textual", specifier = "==8.2.8" },
 ]
@@ -83,7 +83,7 @@ wheels = [
 [[package]]
 name = "amplifier-foundation"
 version = "1.0.0"
-source = { git = "https://github.com/microsoft/amplifier-foundation?rev=b3bdab2adcc2a8fe477aca64c20b77528a95e1df#b3bdab2adcc2a8fe477aca64c20b77528a95e1df" }
+source = { git = "https://github.com/microsoft/amplifier-foundation?rev=695f875c0908f45f8dc78b1fcde80ecddebffd7c#695f875c0908f45f8dc78b1fcde80ecddebffd7c" }
 dependencies = [
     { name = "amplifier-core" },
     { name = "pyyaml" },

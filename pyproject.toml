@@ -6,8 +6,8 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "amplifier-core==1.6.1",
-  "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@b3bdab2adcc2a8fe477aca64c20b77528a95e1df",
-  "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@120f7e54d5ddd6e493dc5815f300e04f5e2666da",
+  "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@695f875c0908f45f8dc78b1fcde80ecddebffd7c",
+  "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@f2b2989819a985fb283ee1d8ece4e7e6a3aa8a30",
   "textual==8.2.8",
   "pillow==12.1.1",
 ]

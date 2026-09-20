@@ -200,11 +200,10 @@ def run(cli=None):
     before_busy = (session / "transcript.jsonl").read_bytes()
     p = Probe(launch, cwd=cwd, env=env, cols=175, rows=50, guard_terminal_modes=True)
     try:
-        p.wait("Startup failed", timeout=60)
-        p.wait("open in another Amplifier client")
+        p.wait("[Continue here]", timeout=60)
         p.send(b"Keep this unsent while busy\r")
         p.wait("Keep this unsent while busy")
-        p.wait("Session not ready")
+        p.wait("Choose Continue here")
         assert (session / "transcript.jsonl").read_bytes() == before_busy
         capture(p, "shared-session-busy-draft-175")
     finally:
@@ -289,6 +288,8 @@ def run(cli=None):
                 p.send(b"\x1b")
                 p.wait("Actions / choices", absent=True)
                 assert transcript() == before, "Inspecting historical usage executed work"
+                p.wait("Keep this unsent while busy")
+                p.send(b"\x01\x0b")  # Explicitly replace the restored read-only draft.
                 p.send(b"TUI continuation marker\r")
                 p.wait_idle(timeout=60)
                 assert any(m.get("content") == "TUI continuation marker" for m in transcript())

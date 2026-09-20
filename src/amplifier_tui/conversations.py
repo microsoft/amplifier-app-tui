@@ -111,6 +111,17 @@ def open_conversation(state_dir, launch, resume=None):
     return SharedConversationStore(state_dir, launch, resume)
 
 
+class SharedSessionBusy(BlockingIOError):
+    """Keep structured ownership local; never render arbitrary owner metadata."""
+
+    def __init__(self, owner):
+        super().__init__(
+            "Conversation is open in another Amplifier client; choose Continue here. "
+            "Nothing sent; your draft is retained."
+        )
+        self.owner = owner
+
+
 def _acquire_shared_owner(cwd, identity):
     from amplifier_foundation.session import SessionBusyError, SharedSessionStore
 
@@ -121,10 +132,7 @@ def _acquire_shared_owner(cwd, identity):
     except SessionBusyError as exc:
         # Owner metadata is untrusted advisory text. Do not forward arbitrary
         # client names, machine paths or terminal escapes into the startup error.
-        raise BlockingIOError(
-            "Conversation is open in another Amplifier client; close that session and retry. "
-            "Nothing sent; your draft is retained."
-        ) from exc
+        raise SharedSessionBusy(exc.owner) from exc
 
 
 def archive_conversation(state_dir, identity, *, cwd, archived, cli_home=None):
@@ -540,12 +548,16 @@ class SharedConversationStore(ConversationStore):
             )
         return items
 
-    def __init__(self, state_dir, launch, resume=None):
+    def __init__(self, state_dir, launch, resume=None, *, read_only=False):
         from amplifier_foundation.session import SessionHistoryStore
 
         from .cli_compat import session_directory
 
         launch = {**launch, "shared_session": True}
+        if read_only and not resume:
+            raise ValueError("A read-only view requires a saved conversation")
+        self.read_only = read_only
+        self.closed = False
         identity = resume or str(uuid.uuid4())
         if not re.fullmatch(r"[A-Za-z0-9-]{1,160}", identity):
             raise ValueError("Invalid shared session identity")
@@ -565,7 +577,11 @@ class SharedConversationStore(ConversationStore):
         # Acquire before canonical reads/new-session writes or module mounting.
         # This object never replaces the handle: late callbacks retain their
         # original (released) capability rather than borrowing a new acquisition.
-        self._owner = _acquire_shared_owner(launch["cwd"], identity)
+        try:
+            self._owner = None if read_only else _acquire_shared_owner(launch["cwd"], identity)
+        except SharedSessionBusy as exc:
+            exc.launch, exc.identity, exc.state_dir = launch, identity, state_dir
+            raise
         try:
             if not resume:
                 root.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -586,7 +602,8 @@ class SharedConversationStore(ConversationStore):
             self.path = path
             if path.is_symlink():
                 raise ValueError("Shared session sidecar directory cannot be a symlink")
-            path.mkdir(mode=0o700, exist_ok=True)
+            if not read_only:
+                path.mkdir(mode=0o700, exist_ok=True)
             for name in ("metadata.json", "checkpoint.json", "draft.json"):
                 if (path / name).is_symlink():
                     raise ValueError("Shared session sidecar files cannot be symlinks")
@@ -599,7 +616,19 @@ class SharedConversationStore(ConversationStore):
                 self.draft = json.loads((path / "draft.json").read_text())["text"]
             self.restored_events = self.observations(self.canonical_messages, identity)
             self._live_events = []
-            self.saved = self.load_checkpoint() if resume else None
+            self.saved = (
+                dict(
+                    version=1,
+                    status="view",
+                    sequence=len(self.restored_events),
+                    messages=self.canonical_messages,
+                    fingerprint=None,
+                )
+                if read_only
+                else self.load_checkpoint()
+                if resume
+                else None
+            )
             self._restore_accounting()
             if self.saved:
                 self.saved["sequence"] = len(self.restored_events)
@@ -611,7 +640,8 @@ class SharedConversationStore(ConversationStore):
                 if canonical["name"] != self.metadata.get("title"):
                     self.metadata["title_source"] = "external"
                 self.metadata["title"] = canonical["name"]
-            atomic_json(self.path / "metadata.json", self.metadata)
+            if not read_only:
+                atomic_json(self.path / "metadata.json", self.metadata)
         except BaseException:
             self.close()
             raise
@@ -621,7 +651,7 @@ class SharedConversationStore(ConversationStore):
 
         from .cli_compat import native_history
 
-        self._owner.check()
+        self.check_open()
         launch = self.canonical_launch
         existing = native_history(launch["cli_home"], launch["cwd"], identity, metadata_only=True)
         bundle = self.canonical_launch.get("bundle") or existing.get("bundle", "unknown")
@@ -670,7 +700,8 @@ class SharedConversationStore(ConversationStore):
         from .cli_compat import native_history
         from .recovery import native_resume_messages
 
-        self._owner.check()
+        if not self.read_only:
+            self._owner.check()
         launch = self.canonical_launch
         history = native_history(launch["cli_home"], launch["cwd"], self.identity)
         before = history.revision
@@ -691,7 +722,8 @@ class SharedConversationStore(ConversationStore):
             != Path(self.canonical_launch["cwd"]).resolve()
         ):
             raise ValueError("Session belongs to another working directory")
-        native_resume_messages(history.messages)  # No import limits, mutation or replay.
+        if not self.read_only:
+            native_resume_messages(history.messages)  # No import limits, mutation or replay.
         self.canonical_metadata = metadata
         self.history_diagnostics = history.diagnostics
         return history.messages, self._revision_key(before)
@@ -710,12 +742,12 @@ class SharedConversationStore(ConversationStore):
                 return sanitize_message(message)
             return message
 
-        self._owner.check()
+        self.check_open()
         self._native_sources()
         self.history_store.save(messages, redact_secrets(metadata), sanitizer=native_message)
 
     def assert_current(self):
-        self._owner.check()
+        self.check_open()
         if self._revision_key(self._native_sources()) != self.canonical_digest:
             raise ValueError(
                 "CLI transcript changed while this client was open; close and resume again. Nothing overwritten."
@@ -885,7 +917,7 @@ class SharedConversationStore(ConversationStore):
             )
 
     def _save_marker(self, messages, sequence, fingerprint, ready):
-        self._owner.check()
+        self.check_open()
         marker = dict(
             version=1,
             status="ready" if ready else "uncertain",
@@ -929,7 +961,7 @@ class SharedConversationStore(ConversationStore):
         return True
 
     def record(self, event):
-        self._owner.check()
+        self.check_open()
         self._live_events.append(event)
         if event.kind == "turn.accepted":
             # Admission uncertainty is durable before execution, but displayed
@@ -946,25 +978,39 @@ class SharedConversationStore(ConversationStore):
         return chain(self.restored_events, self._live_events)
 
     def check_open(self):
+        if self.closed:
+            raise RuntimeError("Conversation view is no longer active")
+        if self.read_only:
+            raise RuntimeError("Conversation is read-only; choose Continue here")
         self._owner.check()
 
     def checkpoint_auxiliary(self, sequence):
-        self._owner.check()
+        self.check_open()
         if self.saved:
             self.saved["sequence"] = sequence
 
     def save_draft(self, text):
-        self._owner.check()
+        if self.closed:
+            raise RuntimeError("Conversation view is no longer active")
+        if not self.read_only:
+            self._owner.check()
+        else:
+            self._native_sources()  # Recheck the canonical path before a local-only write.
+        if self.path.is_symlink():
+            raise ValueError("Draft directory cannot be a symlink")
+        self.path.mkdir(mode=0o700, exist_ok=True)
         super().save_draft(text)
 
     def naming_metadata(self, completed_turns):
-        self._owner.check()
+        self.check_open()
         return super().naming_metadata(completed_turns)
 
-    def close(self):
+    def close(self, *, release_ownership=True):
+        self.closed = True
         try:
             super().close()
         finally:
             # The host calls close only after child/runtime cleanup has settled.
             # Never write HeldSession's separate checkpoint: native files own history.
-            self._owner.release()
+            if self._owner is not None and release_ownership:
+                self._owner.release()

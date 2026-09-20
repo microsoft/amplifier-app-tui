@@ -60,8 +60,14 @@ def test_malformed_contracts_are_rejected(change, reason):
 
 
 def test_non_contiguous_promise_numbers_are_valid():
-    text = (ROOT / "contracts/continuity.v1.md").read_text().replace("5. **", "9. **", 1)
-    assert CHECK["check_document"](text, "retired-number")["promises"] == [1, 2, 3, 4, 9]
+    text = (ROOT / "contracts/continuity.v1.md").read_text()
+    promises = CHECK["check_document"](text, "current")["promises"]
+    retired, replacement = promises[-1], promises[-1] + 4
+    text = text.replace(f"{retired}. **", f"{replacement}. **", 1)
+    assert CHECK["check_document"](text, "retired-number")["promises"] == [
+        *promises[:-1],
+        replacement,
+    ]
 
 
 def test_vision_signs_need_person_and_number():

@@ -46,12 +46,26 @@ TUI acquires Foundation SharedSessionStore ownership before loading a writable
 session and retains the original HeldSession through runtime/child cleanup. Cooperating
 CLI and web hosts use the same canonical working-directory/session key and state
 root (`AMPLIFIER_SESSION_STATE_HOME`, otherwise Foundation's platform default).
+The view is independent of that acquisition. Busy opens read canonical history
+without mounting modules; explicit Continue here uses Foundation's release protocol.
+Receipts never grant ownership: reacquire and reread canonical history and current
+launch policy before mounting. Never retarget a changed acquisition automatically.
+Outbound handoff closes admission, holds follow-ups, gracefully drains current work,
+saves and disposes modules before Foundation unlocks. Save/cleanup failure keeps
+ownership. A settled 15-second idle interval uses the same conservative disposal
+path; next explicit mutation remounts instead of reusing callbacks from the old host.
+The terminal and unsent draft survive. Partial source revisions remain read-only.
+The optional session.durable_checkpoint capability persists ordered public context
+when a supporting loop calls it; it is not evidence that an unfinished turn completed.
 Never derive a different lock root from the client's Amplifier home. Busy ownership
 refuses execution; a stale callback cannot borrow a later acquisition. Native writes
 and release stay synchronous on the host event loop; check() alone is not a generic
 thread-safe save transaction. Do not call HeldSession.write(): native files own history.
 Secure canonical revision stamps detect stale writes without rereading whole files.
 Older/noncooperating writers and remote effects are not fenced by this local POSIX lock.
+This does not implement live-loop attachment, a persistent daemon, event-only recovery
+or portable control semantics. External changes refresh on reacquisition; automatic
+observer tailing and private module activation fencing need separate verification.
 
 Before Foundation's two-file save, mark the sidecar uncertain. Ready follows successful
 canonical validation. Incomplete pairing,

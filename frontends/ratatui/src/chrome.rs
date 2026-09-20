@@ -322,6 +322,13 @@ impl Chrome {
             "[Activity]".into(),
             Action::Inspect("activity_tree".into(), None),
         ));
+        if matches!(app.ownership.as_str(), "blocked" | "yielded") {
+            choices.push(("[Continue here]".into(), Action::ContinueHere));
+            choices.push(("[Resume]".into(), Action::Conversations));
+        }
+        if app.ownership == "yielding" && app.flow.busy {
+            choices.push(("[Force stop]".into(), Action::Stop));
+        }
         if app.ready {
             choices.push((
                 if app.flow.busy && app.nav.enabled {
@@ -402,7 +409,11 @@ impl Chrome {
             choices.retain(|(_, action)| {
                 matches!(
                     action,
-                    Action::Menu | Action::Send | Action::Stop | Action::Inspect(_, _)
+                    Action::Menu
+                        | Action::Send
+                        | Action::ContinueHere
+                        | Action::Stop
+                        | Action::Inspect(_, _)
                 )
             });
         }
@@ -428,6 +439,10 @@ impl Chrome {
             "Startup failed · draft stays editable".into()
         } else if app.nav.switching.is_some() {
             "Opening conversation · input paused".into()
+        } else if matches!(app.ownership.as_str(), "blocked" | "yielded") {
+            "Read-only · draft stays editable".into()
+        } else if !app.ownership.is_empty() && !app.ready {
+            app.status.clone()
         } else if app.ready {
             format!(
                 "Enter {} · Tab complete/actions",
