@@ -676,6 +676,13 @@ async def serve(factory, output=None, trace=None, runtime_output=None):
                 request = json.loads(line)
                 if not isinstance(request, dict):
                     raise ValueError("Request must be an object")
+                if request.get("op") == "user_activity":
+                    # Presence must not fill the admission ledger, emit replies,
+                    # repaint the UI or acquire execution ownership.
+                    activity = getattr(backend, "user_activity", None)
+                    if callable(activity):
+                        activity(request)
+                    continue
                 if request.get("op") == "shutdown" and request.get("version") == VERSION:
                     break
                 if len(commands) >= 64 and request.get("op") != "stop":

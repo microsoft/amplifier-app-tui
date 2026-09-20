@@ -56,6 +56,137 @@ def bytes_of(history):
     ]
 
 
+async def idle_clock(bridge):
+    bridge.parking.cancel()
+    await asyncio.gather(bridge.parking, return_exceptions=True)
+    now = [0.0]
+    bridge._idle_clock = lambda: now[0]
+    bridge.last_interaction = 0.0
+    return now
+
+
+async def test_five_minutes_without_work_or_input_before_parking(native, prepared, tmp_path):
+    bridge, _ = await bridge_for(native, prepared, tmp_path)
+    now = await idle_clock(bridge)
+    before = bytes_of(native[2])
+    try:
+        assert bridge.idle_seconds == 300
+        now[0] = 299
+        assert not await bridge.idle_tick()
+        bridge.user_activity(control(bridge, "user_activity"))
+        assert bridge.last_interaction == 299
+        now[0] = 598.99
+        assert not await bridge.idle_tick()
+        # Background snapshot polling is not user input.
+        await bridge.dispatch(control(bridge, "inspect", id="missing"))
+        assert bridge.last_interaction == 299
+        assert not bridge.host.session.coordinator.get("providers")["fixture"].calls
+        now[0] = 599
+        assert await bridge.idle_tick()
+        assert bridge.ownership_status == "parked"
+        bridge.user_activity(control(bridge, "user_activity"))
+        assert bridge.ownership_status == "parked" and bridge.host.session is None
+        assert bytes_of(native[2]) == before
+    finally:
+        await bridge.close()
+
+
+@pytest.mark.parametrize(
+    "invalid", [{"session_id": "other"}, {"version": 2}, {"external_editor": "yes"}]
+)
+async def test_stale_or_malformed_activity_cannot_renew_idle(native, prepared, tmp_path, invalid):
+    bridge, _ = await bridge_for(native, prepared, tmp_path)
+    now = await idle_clock(bridge)
+    try:
+        now[0] = 299
+        bridge.user_activity({**control(bridge, "user_activity"), **invalid})
+        assert bridge.last_interaction == 0 and not bridge.external_editor
+        now[0] = 300
+        assert await bridge.idle_tick()
+    finally:
+        await bridge.close()
+
+
+async def test_work_and_changed_drafts_restart_the_full_idle_interval(native, prepared, tmp_path):
+    bridge, _ = await bridge_for(native, prepared, tmp_path)
+    now = await idle_clock(bridge)
+    try:
+        bridge.host.validation_active = True
+        now[0] = 600
+        assert not await bridge.idle_tick()
+        bridge.host.validation_active = False
+        now[0] = 650
+        assert not await bridge.idle_tick()  # Settling starts a fresh five minutes.
+        now[0] = 900
+        assert (await bridge.dispatch(control(bridge, "draft", text="Still editing")))[0]
+        assert bridge.last_interaction == 900
+        now[0] = 1199
+        await bridge.dispatch(control(bridge, "draft", text="Still editing"))
+        assert bridge.last_interaction == 900  # Duplicate autosave is not activity.
+        assert not await bridge.idle_tick()
+        now[0] = 1200
+        assert await bridge.idle_tick()
+        assert bridge.host.store.draft == "Still editing"
+    finally:
+        bridge.host.validation_active = False
+        await bridge.close()
+
+
+async def test_external_editor_prevents_auto_park_but_not_explicit_handoff(
+    native, prepared, tmp_path
+):
+    bridge, _ = await bridge_for(native, prepared, tmp_path)
+    now = await idle_clock(bridge)
+    try:
+        bridge.user_activity(control(bridge, "user_activity", external_editor=True))
+        # An already queued autosave can dispatch after the editor-open signal.
+        # It is activity, not permission to clear the external-editor hold.
+        await bridge.dispatch(control(bridge, "draft", text="Editor source draft"))
+        assert bridge.external_editor
+        now[0] = 900
+        assert not await bridge.idle_tick()
+        bridge.user_activity(control(bridge, "user_activity", external_editor=False))
+        assert not bridge.external_editor and bridge.last_interaction == 900
+        assert not await bridge.idle_tick()
+        bridge.user_activity(control(bridge, "user_activity", external_editor=True))
+        held = bridge.host.store._owner
+        result = await request_release(
+            SharedSessionStore(native[0]["cwd"], native[1]),
+            expected_owner=held.owner,
+            request_id=uuid.uuid4().hex,
+            requester_app="synthetic-web",
+            timeout=5,
+        )
+        assert result.status == "released"
+        await bridge.release_waiter
+        assert not held.active and bridge.ownership_status == "yielded"
+        bridge.user_activity(control(bridge, "user_activity", external_editor=False))
+        assert not bridge.external_editor and bridge.host.session is None
+    finally:
+        await bridge.close()
+
+
+async def test_input_arriving_while_listener_closes_aborts_auto_park(native, prepared, tmp_path):
+    bridge, _ = await bridge_for(native, prepared, tmp_path)
+    now = await idle_clock(bridge)
+    old = bridge.registration
+    close = old.close
+
+    async def close_with_input():
+        await close()
+        bridge.user_activity(control(bridge, "user_activity"))
+
+    old.close = close_with_input
+    try:
+        now[0] = 300
+        assert not await bridge.idle_tick()
+        assert bridge.ownership_status == "owned" and bridge.host.store._owner.active
+        assert bridge.registration is not old
+        assert bridge.last_interaction == 300
+    finally:
+        await bridge.close()
+
+
 async def test_idle_park_releases_without_rewriting_and_reload_is_fresh(native, prepared, tmp_path):
     launch, identity, history, messages = native
     bridge, events = await bridge_for(native, prepared, tmp_path)

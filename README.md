@@ -62,7 +62,12 @@ Only one client executes at a time. If another client owns the conversation, the
 opens a read-only view with **Continue here**. That action requests a graceful handoff;
 it never sends your draft. The other client saves and cleans up before the TUI acquires
 ownership and reloads. The CLI can request the reverse handoff with `--takeover`.
-After 15 settled idle seconds, the TUI releases ownership but keeps the view and draft.
+After five minutes without agent work or observed user activity, the TUI releases
+ownership but keeps the view and draft. Typing, paste, navigation, delivered mouse
+events, resizing and focus return reset the timer; an open external editor prevents
+automatic release. Native terminal/tmux copy-mode activity is outside the app's
+visibility. Background refreshes do not reset the timer, and another client's explicit
+handoff request does not wait for it.
 Your next Send reacquires and remounts using current saved history/configuration. If
 another app acquired it, choose Continue here, then Send explicitly. Older clients may
 not participate; this is not simultaneous execution or migration of running work.

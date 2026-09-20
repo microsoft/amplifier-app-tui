@@ -62,20 +62,35 @@ closes admission, pauses queued input, finishes current calls, saves and dispose
 modules before unlocking. Save/cleanup failure retains ownership. An owner change
 requires another explicit attempt; timeout never steals a lock or auto-submits.
 
-After 15 settled idle seconds, the TUI retires its runtime and releases the
+After five minutes without runtime work or observed user activity, the TUI retires its runtime and releases the
 session while retaining the view. The next explicit action reacquires and remounts;
 old callbacks cannot borrow its new handle. Pending work/decisions prevent parking.
 This is conservative module retirement, not warm runtime reuse or background detach.
+Typing, paste, local navigation, delivered mouse events, resize and focus return
+renew the timer. Activity is coalesced in memory and never admitted as execution;
+background polling/painting do not renew it. Native terminal/tmux-owned scrolling
+and selection are outside the app's visibility. External editing prevents automatic
+parking but does not delay an explicit cooperative handoff.
+Clock-controlled tests pin the 300-second default, last-input/work boundaries,
+stale/invalid activity rejection and activity racing listener shutdown. A transport
+check sends 5000 notifications without replies or admission-capacity consumption.
+The focused host/transport gate passes **41 tests, 1 optional Unified skip** in
+`.evidence/user-idle-focused.xml`. Native PTYs at 175×50 and 40×20 use a three-second
+test-only interval and real input/external editing, then verify quiet release,
+unchanged history, explicit fresh Send and restored terminal/focus modes. They do
+not claim a five-minute wall-clock soak. Together with Activity/navigation/flow/tmux
+and daily-editor regressions, **37 tests pass** in `.evidence/user-idle-terminal.xml`.
+Private reference-font captures were inspected; no personal session was run.
 
-The isolated cross-app environment passes **18 tests** in
-`.evidence/unified-handoff-cross-host.xml`: real Foundation locks/sockets, actual TUI
+The isolated cross-app environment passes **25 tests** in
+`.evidence/user-idle-cross-host.xml`: real Foundation locks/sockets, actual TUI
 mounts with deterministic modules, and real CLI/Unified lifecycle adapters with
 synthetic collaborator sessions/cleanup. It does not prove actual web UI execution
 or arbitrary CLI/Unified runtime draining. Actual native-entrypoint PTYs pass at
 **175×50 and 40×20**, including reciprocal handoff, retained draft, automatic idle
 release and explicit Send after external history advances. Captures were inspected;
-`.evidence/unified-handoff-terminal.xml` records **33 passes** for handoff plus native
-Activity/navigation/flow/tmux regressions. The cross-app and terminal runs use the
+the **37-test** terminal gate above includes Activity/navigation/flow/tmux regressions.
+The cross-app and terminal runs use the
 published exact Foundation `2c0063a` and CLI `b507233` pins, not sibling overrides.
 The actual CLI/native TUI round-trip probe also passes against these pins: new
 TUI → CLI, same-ID CLI → TUI → CLI → TUI, 66-MiB history, paging/preview/copy,
@@ -104,10 +119,10 @@ Four independent loop/context combinations retain module-owned system history
 without putting it in the public CLI transcript. These are module/store tests,
 not an assertion that every persistent-context entrypoint configuration is verified.
 
-The current default Python run passes **776 tests, 332 opt-in skips**, recorded
-privately in `.evidence/unified-handoff-default.xml` against the exact published pins.
+The current default Python run passes **784 tests, 332 opt-in skips**, recorded
+privately in `.evidence/user-idle-default.xml` against the exact published pins.
 Rust renderer/native tests pass
-**75 tests**, with release build and strict Clippy clean. Ruff lint/format and
+**77 tests**, with release build and strict Clippy clean. Ruff lint/format and
 direction checks pass. The shared history/ownership/activity, CLI compatibility and
 independent loop/context gates pass **186 tests** (45.21s), with opt-ins enabled and
 no skips, in `.evidence/native-shared-integration.xml`.
