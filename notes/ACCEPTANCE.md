@@ -45,6 +45,40 @@ The paired Unified change supplies stable streaming display identity; older
 v1 hosts show a receiving indicator until the final response. Catalog filtering
 is page-local, and host SSE fan-out is unchanged.
 
+## Connected failure feedback
+
+The connected client displays the host's conversation error and stops advertising
+mode controls as loading when the remote protocol does not support them. A text or
+HTML HTTP failure yields a bounded HTTP diagnostic, never its arbitrary body or a
+bare exception class. Failed acknowledgement recovery reads current state once,
+with a five-second limit and selection/generation checks. Confirmed acceptance is
+not downgraded by a display error; an unknown execution receipt stays unknown even
+when an exact retry receives HTTP 200. No observation automatically resends work.
+
+Qualification uses a disposable real Unified HTTP/SSE service with a labelled
+runtime that raises during send, matching an unhandled startup failure. It verifies
+one execution attempt, retained request identity, readable host error, unchanged
+uncertainty on an exact retry, lost-acknowledgement reconciliation and navigation
+isolation. Three behavior regressions reproduce on the prior client source.
+
+- 24 connected HTTP/SSE and native terminal checks pass. Actual Ratatui at 120×40
+  and 40×20 shows the failure, readable delivery details with scrollable retained
+  input, no stuck loading mode and no duplicate send.
+- The same gate passes against an isolated installed macOS ARM64 candidate wheel,
+  with child PYTHONPATH cleared and no Core/Foundation/CLI installed in that client.
+  This candidate is not a published release or a replacement of a personal install.
+- 78 native unit checks, Rust Clippy, Python Ruff, wheel build and direction checks
+  pass. OpenTUI comparison build was unavailable because Bun is not installed;
+  that historical candidate does not implement the connected client.
+- The broad suite reports 786 passed, 345 skipped and nine failures. All nine
+  reproduce against unchanged source in the same environment: the six platform /
+  standalone failures recorded above plus three native-runtime lifecycle cases.
+  Those are not claimed passing. One additional acknowledgement regression passes
+  in the focused gate after that broad run.
+
+Production worker/module-cache repair is separate. These checks do not prove a
+successful paid-provider turn or rollout of a new client on the user's devices.
+
 ## Optional standalone canonical sessions
 
 Standalone live TUI launches use Foundation's native history API and the CLI project/session format under the selected Amplifier

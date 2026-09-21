@@ -568,6 +568,10 @@ impl App {
                     let id = string(row, "id");
                     let status = string(row, "status");
                     let text = row["args"]["text"].as_str().unwrap_or("");
+                    let detail = safe(&format!(
+                        "Delivery: {status}\n{}\n\nRetained input:\n{text}\n\nRequest: {id}\nAn exact retry checks the original request; it does not create another message.",
+                        string(row, "error")
+                    ));
                     if matches!(status.as_str(), "unknown" | "failed") {
                         choices.push(interaction::Choice {
                             label: format!(
@@ -575,7 +579,7 @@ impl App {
                                 safe(text).chars().take(50).collect::<String>()
                             ),
                             action: Action::RetryDelivery(id.clone()),
-                            detail: safe(&row.to_string()),
+                            detail: detail.clone(),
                         });
                     }
                     if status == "failed" && row["action"] == "conversation.send" {
@@ -588,7 +592,7 @@ impl App {
                     choices.push(interaction::Choice {
                         label: format!("Copy retained input · {status}"),
                         action: Action::CopyText(text.into()),
-                        detail: safe(&row.to_string()),
+                        detail,
                     });
                 }
                 self.menu("Message delivery · retries keep original identity", choices);

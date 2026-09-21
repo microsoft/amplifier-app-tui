@@ -63,6 +63,8 @@ class UnifiedBridge:
                   'Stop uses Unified cancellation; graceful/force stages are not negotiated.',
                   'Use /deliveries to inspect uncertain input. Rich artifacts open in the web client.'],
                   commands=['/new', '/resume', '/rename', '/stop', '/deliveries'], steer=False)
+        # The connected protocol does not negotiate standalone mode controls.
+        self.send('mode_status', supported=False)
         self.publish()
 
     def items(self):
@@ -298,6 +300,7 @@ class UnifiedBridge:
             self.send('input_pending', request_id=row.get('local_request'), text=row['args']['text'])
             if self.store.data['drafts'].get(row['session'] or '') == row['args']['text']:
                 self.store.draft(row['session'], '')
+        acknowledged = False
         try:
             if row['session'] is None:
                 created = await self.transport.command(None, 'session.create',
@@ -312,15 +315,23 @@ class UnifiedBridge:
                     self.store.data['drafts'][new_id] = self.store.data['drafts'].pop('', '')
                     await self.select(new_id, preserve_draft=True)
             result = await self.transport.command(row['session'], row['action'], row['args'], identity)
+            uncertain = result.get('delivery') == 'unknown'
+            acknowledged = not uncertain
             # A concurrent snapshot may already have acknowledged and removed this entry.
             if identity in self.store.data['outbox']:
-                row['status'] = 'accepted'
-                row.pop('error', None)
+                row['status'] = 'unknown' if uncertain else 'accepted'
+                if uncertain:
+                    row['error'] = 'Unified saved this request, but execution is unconfirmed.'
+                else:
+                    row.pop('error', None)
                 if row['action'] != 'conversation.send':
                     del self.store.data['outbox'][identity]
                 self.store.save()
             if result.get('session', {}).get('id') == self.selected:
                 self.reconcile(result)
+            if uncertain and identity in self.store.data['outbox']:
+                self.publish()
+                return False, 'Execution unconfirmed · /deliveries retains the original request'
             return True, 'Accepted by Unified; execution outcome is separate'
         except Rejected as exc:
             if identity not in self.store.data['outbox']:
@@ -328,20 +339,40 @@ class UnifiedBridge:
             row['status'] = 'failed' if 400 <= exc.status < 500 and exc.status != 408 else 'unknown'
             row['error'] = str(exc)
             self.store.save()
-            if row['session'] == self.selected and self.selected:
-                try:
-                    self.reconcile(await self.transport.snapshot(self.selected))
-                except (OSError, ValueError, Rejected):
-                    pass
+            self.publish()
+            await self.refresh_delivery(row)
+            if identity not in self.store.data['outbox']:
+                return True, 'Acceptance confirmed by the conversation'
             self.publish()
             return False, str(exc) + ' · /deliveries retains this request'
         except (OSError, ValueError, TimeoutError) as exc:
             if identity not in self.store.data['outbox']:
                 return True, 'Acceptance confirmed by the conversation stream'
-            row['status'], row['error'] = 'unknown', type(exc).__name__
+            if acknowledged:
+                self.publish()
+                return True, 'Accepted by Unified; live view could not refresh'
+            row['status'], row['error'] = 'unknown', (
+                'The response could not be verified.' if isinstance(exc, ValueError)
+                else 'The connection ended before delivery was confirmed.')
             self.store.save()
             self.publish()
+            await self.refresh_delivery(row)
+            if identity not in self.store.data['outbox']:
+                return True, 'Acceptance confirmed by the conversation'
+            self.publish()
             return False, 'Delivery unknown · /deliveries for exact retry; nothing resent automatically'
+
+    async def refresh_delivery(self, row):
+        identity, generation = self.selected, self.generation
+        if not identity or row['session'] != identity:
+            return
+        try:
+            async with asyncio.timeout(5):
+                snapshot = await self.transport.snapshot(identity)
+            if identity == self.selected and generation == self.generation:
+                self.reconcile(snapshot)
+        except (OSError, ValueError, Rejected, TimeoutError):
+            pass  # Failed observation cannot authorize another command.
 
     async def close(self):
         if self.pump:

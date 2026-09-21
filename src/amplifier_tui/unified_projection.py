@@ -33,6 +33,10 @@ def project(session, outbox):
                           'text': {'sending': 'Sending…', 'unknown': 'Delivery unknown · /deliveries to inspect or retry the same request',
                                    'failed': 'Not accepted · /deliveries to retry or edit'}[row['status']],
                           'status': row['status'], 'detail': row.get('error', '')})
+    if session.get('error'):
+        items.append({'id': 'session-error:' + str(session.get('id', '')),
+                      'kind': 'notice', 'text': session['error'],
+                      'status': 'failed', 'detail': ''})
     for node in session.get('execution', {}).get('nodes', []):
         if node.get('kind') != 'tool':
             continue

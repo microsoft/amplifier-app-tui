@@ -71,6 +71,12 @@ class Transport:
             try:
                 result = json.loads(body)
             except (ValueError, UnicodeDecodeError):
+                if reply.status >= 400:
+                    # Proxies and unhandled host exceptions can return text/HTML.
+                    # Preserve HTTP evidence without displaying an arbitrary body.
+                    raise Rejected(reply.status, {'error':
+                        f'Unified could not complete the request (HTTP {reply.status}). '
+                        'Check the conversation status before retrying.'}) from None
                 raise ValueError(f'Unified returned an invalid response (HTTP {reply.status})') from None
             if not isinstance(result, dict):
                 raise ValueError('Unified response must be an object')

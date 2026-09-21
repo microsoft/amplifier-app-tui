@@ -12,6 +12,11 @@ web/terminal check, run `scripts/unified_browser_probe.mjs` with
 `AMPLIFIER_TEST_PYTHON`, `TUI_CONNECTED_EXECUTABLE`, and `PLAYWRIGHT_MODULE` pointing
 to the isolated environment, installed client and Unified's Playwright index.mjs.
 The service and browser use random loopback ports; no production settings change.
+The connected gate also exercises an unhandled host startup failure: retain one
+request, show the host error, keep an unknown receipt unknown on exact retry, and
+inspect readable delivery details at both sizes. A lost acknowledgement may be
+resolved only by a bounded read; navigation during that read must remain unchanged.
+Installed-client runs clear child PYTHONPATH so they cannot import checkout code.
 The remaining gates below qualify the explicit standalone extra and harnesses.
 
 Cooperative handoff gate: run `uv run --no-sync pytest -q tests/test_shared_handoff.py`.
