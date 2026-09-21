@@ -387,9 +387,8 @@ wheels retain their ordinary entrypoint.
   asset digests. The subsequent same-environment upgrade gate was interrupted by
   host ENOSPC: the prior rc1 displayed a startup failure before creating fixture
   state. Nothing was submitted and no upgrade success receipt was produced.
-  Retry that gate after capacity recovery before claiming successor upgrade
-  qualification; do not remove it or reinterpret the current-client pass as an
-  upgrade pass. Private failure capture is retained outside tracked files.
+  Private failure capture is retained outside tracked files; this failed attempt
+  was never reclassified as upgrade success.
 - The capacity-recovered retry installed the candidate but correctly refused
   changed-policy resume: published rc1's private fixture default names pinned
   loop/context sources, while the new default names main. The exact mount-plan
@@ -406,8 +405,18 @@ wheels retain their ordinary entrypoint.
   The failed run's owned temporary environment was automatically removed on exit;
   its private capture remains. A new disposable fixture is required because that
   capture cannot reconstruct the lost temporary canonical checkpoint. No personal
-  journal or user request is reused, changed or replayed. The same-policy gate's
-  final result is still pending.
+  journal or user request is reused, changed or replayed.
+- Actual published-rc1 same-policy upgrade **passes** on clean `d140a7f`: original
+  history remains an exact prefix, resumed startup adds no turn/tool event, both
+  new tool turns complete, the retained draft survives and terminal modes restore.
+  Its receipt identifies the prior wheel, exact retained fixture session sources,
+  policy hash, and the explicit unchanged-policy scope. Package dependencies still
+  resolve main: Core `4f53e0f`, Foundation `c6b33a3`, CLI `409eb088`; protocol is 1.
+- A separate actual installed candidate **new-session** run also passes on clean
+  `d140a7f` with those same newly resolved dependencies and current-main fixture
+  defaults. Tool turn, no-submit resume, second turn, draft/help retention, terminal
+  restoration and connected dependency isolation pass. It uses existing caches;
+  the earlier owned fresh-cache proof remains separately identified above.
 - Only this task's completed native target and fresh uv build/download cache were
   reclaimed afterward. Receipts, candidate wheels, source and personal state are
   preserved. No further heavy build was started during the coordinated disk pause.
