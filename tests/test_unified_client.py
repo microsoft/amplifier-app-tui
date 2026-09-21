@@ -124,18 +124,24 @@ async def test_unknown_delivery_keeps_identity_and_exact_retry_does_not_repeat(s
     bridge.pump.cancel()
     await asyncio.gather(bridge.pump, return_exceptions=True)
     original = bridge.transport.command
+    original_snapshot = bridge.transport.snapshot
+
+    async def unavailable_snapshot(*args):
+        raise ConnectionError('Observation unavailable')
 
     async def lose_reply(*args, **kwargs):
         await original(*args, **kwargs)
         raise ConnectionError('Lost after acceptance')
 
     bridge.transport.command = lose_reply
+    bridge.transport.snapshot = unavailable_snapshot
     try:
         accepted, _ = await bridge.dispatch(request(bridge, 'submit', text='Once only'))
         assert not accepted
         identity, row = next(iter(bridge.store.data['outbox'].items()))
         assert row['status'] == 'unknown'
         bridge.transport.command = original
+        bridge.transport.snapshot = original_snapshot
         accepted, reason = await bridge.dispatch(request(bridge, 'retry_delivery', id=identity))
         assert accepted, reason
         assert len(app['service'].runtime.sent) == 1
@@ -306,5 +312,126 @@ async def test_generated_names_and_custom_renames_are_shared(server, tmp_path):
         await service.on_runtime_event('session.naming', {'sessionId': sid, 'name': 'Late generated suggestion'})
         assert (await bridge.transport.snapshot(sid))['session']['title'] == 'My permanent title'
         await until(lambda: any(e.get('title') == 'My permanent title' for e in events))
+    finally:
+        await bridge.close()
+
+
+async def test_failed_worker_is_visible_after_plaintext_500_without_resending(server, tmp_path):
+    app, url = server
+    service = app['service']
+    created = await service.dispatch('session.create', {})
+    sid = created['state']['selectedSessionId']
+    calls = []
+
+    async def fail_send(session, text, input_id, emit):
+        calls.append(input_id)
+        raise RuntimeError('Private failure details must never reach the client')
+
+    service.runtime.send = fail_send
+    bridge, events = await attach(tmp_path, app, url, sid)
+    bridge.pump.cancel()
+    await asyncio.gather(bridge.pump, return_exceptions=True)
+    try:
+        accepted, reason = await bridge.dispatch(request(bridge, 'submit', text='Fixture input'))
+        assert not accepted and 'HTTP 500' in reason
+        identity, row = next(iter(bridge.store.data['outbox'].items()))
+        assert row['status'] == 'unknown' and 'HTTP 500' in row['error']
+        assert 'Private failure' not in row['error']
+        assert len(calls) == 1 and calls[0] == identity
+        assert bridge.session['status'] == 'error'
+        notices = [r for r in bridge.items() if r['kind'] == 'notice']
+        assert any('worker is unavailable' in r['text'] and r['status'] == 'failed' for r in notices)
+        assert any(e['type'] == 'mode_status' and e['supported'] is False for e in events)
+        # Even a successful HTTP retry can report an unknown execution receipt.
+        accepted, reason = await bridge.dispatch(request(bridge, 'retry_delivery', id=identity))
+        assert not accepted and 'unconfirmed' in reason
+        assert bridge.store.data['outbox'][identity]['status'] == 'unknown'
+        assert len(calls) == 1
+    finally:
+        await bridge.close()
+
+
+async def test_lost_acknowledgement_is_reconciled_read_only(server, tmp_path):
+    app, url = server
+    bridge, _ = await attach(tmp_path, app, url)
+    original = bridge.transport.command
+
+    async def lose_send_reply(identity, action, args, command_id):
+        result = await original(identity, action, args, command_id)
+        if action == 'conversation.send':
+            bridge.pump.cancel()
+            await asyncio.gather(bridge.pump, return_exceptions=True)
+            raise ConnectionError('Lost reply')
+        return result
+
+    bridge.transport.command = lose_send_reply
+    try:
+        accepted, reason = await bridge.dispatch(request(bridge, 'submit', text='Fixture input'))
+        assert accepted and 'confirmed' in reason
+        assert not bridge.store.data['outbox']
+        assert len(app['service'].runtime.sent) == 1
+    finally:
+        await bridge.close()
+
+
+async def test_refresh_does_not_replace_a_newly_selected_conversation(server, tmp_path):
+    app, url = server
+    service = app['service']
+    a = (await service.dispatch('session.create', {}))['state']['selectedSessionId']
+    b = (await service.dispatch('session.create', {}))['state']['selectedSessionId']
+    bridge, _ = await attach(tmp_path, app, url, a)
+    entered, release = asyncio.Event(), asyncio.Event()
+    original = bridge.transport.snapshot
+
+    async def delayed_snapshot(identity):
+        result = await original(identity)
+        if identity == a:
+            entered.set()
+            await release.wait()
+        return result
+
+    bridge.transport.snapshot = delayed_snapshot
+    task = asyncio.create_task(bridge.refresh_delivery({'session': a}))
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        await bridge.select(b)
+        release.set()
+        await task
+        assert bridge.selected == b and bridge.session['id'] == b
+        assert not service.runtime.sent
+    finally:
+        release.set()
+        await task
+        await bridge.close()
+
+
+def test_host_error_keeps_identity_and_clears_on_recovery():
+    session = {'id': 's', 'error': 'The worker is unavailable.'}
+    rows = project(session, {})
+    assert rows == [{'id': 'session-error:s', 'kind': 'notice',
+                     'text': 'The worker is unavailable.', 'status': 'failed', 'detail': ''}]
+    session.pop('error')
+    assert project(session, {}) == []
+
+
+async def test_confirmed_ack_survives_an_unusable_display_snapshot(server, tmp_path):
+    app, url = server
+    sid = (await app['service'].dispatch('session.create', {}))['state']['selectedSessionId']
+    bridge, _ = await attach(tmp_path, app, url, sid)
+    bridge.pump.cancel()
+    await asyncio.gather(bridge.pump, return_exceptions=True)
+    original = bridge.transport.command
+
+    async def invalid_snapshot(*args):
+        result = await original(*args)
+        return {**result, 'protocolVersion': 99}
+
+    bridge.transport.command = invalid_snapshot
+    try:
+        accepted, reason = await bridge.dispatch(request(bridge, 'submit', text='Fixture input'))
+        assert accepted and 'live view could not refresh' in reason
+        assert len(app['service'].runtime.sent) == 1
+        row = next(iter(bridge.store.data['outbox'].values()))
+        assert row['status'] == 'accepted' and 'error' not in row
     finally:
         await bridge.close()

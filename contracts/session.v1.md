@@ -36,6 +36,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: the boundary's clients and the person relying on them.
 
 4. **Report the actual ending.** Completion uses runtime evidence; failure, cancellation and unknown outcomes stay distinct.
+   Connected views surface the host's conversation error even when the command response is unavailable. Reading current state may confirm acceptance; an error response never authorizes automatic resubmission, and missing evidence remains unknown.
    Broken: A returned string overriding an error or missing completion signal is false success.
    Affected: the boundary's clients and the person relying on them.
 
