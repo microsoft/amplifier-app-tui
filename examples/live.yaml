@@ -4,16 +4,16 @@ bundle:
 session:
   orchestrator:
     module: loop-streaming
-    source: git+https://github.com/microsoft/amplifier-module-loop-streaming@2feefe4ba0c4cb50fc0c6b33648a8ef6a2908820
+    source: git+https://github.com/microsoft/amplifier-module-loop-streaming@main
     config:
       extended_thinking: false
       max_iterations: 4
   context:
     module: context-simple
-    source: git+https://github.com/microsoft/amplifier-module-context-simple@2d1bdc4d9c1803491fe39820c8d503dd764d32de
+    source: git+https://github.com/microsoft/amplifier-module-context-simple@main
 providers:
   - module: provider-anthropic
-    source: git+https://github.com/microsoft/amplifier-module-provider-anthropic@12fffb6ad2bafb1bb7999ab02245a35e42ca8672
+    source: git+https://github.com/microsoft/amplifier-module-provider-anthropic@main
     config:
       default_model: claude-haiku-4-5
       max_tokens: 1024
@@ -21,6 +21,6 @@ providers:
       raw: false
 tools:
   - module: tool-filesystem
-    source: git+https://github.com/microsoft/amplifier-module-tool-filesystem@8bd1eab4715924686c2e9c167ba9b861af1ee82d
+    source: git+https://github.com/microsoft/amplifier-module-tool-filesystem@main
     config:
       allowed_write_paths: []

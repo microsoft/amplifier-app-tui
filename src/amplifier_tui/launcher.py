@@ -10,7 +10,7 @@ from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parent
 FOUNDATION = (
-    "git+https://github.com/microsoft/amplifier-foundation@8a8e4f11918afd38ea8fe8f69cbec002226324f7"
+    "git+https://github.com/microsoft/amplifier-foundation@main"
 )
 CLI_COMMANDS = frozenset(
     {
@@ -71,7 +71,7 @@ def argument_parser(workspace=None):
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog="CLI-compatible administration and scripting: amplifier-tui cli --help. "
-        "Commands such as provider, bundle, routing, session, tool and run use the pinned CLI "
+        "Commands such as provider, bundle, routing, session, tool and run use the installed CLI "
         "with its existing settings and session store. No arguments opens the native TUI.",
     )
     parser.add_argument(

@@ -108,3 +108,20 @@ run HTTP/SSE integration tests. See [verification guide](SMOKE_TESTS.md),
 [client boundary](notes/CONNECTED-CLIENT.md) and [engine boundary](notes/ENGINE-BOUNDARY.md).
 Textual and OpenTUI remain comparison harnesses; Ratatui is the product renderer.
 No fixture is evidence of paid-provider or physical-device qualification.
+
+## Current Amplifier sources
+
+The explicit standalone extra follows `main` for Core, Foundation and CLI, as do
+default Amplifier bundle/module source references. A new qualification resolves
+those branches afresh. To refresh a source development environment, run:
+
+```sh
+uv sync --inexact --no-sources --extra standalone --upgrade-package amplifier-core --upgrade-package amplifier-foundation --upgrade-package amplifier-app-cli
+```
+
+The lockfile and release receipt retain resolved commits for reproducibility and
+evidence, not a promise to keep subsequent installs at those commits. Release
+qualification exercises the installed CLI resolver, native shared-session return
+and ownership. Receipts record the installed connected protocol version so
+Unified can select the newest compatible prebuilt release. Connected clients
+still install without any execution runtime; the service owns that runtime.

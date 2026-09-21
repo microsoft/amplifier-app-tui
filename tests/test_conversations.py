@@ -211,3 +211,26 @@ def test_autosave_does_not_exhaust_execution_admission():
             lambda request: (True, "saved"),
         )["accepted"]
     assert not admission.replies
+
+
+async def test_loop_durable_checkpoint_supports_private_fixture_store(prepared, tmp_path, monkeypatch):
+    store = ConversationStore(tmp_path, {"cwd": str(tmp_path), "bundle": "fixture"})
+    host = SessionHost(store)
+    await host.open(*prepared, tmp_path)
+    try:
+        context = host.session.coordinator.get("context")
+        await context.add_message({"role": "user", "content": "Checkpoint fixture"})
+        checkpoint = host.session.coordinator.get_capability("session.durable_checkpoint")
+        await checkpoint()
+        saved = json.loads((store.path / "checkpoint.json").read_text())
+        assert saved["messages"] == await context.get_messages()
+        assert saved["status"] == "uncertain"  # Mid-turn durability is not resumability.
+        def fail(*args):
+            raise OSError("fixture write failure")
+        monkeypatch.setattr(store, "checkpoint", fail)
+        with pytest.raises(OSError, match="fixture write failure"):
+            await checkpoint()
+    finally:
+        await host.close()
+    with pytest.raises(RuntimeError, match="no longer active"):
+        store.check_open()

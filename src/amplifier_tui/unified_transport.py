@@ -8,6 +8,8 @@ from urllib.parse import quote, urlencode, urlsplit
 
 import aiohttp
 
+PROTOCOL_VERSION = 1
+
 MAX_FRAME = 32 * 1024 * 1024
 
 
@@ -40,8 +42,8 @@ class Transport:
             'Authorization': 'Bearer ' + self.token, 'X-Amplifier-Client': self.client_id})
         try:
             self.attached = await self.request('POST', '/api/clients/attach', {
-                'clientId': self.client_id, 'kind': 'tui', 'protocolVersion': 1})
-            if self.attached.get('protocolVersion') != 1:
+                'clientId': self.client_id, 'kind': 'tui', 'protocolVersion': PROTOCOL_VERSION})
+            if self.attached.get('protocolVersion') != PROTOCOL_VERSION:
                 raise ValueError('Unsupported Unified protocol; no work sent')
         except BaseException:
             await self.close()

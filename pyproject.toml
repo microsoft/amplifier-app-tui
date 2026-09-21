@@ -8,9 +8,9 @@ dependencies = ["aiohttp>=3.12,<4"]
 
 [project.optional-dependencies]
 standalone = [
-  "amplifier-core==1.6.1",
-  "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@2c0063a187181173dfe2438ce031079e8723f894",
-  "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@b5072330a28e7e898e5ffecd8efeb5e898351873",
+  "amplifier-core @ git+https://github.com/microsoft/amplifier-core@main",
+  "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@main",
+  "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@main",
   "textual==8.2.8",
   "pillow==12.1.1",
 ]
