@@ -125,11 +125,13 @@ adding accounting receipts.
 Release upgrade gate: `scripts/release_wheel.py --terminal --scripting --upgrade-from
 PATH_TO_PRIOR_WHEEL` requires the published wheel's adjacent `.receipt.json`, verifies
 its name/hash and scans both artifacts before installing. It seeds real fixture turns
-with the prior release, reinstalls the candidate into that SAME isolated tool environment,
+with the prior release and an explicit retained-prior session overlay, reinstalls
+the candidate into that SAME isolated tool environment with that configuration retained,
 then resumes the original identity twice. Historical bytes must remain a journal prefix;
 return must retain the unsent draft and must not add model turns or tool events before
 explicit Send. Require a successful tool result from each new turn, not old history.
-Installation has no Cargo on PATH. The five-platform workflow downloads rc5 and runs this gate, installed
+Connected installation and native launches have no Cargo on PATH; explicit standalone
+dependency installation may compile Core. The five-platform workflow downloads rc5 and runs this gate, installed
 CLI scripting/completion, and disposable macOS pasteboard checks. Old versions/artifacts
 are never overwritten. These runs do not prove arbitrary private-module migration.
 Keep first-install and upgrade startup observations labelled separately; neither purges
@@ -908,16 +910,20 @@ after resume, plus local Git inspection without execution. Inspect its private c
 Run benchmark separately, with no concurrent build/tests/provider activity; include the
 new Rust modules in source fingerprints. This does not measure control fsync latency.
 
-After `bootstrap_sources.py --workspace .. --all`, supply the provider credential and run:
+For current-source live qualification, supply the provider credential and run
+against canonical main without the historical bootstrap source map:
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 uv run --no-sync amplifier-tui --bundle ../amplifier-foundation/bundles/anchors --overlay examples/anthropic.yaml --sources ../tui-sources.json --require-tool read_file --headless 'Use read_file to read pyproject.toml. Report only the project name. Do not edit files, run commands, delegate, or use any other tool.'
+PYTHONDONTWRITEBYTECODE=1 uv run --no-sync amplifier-tui --bundle 'git+https://github.com/microsoft/amplifier-foundation@main#subdirectory=bundles/anchors' --overlay examples/anthropic.yaml --require-tool read_file --headless 'Use read_file to read pyproject.toml. Report only the project name. Do not edit files, run commands, delegate, or use any other tool.'
 ```
 
 Repeat for `anchors-amp-dev`. Check session.ready, a read_file result with success true,
 text.delta followed by text.final for the same block identity, and completed turn. Verify
 the reported hook handlers and no initialization warnings; a response alone is insufficient.
 The prompt constrains this action, not the preset's permissions. Do not mistake it for a sandbox.
+`bootstrap_sources.py --workspace .. --all --historical` is only for deliberate historical
+workspace replay using the preserved `sources.lock.json`; its source map is not
+current-source qualification evidence.
 
 ## Interactive checks
 
@@ -1376,3 +1382,11 @@ that declares `Provides-Extra: standalone` requires that extra and explicit stan
 launch for the legacy fixture upgrade gate. Older standalone-only wheels keep their
 ordinary entrypoint. This checks fixture history/drafts, not a production connected
 client upgrade or automatic replay of an uncertain delivery.
+The old installed client is seeded with an explicit overlay containing that verified
+prior artifact's declared session policy; its actual installed provider/tool execute.
+The overlay remains fixed through upgrade and its hash is included in the receipt.
+This proves same-policy packaging continuity, not migration across changed defaults.
+New-session qualification separately uses the candidate's current source declarations;
+the retained old test configuration never changes package or default dependencies.
+A historical default-policy mismatch must still refuse before sending; preserve
+that negative evidence and the original journal rather than relaxing the host guard.

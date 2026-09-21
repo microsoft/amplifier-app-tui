@@ -155,7 +155,34 @@ def prior_has_standalone_extra(path):
     return 'standalone' in fields.get_all('Provides-Extra', [])
 
 
-def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True, failure_log=None):
+def write_upgrade_fixture_policy(wheel, stage, python, env):
+    """Make the verified prior client's policy explicit before seeding a test session.
+
+    Historical default-policy changes must still fail closed. This packaging gate
+    exercises preserved configuration, not migration between different defaults.
+    The installed standalone interpreter supplies YAML; connected installs do not.
+    """
+    with ZipFile(wheel) as archive:
+        source = archive.read("amplifier_tui/fixtures/bundle.yaml").decode()
+    result = checked(
+        [python, "-c", "import json, sys, yaml; print(json.dumps(yaml.safe_load(sys.stdin.read())['session']))"],
+        input=source, env=env, cwd=stage,
+    )
+    session = json.loads(result.stdout)
+    if not isinstance(session, dict) or not all(
+        isinstance(session.get(key), dict) for key in ("orchestrator", "context")
+    ):
+        raise ValueError("Prior fixture lacks an explicit session policy")
+    policy = stage / "upgrade-fixture-policy.yaml"
+    policy.write_text(json.dumps({
+        "bundle": {"name": "release-upgrade-fixture-policy", "version": "1.0.0"},
+        "session": session,
+    }, sort_keys=True) + "\n")
+    return policy
+
+
+def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True,
+                   initial_overlays=(), failure_log=None):
     """Installed fixture runtime, real PTY, no sibling sources or model credentials."""
     from benchmark_candidates import wait_edit
     from terminal_probe import Probe
@@ -177,7 +204,9 @@ def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True, failu
         resumed = upgrade or index > 0
         expected_turns = (2 if upgrade else 0) + index
         probe = Probe(
-            [*launch, *(["--resume", identity] if resumed else ["--fixture"])],
+            [*launch, *(["--resume", identity] if resumed else [
+                "--fixture", *(arg for overlay in initial_overlays for arg in ("--overlay", str(overlay)))
+            ])],
             cwd=stage,
             env=env,
             cols=120,
@@ -478,10 +507,19 @@ def main():
             prior_report = json.loads(
                 checked([str(command), "--doctor"], env=env, cwd=stage).stdout
             )
-            terminal_smoke(command, stage, env, standalone=prior_standalone, failure_log=args.private_failure_log)
+            policy = write_upgrade_fixture_policy(previous, stage, prior_report["python"], env)
+            terminal_smoke(command, stage, env, standalone=prior_standalone,
+                           initial_overlays=[policy], failure_log=args.private_failure_log)
             upgrade_seed = {
                 "version": prior_report["version"],
                 "wheel_sha256": hashlib.sha256(previous.read_bytes()).hexdigest(),
+                "fixture_policy_sha256": hashlib.sha256(policy.read_bytes()).hexdigest(),
+                "fixture_session_policy": json.loads(policy.read_text())["session"],
+                "fixture_policy_scope": (
+                    "Verified prior session policy explicitly applied before seeding the prior installed client; "
+                    "same configuration retained through upgrade. Not migration of changed historical defaults."
+                ),
+                "fixture_seed": "New disposable fixture; no user session or retained uncertain request is replayed",
             }
         # Connected installation above must work without a compiler. The explicit
         # standalone extra follows Core source and may need its Rust build tools.

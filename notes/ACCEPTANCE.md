@@ -372,7 +372,11 @@ Prior wheels that declare a standalone extra use it for the existing private
 fixture upgrade gate and launch that host explicitly; historical standalone-only
 wheels retain their ordinary entrypoint.
 
-- **20 installation tests pass**; Ruff passes.
+- **23 installation tests pass**; Ruff passes. Ordinary development bootstrap
+  resolves remote main and verifies existing clean checkouts without changing them.
+  Historical commits remain preserved and require explicit `--historical` replay.
+  A real local Git fixture verifies remote advancement is detected and leaves local
+  work, the existing source map and historical evidence intact.
 - Actual ARM64 Mac qualification with a fresh owned uv cache built Core from
   source and passed connected dependency isolation, native byte/load checks,
   standalone tool turn, no-submit resume, second turn, retained draft and restored
@@ -386,6 +390,24 @@ wheels retain their ordinary entrypoint.
   Retry that gate after capacity recovery before claiming successor upgrade
   qualification; do not remove it or reinterpret the current-client pass as an
   upgrade pass. Private failure capture is retained outside tracked files.
+- The capacity-recovered retry installed the candidate but correctly refused
+  changed-policy resume: published rc1's private fixture default names pinned
+  loop/context sources, while the new default names main. The exact mount-plan
+  fingerprint differs. Its two historical fixture turns and draft remained;
+  the candidate sent nothing and produced no success receipt. The guard remains.
+  This is a private fixture journal boundary: connected clients retain service
+  history, and the shared native store reloads canonical history independently of
+  the private fixture fingerprint. It is not evidence of lost production history
+  or of automatic migration between different default policies.
+- The positive packaging gate now makes the verified prior fixture's session
+  configuration explicit before seeding, then retains it across installation.
+  This avoids changing the old client's execution plan or relaxing the fingerprint
+  guard. New-session qualification remains a separate check of current main.
+  The failed run's owned temporary environment was automatically removed on exit;
+  its private capture remains. A new disposable fixture is required because that
+  capture cannot reconstruct the lost temporary canonical checkpoint. No personal
+  journal or user request is reused, changed or replayed. The same-policy gate's
+  final result is still pending.
 - Only this task's completed native target and fresh uv build/download cache were
   reclaimed afterward. Receipts, candidate wheels, source and personal state are
   preserved. No further heavy build was started during the coordinated disk pause.
