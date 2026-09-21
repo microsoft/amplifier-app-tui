@@ -41,4 +41,13 @@ try {
  assert.equal((await inspect()).stopped.length,0);
  assert.deepEqual(errors,[]);
  console.log(JSON.stringify({installedTerminalAndWeb:true,sharedInputsAndResults:true,independentDrafts:true,browserErrors:0}));
-} finally {await browser?.close();fixture.kill('SIGTERM');}
+} finally {
+ await browser?.close();
+ if(fixture.exitCode === null && fixture.signalCode === null) {
+  await new Promise(resolve=>{
+   const timeout=setTimeout(()=>fixture.kill('SIGKILL'),10000);
+   fixture.once('exit',()=>{clearTimeout(timeout);resolve()});
+   fixture.kill('SIGTERM');
+  });
+ }
+}
