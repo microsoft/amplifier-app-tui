@@ -361,3 +361,35 @@ No personal client install, saved history, production service, update generation
 or prior uncertain user request was changed. Linux/native release qualification,
 publication and host rollout remain with the release owner. Third-party tool and
 SDK constraints are outside the Amplifier source-policy change.
+
+## Release qualification build-tool scopes
+
+The release harness now installs the ordinary connected wheel with Cargo absent,
+then permits build tools only while installing the explicit standalone extra from
+current Amplifier sources. Subsequent native launches still run without Cargo.
+Receipts report compiler availability separately for those installation scopes.
+Prior wheels that declare a standalone extra use it for the existing private
+fixture upgrade gate and launch that host explicitly; historical standalone-only
+wheels retain their ordinary entrypoint.
+
+- **20 installation tests pass**; Ruff passes.
+- Actual ARM64 Mac qualification with a fresh owned uv cache built Core from
+  source and passed connected dependency isolation, native byte/load checks,
+  standalone tool turn, no-submit resume, second turn, retained draft and restored
+  terminal modes. Receipt records Core `e2cf2a6f`, Foundation `75fe2420`, CLI
+  `dbf633f7`, protocol 1, connected-install Cargo false and standalone-install Cargo
+  true. This remains an isolated fixture check, not a physical-client rollout.
+- Published rc1 wheel and receipt were downloaded and matched against their GitHub
+  asset digests. The subsequent same-environment upgrade gate was interrupted by
+  host ENOSPC: the prior rc1 displayed a startup failure before creating fixture
+  state. Nothing was submitted and no upgrade success receipt was produced.
+  Retry that gate after capacity recovery before claiming successor upgrade
+  qualification; do not remove it or reinterpret the current-client pass as an
+  upgrade pass. Private failure capture is retained outside tracked files.
+- Only this task's completed native target and fresh uv build/download cache were
+  reclaimed afterward. Receipts, candidate wheels, source and personal state are
+  preserved. No further heavy build was started during the coordinated disk pause.
+
+No version, tag, published artifact or production installation changes accompany
+this harness repair. The release owner must build a newly versioned candidate from
+a clean reviewed commit on each supported platform before publication.

@@ -344,3 +344,17 @@ asyncio.run(serve(lambda emit: RuntimeBridge(SessionHost(), open_host, emit, Tru
         if process.returncode is None:
             process.kill()
         await process.wait()
+
+
+@pytest.mark.parametrize("extra,expected", [(None, False), ("standalone", True), ("other", False)])
+def test_prior_connected_release_explicitly_qualifies_standalone_upgrade(tmp_path, extra, expected):
+    from zipfile import ZipFile
+
+    from release_wheel import prior_has_standalone_extra
+    wheel = tmp_path / "prior.whl"
+    with ZipFile(wheel, "w") as archive:
+        content = "Metadata-Version: 2.3\nName: amplifier-app-tui\nVersion: 0.4.0rc1\n"
+        if extra:
+            content += "Provides-Extra: " + extra + "\n"
+        archive.writestr("amplifier_app_tui-0.4.0rc1.dist-info/METADATA", content)
+    assert prior_has_standalone_extra(wheel) is expected

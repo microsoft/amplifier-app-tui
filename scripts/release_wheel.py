@@ -1,4 +1,6 @@
-"""Build an identified candidate wheel and exercise installation with no Cargo on PATH.
+"""Build a candidate wheel; connected installation and launches need no Cargo.
+
+The explicit standalone extra may build current Core source with Rust tools.
 
 Run separately on each supported OS/architecture. This is a packaging gate, not
 terminal, live-provider or arbitrary bundle compatibility evidence. Only wheel and
@@ -16,6 +18,7 @@ import socket
 import stat
 import subprocess
 import tempfile
+from email.parser import BytesParser
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -140,6 +143,16 @@ def verify_prior_wheel(path):
         for name in archive.namelist():
             verify_payload(name.encode())
             verify_payload(archive.read(name))
+
+
+def prior_has_standalone_extra(path):
+    """Connected releases need the explicit extra for the legacy runtime upgrade gate."""
+    with ZipFile(path) as archive:
+        metadata = [name for name in archive.namelist() if name.endswith('.dist-info/METADATA')]
+        if len(metadata) != 1:
+            raise ValueError("Prior wheel must contain one distribution metadata record")
+        fields = BytesParser().parsebytes(archive.read(metadata[0]))
+    return 'standalone' in fields.get_all('Provides-Extra', [])
 
 
 def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True, failure_log=None):
@@ -441,6 +454,7 @@ def main():
         )
         env.pop("PYTHONPATH", None)
         assert shutil.which("cargo", path=env["PATH"]) is None
+        standalone_env = {**env, "PATH": os.pathsep.join(os.get_exec_path())}
         connected = stage / "connected"
         checked([uv, "venv", str(connected)], env=env)
         connected_python = str(connected / "bin/python")
@@ -457,18 +471,21 @@ def main():
         if previous is not None:
             # Existing release artifact, not a guessed checkpoint fixture. Only the
             # disposable tool environment is replaced; the user's command is untouched.
-            checked([uv, "tool", "install", "--no-sources", str(previous)], env=env)
+            prior_standalone = prior_has_standalone_extra(previous)
+            prior_requirement = str(previous) + ("[standalone]" if prior_standalone else "")
+            checked([uv, "tool", "install", "--no-sources", prior_requirement], env=standalone_env)
             prior_report = json.loads(
                 checked([str(command), "--doctor"], env=env, cwd=stage).stdout
             )
-            terminal_smoke(command, stage, env, standalone=False, failure_log=args.private_failure_log)
+            terminal_smoke(command, stage, env, standalone=prior_standalone, failure_log=args.private_failure_log)
             upgrade_seed = {
                 "version": prior_report["version"],
                 "wheel_sha256": hashlib.sha256(previous.read_bytes()).hexdigest(),
             }
-        # The installed CLI's development source table follows Foundation main.
-        # Resolve canonical-main declarations from published requirements,
-        # rather than importing that dependency's development checkout policy.
+        # Connected installation above must work without a compiler. The explicit
+        # standalone extra follows Core source and may need its Rust build tools.
+        # Keep runtime/terminal probes compiler-free after that installation.
+        # Resolve our canonical-main requirements, not the CLI development table.
         checked(
             [
                 uv,
@@ -479,7 +496,7 @@ def main():
                 *(["--reinstall"] if previous else []),
                 str(wheel) + "[standalone]",
             ],
-            env=env,
+            env=standalone_env,
         )
         doctor = checked(
             [str(command), "--doctor"],
@@ -568,7 +585,10 @@ finally:
             "wheel": wheel.name,
             "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
             "native_sha256": hashlib.sha256(binary).hexdigest(),
-            "cargo_available_during_install": False,
+            "cargo_available_during_connected_install": False,
+            "cargo_available_during_standalone_install": shutil.which(
+                "cargo", path=standalone_env["PATH"]
+            ) is not None,
             "dependency_resolution": "published metadata (--no-sources); Amplifier sources resolved from main",
             "doctor_passed": True,
             "state_untouched": True,

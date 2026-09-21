@@ -1360,3 +1360,19 @@ select only an app-owned isolated baseline home; use its owning CLI environment.
 `benchmark_runtime.py --native-only --cli-compatible` measures the actual configured
 native entrypoint alongside that CLI after a strict private comparison receipt exists.
 Prepared differences and missing request-time equivalence still prevent a parity claim.
+
+## Connected and standalone release installation
+
+`scripts/release_wheel.py` qualifies the ordinary connected wheel with Cargo absent
+from PATH and no execution-runtime dependencies installed. The explicit standalone
+extra follows Core main and can require Rust compilation, so its installation keeps
+build tools available; native launches and terminal probes then run with Cargo absent.
+Receipts report `cargo_available_during_connected_install` separately from
+`cargo_available_during_standalone_install`. Use an owned fresh `UV_CACHE_DIR` when
+checking a source dependency change; a prebuilt local Core cache is not that proof.
+
+For `--upgrade-from`, verify the prior wheel and receipt before installation. A wheel
+that declares `Provides-Extra: standalone` requires that extra and explicit standalone
+launch for the legacy fixture upgrade gate. Older standalone-only wheels keep their
+ordinary entrypoint. This checks fixture history/drafts, not a production connected
+client upgrade or automatic replay of an uncertain delivery.
