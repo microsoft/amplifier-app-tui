@@ -8,7 +8,7 @@ checks also pass on Linux x86-64 and both macOS architectures; Windows needs WSL
 ## Install
 
 For compiler-free installation, download your machine's wheel from the private
-[release page](https://github.com/bkrabach/amplifier-app-tui/releases)
+[release page](https://github.com/microsoft/amplifier-app-tui/releases)
 and run `uv tool install --no-sources ./<downloaded-wheel>.whl`. See the [platform table](../README.md#install-the-native-product)
 for the tested systems and limits. Repository access, uv and Git are still needed.
 
@@ -18,7 +18,7 @@ is your chosen Git credential helper, authenticate with `gh auth login` and
 `gh auth setup-git`. Do not put a token in the install URL.
 
 ```sh
-uv tool install --no-sources git+https://github.com/bkrabach/amplifier-app-tui
+uv tool install --no-sources git+https://github.com/microsoft/amplifier-app-tui
 amplifier-tui --getting-started
 amplifier-tui --check
 ```
@@ -242,7 +242,7 @@ Cleanly stopped work with validated saved context resumes normally. Unverified o
 incomplete state requires inspection/export; see [switching limits](MIGRATION.md).
 Unknown tool effects remain unknown; history never replays work automatically.
 
-To upgrade: `uv tool install --no-sources --reinstall git+https://github.com/bkrabach/amplifier-app-tui`.
+To upgrade: `uv tool install --no-sources --reinstall git+https://github.com/microsoft/amplifier-app-tui`.
 This rebuilds the tool environment, so the next normal launch may reinstall module
 dependencies; allow network access and omit `--no-install` then. Saved state is separate.
 Keep recorded local bundle/overlay paths available for older conversations. An upgrade
