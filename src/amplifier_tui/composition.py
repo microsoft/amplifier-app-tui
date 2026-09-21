@@ -388,7 +388,7 @@ async def prepare(
     for section in ("providers", "tools", "hooks"):
         for entry in prepared.mount_plan.get(section, []):
             if cli_policy:
-                continue  # Already expanded by the pinned CLI policy; preserve absent config.
+                continue  # Already expanded by the installed CLI policy; preserve absent config.
             config = entry.get("config", {})
             if section == "providers":
                 for key in ("api_key", "token", "api_token"):

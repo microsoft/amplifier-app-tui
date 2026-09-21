@@ -119,7 +119,7 @@ def recovery_fingerprint(plan):
 
 
 async def child_routing(plan, preferences, roles, coordinator):
-    """Reuse pinned CLI promotion/diagnostics without copying its session lifecycle."""
+    """Reuse installed CLI promotion/diagnostics without copying its session lifecycle."""
     from amplifier_app_cli.session_spawner import (
         _apply_provider_preferences,
         _coerce_provider_preferences,

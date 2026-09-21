@@ -226,7 +226,7 @@ class Configuration:
         from .cli_compat import settings_for
 
         settings = AppSettings(self.paths)
-        # The pinned writer uses its per-scope lock, secret normalization and
+        # The CLI writer uses its per-scope lock, secret normalization and
         # atomic YAML replacement. Validate before its permissive read, while
         # holding the same lock, so malformed policy cannot be overwritten.
         with settings._scope_lock(scope):

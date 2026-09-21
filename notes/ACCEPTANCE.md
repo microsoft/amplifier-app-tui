@@ -318,3 +318,46 @@ Its source is `840ae1682d05cd9dbab663e9a1d79dfce97a2585`; that release predates 
 canonical sessions. The current checkout and its development launcher contain the
 shared implementation; existing release wheels do not acquire checkout changes.
 No new wheel/release is claimed by the current source checks.
+
+## Canonical-main Amplifier source policy
+
+Standalone Core/Foundation/CLI requirements and default Amplifier bundle/module
+references now follow canonical main. `uv.lock` records one resolution, while a
+fresh qualification resolves those branches again. Private CLI compatibility is
+checked against the installed resolver; no unsupported policy is removed.
+The real CLI rename fixture uses `SessionStore.rename`, then verifies that a stale
+history save cannot replace that explicit name. The current loop's durable
+checkpoint capability is supported by the private fixture store as well as the
+shared store; a closed store or failed persistence still refuses checkpointing.
+
+- Fresh standalone environment: Core `e2cf2a6f`, CLI `dbf633f7`, Foundation
+  `1125b4f9`. Full suite after compatibility fixes: **774 passed, 358 skipped,
+  nine failures**. Those same nine failures were already reproduced on unchanged
+  TUI6 source during its qualification: development-hook path, macOS Bash
+  completion, provider-budget fixture, unavailable clipboard, three resumed
+  lifecycle cases, terminal-observer mode and non-UTF-8 filesystem names. This
+  is not a claim that the full suite is green. Direction/ruff pass.
+- Focused direction, actual CLI resolver, shared sessions and ownership/handoff:
+  **97 passed, eight skipped**. Private durable-checkpoint regression plus the
+  existing conversation suite: **14 passed**. Gates requiring other optional
+  runtime modules, external services or paid providers remain separate.
+- Real Unified HTTP/SSE and native connected terminal gates: **24 passed** at
+  120x40 and 40x20. These use the existing isolated Unified qualification harness;
+  they do not establish production Mac-to-Spark success for a retained request.
+- Actual built ARM64 Mac wheel installed outside the checkout: connected import
+  has no Core/Foundation/CLI; native bytes match and load. Standalone dependency
+  resolution records Core `e2cf2a6f`, CLI `dbf633f7`, and newer Foundation
+  `75fe2420` after refreshing main. Native fixture completes a tool turn, resumes
+  without submission, completes a second turn, retains the draft and restores
+  terminal modes. No sibling module overrides or paid calls. This is not a
+  cold-cache or clean-machine compiler test.
+- Release receipts now record the installed connected protocol version and
+  resolved Amplifier commits. The guided Unified selector requires that protocol
+  field: publish a newly versioned, qualified TUI successor before deploying it.
+  Existing 0.4.0rc1 artifacts are unchanged; local candidate wheels are private
+  qualification output, not a replacement publication.
+
+No personal client install, saved history, production service, update generation
+or prior uncertain user request was changed. Linux/native release qualification,
+publication and host rollout remain with the release owner. Third-party tool and
+SDK constraints are outside the Amplifier source-policy change.

@@ -312,6 +312,10 @@ class ConversationStore:
             self.lock = None
             raise
 
+    def check_open(self):
+        if self.lock is None or self.journal is None or self.journal.closed:
+            raise RuntimeError("Conversation view is no longer active")
+
     def load_checkpoint(self):
         return json.loads((self.path / "checkpoint.json").read_text())
 

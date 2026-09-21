@@ -22,7 +22,7 @@ Receipts live in [acceptance notes](../notes/ACCEPTANCE.md), not in this contrac
 ## The promises
 
 1. **Keep both presets meaningful.** anchors and anchors-amp-dev resolve their recursive definitions and expose the capabilities the host actually supports.
-   Supported release wheels include the native client without requiring a local compiler. Connected launch uses the Unified service and its configured runtime; standalone live conversations use the CLI session format and existing CLI configuration and explicit isolated policy selects its own Amplifier home. CLI workflow and required bundle/module host-service parity is the baseline, with additive TUI capabilities and named gaps until verified. Launch resolves presets without workspace checkouts and never silently substitutes a historical UI. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
+   Amplifier dependency declarations and default source references follow canonical main; qualification records the resolved revisions without turning them into update policy. Supported release wheels include the native client without requiring a local compiler. Connected launch uses the Unified service and its configured runtime; standalone live conversations use the CLI session format and existing CLI configuration and explicit isolated policy selects its own Amplifier home. CLI workflow and required bundle/module host-service parity is the baseline, with additive TUI capabilities and named gaps until verified. Launch resolves presets without workspace checkouts and never silently substitutes a historical UI. Local checks explain blockers without mounting modules; shareable diagnostics omit credentials, paths and conversation content and do not imply live readiness.
    Broken: A preset name loads a hard-coded lookalike, or agent instructions imply a running external service.
    Affected: people selecting bundles and authors composing them.
 
@@ -55,7 +55,7 @@ an OS sandbox, or a requirement to retain Foundation PreparedBundle as the host 
 
 ## How the kit checks it
 
-Resolve both pinned preset graphs; inspect actual mounts and exercise supported operations.
+Resolve both current preset graphs; inspect actual mounts and exercise supported operations.
 Swap one independently implemented component at each seam without editing frontend code.
 Inject missing hooks, unknown tools and provider failures; compare controls, context and results.
 Record exclusions, unsupported paths and untested modules rather than upgrading them to a pass.

@@ -135,7 +135,9 @@ async def test_cli_tui_cli_tui_same_identity_context_and_no_replay(shared, prepa
         {"role": "user", "content": "CLI continuation"},
         {"role": "assistant", "content": "CLI continuation result"},
     ]
-    cli.save(identity, canonical, {**metadata, "name": "CLI renamed"})
+    cli.rename(identity, "CLI renamed")
+    # Ordinary history saves must not overwrite a newer explicit rename.
+    cli.save(identity, canonical, metadata)
     # The CLI applies its own native sanitizer; read the actual saved source,
     # rather than assuming it retains every JSON field (for example nulls).
     canonical, _ = cli.load(identity)

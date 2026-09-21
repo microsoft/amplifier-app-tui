@@ -142,7 +142,7 @@ def verify_prior_wheel(path):
             verify_payload(archive.read(name))
 
 
-def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True):
+def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True, failure_log=None):
     """Installed fixture runtime, real PTY, no sibling sources or model credentials."""
     from benchmark_candidates import wait_edit
     from terminal_probe import Probe
@@ -232,6 +232,14 @@ def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True):
             probe.wait("[ Send ]")
             probe.send(draft.encode())
             wait_edit(probe, draft)
+        except Exception:
+            if failure_log is not None:
+                fd = os.open(failure_log, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+                with os.fdopen(fd, "w") as stream:
+                    stream.write(probe.text[-1024 * 1024:])
+                    for event_path in state.glob("conversations/*/events.jsonl"):
+                        stream.write("\n" + event_path.read_text()[-1024 * 1024:])
+            raise
         finally:
             probe.close()  # Includes actual termios restoration and bounded clean exit.
     return {
@@ -254,7 +262,7 @@ def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True):
 
 
 def scripting_smoke(command, stage, env, python, uv, failure_log=None):
-    """Actual pinned CLI subprocesses in the isolated installed environment."""
+    """Actual installed CLI subprocesses in the isolated installed environment."""
     package = Path(
         json.loads(
             checked(
@@ -359,7 +367,7 @@ def scripting_smoke(command, stage, env, python, uv, failure_log=None):
     return {
         "cases": outcomes,
         "completion_shells": ["bash", "zsh", "fish"],
-        "scope": "Installed pinned CLI and deterministic provider/tool; original CLI store, no native launch or paid model calls",
+        "scope": "Installed CLI and deterministic provider/tool; original CLI store, no native launch or paid model calls",
     }
 
 
@@ -377,7 +385,7 @@ def main():
     parser.add_argument(
         "--private-failure-log",
         type=Path,
-        help="New private diagnostic file on CLI failure; may contain secrets, never upload",
+        help="New private diagnostic file on CLI/terminal failure; may contain secrets, never upload",
     )
     parser.add_argument(
         "--scripting",
@@ -440,6 +448,9 @@ def main():
         checked([connected_python, "-c", "import importlib.util; import amplifier_tui.connected; "
                  "assert all(importlib.util.find_spec(n) is None for n in "
                  "('amplifier_core','amplifier_foundation','amplifier_app_cli'))"], env=env, cwd=stage)
+        protocol = int(checked([connected_python, '-c',
+            'from amplifier_tui.unified_transport import PROTOCOL_VERSION; print(PROTOCOL_VERSION)'],
+            env=env, cwd=stage).stdout.strip())
         checked([str(connected / "bin/amplifier-tui"), "--help"], env=env, cwd=stage)
         command = stage / "bin/amplifier-tui"
         upgrade_seed = None
@@ -450,13 +461,13 @@ def main():
             prior_report = json.loads(
                 checked([str(command), "--doctor"], env=env, cwd=stage).stdout
             )
-            terminal_smoke(command, stage, env, standalone=False)
+            terminal_smoke(command, stage, env, standalone=False, failure_log=args.private_failure_log)
             upgrade_seed = {
                 "version": prior_report["version"],
                 "wheel_sha256": hashlib.sha256(previous.read_bytes()).hexdigest(),
             }
-        # The pinned CLI's development source table follows Foundation main.
-        # Resolve published requirements, including our exact Foundation pin,
+        # The installed CLI's development source table follows Foundation main.
+        # Resolve canonical-main declarations from published requirements,
         # rather than importing that dependency's development checkout policy.
         checked(
             [
@@ -464,6 +475,7 @@ def main():
                 "tool",
                 "install",
                 "--no-sources",
+                "--refresh",
                 *(["--reinstall"] if previous else []),
                 str(wheel) + "[standalone]",
             ],
@@ -475,6 +487,17 @@ def main():
             cwd=stage,
         )
         report = json.loads(doctor.stdout)
+        source_report = json.loads(checked([report["python"], "-c", """
+import importlib.metadata as metadata, json
+result = {}
+for name in ('amplifier-core', 'amplifier-foundation', 'amplifier-app-cli'):
+    distribution = metadata.distribution(name)
+    source = json.loads(distribution.read_text('direct_url.json'))['vcs_info']
+    assert source['requested_revision'] == 'main'
+    result[name] = {'version': distribution.version, 'requested_revision': 'main',
+                    'commit_id': source['commit_id']}
+print(json.dumps(result))
+"""], env=env, cwd=stage).stdout)
         assert report["native_available"]
         assert "diagnostics do not read shared settings/history" in report["shared_cli_state"].casefold()
         assert not (stage / "state").exists()
@@ -492,7 +515,7 @@ def main():
         assert b"Use scripts/compare.py ratatui to launch" in loaded.stderr
         checked([str(command), "--getting-started"], env=env, cwd=stage)
         terminal = (
-            terminal_smoke(command, stage, env, upgrade=previous is not None)
+            terminal_smoke(command, stage, env, upgrade=previous is not None, failure_log=args.private_failure_log)
             if args.terminal
             else None
         )
@@ -546,9 +569,11 @@ finally:
             "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
             "native_sha256": hashlib.sha256(binary).hexdigest(),
             "cargo_available_during_install": False,
-            "dependency_resolution": "published metadata (--no-sources); exact direct pins retained",
+            "dependency_resolution": "published metadata (--no-sources); Amplifier sources resolved from main",
             "doctor_passed": True,
             "state_untouched": True,
+            "connected_protocol_version": protocol,
+            "amplifier_sources": source_report,
             "connected_install_without_execution_dependencies": True,
             "installed_native_bytes_match": True,
             "installed_native_load_passed": True,

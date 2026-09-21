@@ -81,7 +81,7 @@ storage-adapter test runs when its checkout exists under the source workspace, o
 explicitly skips. It reproduces the worker's ownership composition but does not launch
 the web runtime or claim its complete controls/lifecycle behavior.
 Run `uv run --no-sync python scripts/shared_session_probe.py` serially with other
-PTY tests. It creates a fresh disposable CLI environment/home from this app's pinned
+PTY tests. It creates a fresh disposable CLI environment/home from this app's canonical-main
 CLI requirement (not an arbitrary sibling checkout), uses actual CLI
 entrypoints and default app behaviors, then resumes the same identity in native TUI
 at 175×50 and 40×20. Never reuse a CLI environment claimed by another home or bypass
@@ -564,10 +564,10 @@ measures the simulated Decisions action and pending-dialog shrink/grow paint wit
 and request retained, never submitting a permission. Search the actual Decisions action;
 Review decision is the normal view's button label, not that menu's search label.
 
-Clean tool installs use `uv tool install --no-sources`: the pinned CLI dependency's
-development `tool.uv.sources` follows Foundation main and conflicts with the app's exact
-Foundation URL. Preserve the exact pin and resolve packaged metadata; do not float the
-dependency or treat an already-populated development environment as install evidence.
+Clean tool installs use `uv tool install --no-sources --refresh`: resolve the app's
+canonical-main Amplifier declarations, without importing the CLI dependency's
+development source table. Record resolved commits in qualification receipts; do not
+treat an already-populated development environment as a fresh installation check.
 Doctor's CLI-state description now distinguishes ordinary configured launches from
 read-only diagnostics; check that boundary instead of the historical "not imported" label.
 Candidate receipts fingerprint packaged sources and native source in dirty checkouts.
@@ -1342,7 +1342,7 @@ before execution, during a tool and during an approval. Windows/macOS and real I
 
 Use synthetic global/project/local settings, never the developer's configured service
 destinations or personal transcripts. `tests/test_cli_compat.py` compares the actual
-pinned CLI resolver, tests settings/identity/destination preservation, and verifies
+installed CLI resolver, tests settings/identity/destination preservation, and verifies
 unknown-command refusal and explicit source-preserving CLI import. With
 `TUI_TEST_PRESETS=1`, both presets use real CLI default behaviors plus a controlled
 configured behavior/provider and execute a shell tool and delegation.

@@ -20,7 +20,7 @@ The Python host composes real Foundation/core sessions and exposes identified ev
 and controls. The Rust/Ratatui frontend owns terminal rendering and editing, never
 runtime imports or execution policy. The thin kernel is unchanged. Bundles and
 independent orchestrator/context/provider/tool/hook modules own their behavior.
-CLI helpers are pinned application policy, not a kernel API.
+CLI helpers are upstream application policy, not a kernel API.
 
 ## Canonical conversation storage
 

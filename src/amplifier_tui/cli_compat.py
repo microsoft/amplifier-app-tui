@@ -1,6 +1,6 @@
-"""App-layer CLI compatibility; pinned policy helpers, never terminal or kernel policy.
+"""App-layer CLI compatibility; upstream policy helpers, never terminal or kernel policy.
 
-Private CLI helper usage is deliberately version-pinned in pyproject.toml and
+Private CLI helper usage follows canonical main in pyproject.toml and is
 compared against the actual CLI resolver in tests. No settings/credential copying.
 """
 
@@ -71,7 +71,7 @@ def settings_for(cwd, home, session_id=None):
 
 
 def apply_settings(bundle, settings):
-    """The pinned CLI merge order, before activation so added sources also prepare."""
+    """The installed CLI merge order, before activation so added sources also prepare."""
     from amplifier_app_cli.lib.settings import get_custom_routing_dir
     from amplifier_app_cli.runtime import config as policy
 
@@ -234,7 +234,7 @@ async def compose_cli(source, overlays, sources, *, cwd, home, session_id=None):
 
 
 def session_directory(home, cwd):
-    # Same deterministic path policy as the pinned CLI; no cwd mutation for lookup.
+    # Same deterministic path policy as the installed CLI; no cwd mutation for lookup.
     slug = str(Path(cwd).resolve()).replace("/", "-").replace("\\", "-").replace(":", "")
     return Path(home) / "projects" / (slug if slug.startswith("-") else "-" + slug) / "sessions"
 
@@ -243,7 +243,7 @@ def shared_session_entry(home, cwd, identity):
     """Read-only native discovery. CLI metadata, not a stale UI title, wins."""
     import json
 
-    # Mirror the pinned CLI's two pure metadata rules without importing its
+    # Mirror the installed CLI's two pure metadata rules without importing its
     # eager __init__/main bootstrap in a read-only launcher or custom-home picker.
     if "_" in identity:
         raise ValueError("Choose a root conversation, not a delegated session")
@@ -483,7 +483,7 @@ def native_history(home, cwd, identity, *, metadata_only=False):
 
 
 def session_events_path(session_dir):
-    """Pure mirror of pinned CLI cost-history policy; discovery cannot bootstrap CLI.
+    """Pure mirror of installed CLI cost-history policy; discovery cannot bootstrap CLI.
 
     An explicit CI relocation is a projects root. Select exactly one capture:
     existing CI first, then the old CLI logger only when CI is absent. Invalid
