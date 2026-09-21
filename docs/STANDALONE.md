@@ -16,7 +16,7 @@ You need uv, Git and access to this private repository. Source installation also
 Rust/Cargo and a C linker; ordinary launches do not need a compiler.
 
 ```sh
-uv tool install --no-sources 'amplifier-app-tui[standalone] @ git+https://github.com/bkrabach/amplifier-app-tui'
+uv tool install --no-sources 'amplifier-app-tui[standalone] @ git+https://github.com/microsoft/amplifier-app-tui'
 amplifier-tui --standalone --getting-started
 amplifier-tui --standalone --check
 ```
@@ -25,7 +25,7 @@ Authenticate Git through your usual credential helper, never a token in the URL.
 Keep `--no-sources`: it honors the packaged dependency pins instead of the CLI
 dependency's development source table, which otherwise conflicts with the Foundation pin.
 For compiler-free installation, download the matching wheel from the private
-[release page](https://github.com/bkrabach/amplifier-app-tui/releases)
+[release page](https://github.com/microsoft/amplifier-app-tui/releases)
 and run `uv tool install --no-sources ./<downloaded-wheel>.whl`. These published wheels do not
 include later checkout changes; use the paired receipt to identify tested source.
 
@@ -179,7 +179,7 @@ queued work. Installed state defaults to `$XDG_DATA_HOME/amplifier-tui` (usually
 `~/.local/share/amplifier-tui`); `--state-dir` selects another store. Saved conversations
 retain their recorded composition. CLI import is deliberate and creates a new identity.
 
-Upgrade with `uv tool install --no-sources --reinstall git+https://github.com/bkrabach/amplifier-app-tui`.
+Upgrade with `uv tool install --no-sources --reinstall git+https://github.com/microsoft/amplifier-app-tui`.
 The first launch afterward may reinstall module dependencies; omit `--no-install` then.
 Saved conversation state is separate from the tool environment.
 

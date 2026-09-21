@@ -5,9 +5,13 @@ web tabs and other terminals open on the same conversation: they follow the same
 host-owned work, while each view keeps its own selection and private draft.
 Ratatui preserves terminal selection and scrollback; output remains after exit.
 
-This source introduces connected mode; existing 0.3 release wheels still contain
-the standalone product. See [acceptance evidence](notes/ACCEPTANCE.md) for exactly
+The [0.4.0rc1 prerelease](https://github.com/microsoft/amplifier-app-tui/releases/tag/v0.4.0rc1)
+contains connected mode; 0.3 release wheels contain the standalone product. See [acceptance evidence](notes/ACCEPTANCE.md) for exactly
 what has been tested. Contracts remain DRAFT, not a full cross-client parity claim.
+
+The canonical repository is **microsoft/amplifier-app-tui**. Published branches,
+tags and release assets retain their original contents. Earlier issue and pull
+request discussion remains in the [original repository](https://github.com/bkrabach/amplifier-app-tui).
 
 ## Install
 
@@ -17,7 +21,7 @@ platform wheel. Native builds support macOS and Linux; Windows uses WSL2. Authen
 credential in the repository URL.
 
 ```sh
-uv tool install --no-sources git+https://github.com/bkrabach/amplifier-app-tui
+uv tool install --no-sources git+https://github.com/microsoft/amplifier-app-tui
 amplifier-tui --server http://127.0.0.1:8941
 ```
 
@@ -25,6 +29,11 @@ With the corresponding Unified optional-install change, install its `tui` extra
 and launch `amplifier-unified tui`. That launcher uses the local service's configured
 port, token file and app-owned CA. It connects to an existing service; it does not
 start a second host. Reinstall without the extra to omit the terminal client.
+
+A simpler Terminal app installation experience is being designed in Unified's
+[distribution proposal](https://github.com/microsoft/amplifier-unified/blob/main/docs/clients/terminal-installation.md).
+Desktop installers, web installation controls and device pairing are proposed,
+not features of the current release.
 
 The client itself requires only its HTTP transport dependencies. Foundation, Core,
 CLI policy and provider SDKs stay on the Unified host. The existing local execution
