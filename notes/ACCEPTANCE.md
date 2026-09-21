@@ -20,6 +20,15 @@ synthetic data and an explicitly labelled provider, not personal conversations:
 - Native unit tests: 78 pass. Rust Clippy and Python Ruff pass. Direction checks
   validate the amended DRAFT documents, not ratification.
 
+Release qualification also passes on macOS ARM64 and Linux ARM64: install with
+Cargo absent from PATH, executable loading, privacy scan, connected installation
+without execution dependencies, and upgrade from the actual 0.3.0rc6 wheel while
+retaining standalone fixture history and drafts. Installed native PTYs, explicit
+standalone scripting in text/JSON/trace modes and shell completion pass on both.
+Linux additionally passes 17 HTTP/SSE and installed connected-terminal checks.
+Receipts accompany only the qualified native artifacts; Intel, physical terminal
+emulators, clipboard integration and paid providers are not newly qualified here.
+
 The broad retained standalone suite reports 783 passed, 343 skipped and six
 failures on this Mac. All six reproduce on unchanged main with the same test
 sources/environment: symlink spelling in computer-source resolution, old macOS
@@ -29,8 +38,8 @@ These are not asserted passing or hidden by the connected qualification. Missing
 source checkouts and obsolete ordinary-launch expectations were addressed before
 that comparison; standalone tests now request `--standalone` explicitly where needed.
 
-This is local qualification, not a published release, paid-provider proof or
-Linux/Windows physical-terminal qualification. Queue/steer, full configuration
+This is automated native qualification, not paid-provider proof or
+physical-terminal qualification. Queue/steer, full configuration
 editing, voice, uploads and rich canvas remain outside this first connected slice.
 The paired Unified change supplies stable streaming display identity; older
 v1 hosts show a receiving indicator until the final response. Catalog filtering
