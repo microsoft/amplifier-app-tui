@@ -23,11 +23,11 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
 
 ## The promises
 
-1. **Prepare real work.** Readiness follows successful bundle preparation and required module mounts.
+1. **Prepare real work.** Standalone readiness follows successful bundle preparation and required module mounts. A connected client distinguishes being connected and able to submit from the host runtime being prepared; execution and admission remain on that host.
    Broken: A missing provider, orchestrator, context or required exported tool shown ready breaks admission.
    Affected: the boundary's clients and the person relying on them.
 
-2. **Admit one turn.** Submission atomically accepts one idle turn or rejects it with a reason.
+2. **Admit one turn.** Standalone submission atomically accepts one idle turn or rejects it with a reason. Connected submission follows the host's admission policy and reports command acceptance separately from execution or insertion; the client never invents a local queue.
    Broken: Two racing submissions running together or a rejected draft disappearing breaks intent.
    Affected: the boundary's clients and the person relying on them.
 
@@ -45,7 +45,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Affected: the boundary's clients and the person relying on them.
 
 6. **Expose supported controls.** Queue is distinct from steering: only successful completion advances an enabled queue; stop, failure and reopening hold pending work until explicit release. Steering names one active turn; acceptance is not proof of insertion, and unconfirmed corrections never retry or become follow-ups automatically. An explicit copy into an empty idle composer creates only an unsent draft, preserves the original correction status and warns that its earlier effects may remain unknown. Unsupported controls remain explicit.
-   First Stop signals graceful cancellation through active descendants, retains current model/tool results and prevents new work while delegates resolve upward. A second explicit Stop escalates to immediate cancellation without abandoning owned finalization; the current stage and force option remain visible. Graceful stopping never escalates on a timer.
+   In standalone mode, first Stop signals graceful cancellation through active descendants, retains current model/tool results and prevents new work while delegates resolve upward. A second explicit Stop escalates to immediate cancellation without abandoning owned finalization; the current stage and force option remain visible. Graceful stopping never escalates on a timer.
    Broken: An offered control that silently discards intent misleads its caller.
    Affected: the boundary's clients and the person relying on them.
 

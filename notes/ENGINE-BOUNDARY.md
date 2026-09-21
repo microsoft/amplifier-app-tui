@@ -1,6 +1,20 @@
 # Engine and persistence boundaries
 
-## Ownership
+## Connected client boundary
+
+Ordinary launch connects to Unified through HTTP commands and SSE snapshots. The
+Python sidecar owns connection, client-local drafts/outbox and projection only;
+Ratatui remains the renderer. It imports no Foundation/core/CLI runtime. Server
+workspace paths are opaque host paths. Local client-state locks prevent two
+terminals from accidentally sharing one presentation identity, not execution.
+Closing the terminal only detaches; Stop and takeover are explicit host commands.
+Wire snapshots reconcile by host instance/revision and identified items. Reconnect
+never retries a command. An uncertain command retains its original client and
+request identity for deliberate exact retry; no fresh-identity retry or automatic
+resubmission. Supported controls are discovered; absent remote controls refuse
+without pretending to provide standalone semantics.
+
+## Standalone ownership
 
 The Python host composes real Foundation/core sessions and exposes identified events
 and controls. The Rust/Ratatui frontend owns terminal rendering and editing, never

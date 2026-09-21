@@ -1,7 +1,4 @@
-"""Run the functional Ratatui client with real Amplifier modules, not a design scene.
-
-Installed and workspace launch share policy; existing conversations retain theirs.
-"""
+"""Launch the connected Ratatui client or the explicit standalone development host."""
 
 import argparse
 import json
@@ -453,6 +450,21 @@ def arguments(argv=None, workspace=None, require_terminal=False):
 
 
 def main(workspace=None):
+    # Source development/fixture tools retain their explicit standalone workflow.
+    # Installed ordinary launch is a service client and imports no execution runtime.
+    standalone = "--standalone" in sys.argv
+    if standalone:
+        sys.argv.remove("--standalone")
+    if not standalone and workspace is None and not any(
+        flag in sys.argv for flag in ("--fixture", "--headless", "--setup", "--check",
+                                     "--support-report", "--getting-started", "--doctor")
+    ) and not os.environ.get("_AMPLIFIER_TUI_COMPLETE"):
+        from .connected import main as connected_main
+        return connected_main()
+    if standalone or any(flag in sys.argv for flag in ("--fixture", "--headless", "--bridge")):
+        import importlib.util
+        if importlib.util.find_spec("amplifier_core") is None:
+            raise SystemExit("Local execution requires the optional standalone extra: reinstall amplifier-app-tui[standalone].")
     instruction = os.environ.get("_AMPLIFIER_TUI_COMPLETE")
     if instruction:
         return shell_completion(instruction, workspace)

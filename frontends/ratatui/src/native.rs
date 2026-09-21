@@ -1027,6 +1027,15 @@ impl Journal {
         self.dirty.insert(index);
     }
 
+    pub fn retain(&mut self, ids: &std::collections::HashSet<String>) {
+        // Dropped ephemeral rows must not block newer output. Keep emitted
+        // fingerprints: a repeated snapshot must never reprint committed text.
+        self.pending.retain(|id, _| ids.contains(id));
+        self.active
+            .retain(|index| ids.contains(&self.order[*index]));
+        self.dirty.retain(|index| ids.contains(&self.order[*index]));
+    }
+
     pub fn finish(&mut self) {
         for entry in self.pending.values_mut() {
             entry.complete = true;
@@ -2488,6 +2497,51 @@ mod tests {
         assert!(committed.find("delegate") < committed.find("Usage marker"));
         assert!(log.live(80, &ActivityClocks::default()).is_empty());
     }
+    #[test]
+    fn replacing_snapshot_drops_ephemeral_wait_without_reprinting_history() {
+        let mut log = Journal::default();
+        let user = Item {
+            id: "input:one".into(),
+            kind: "user".into(),
+            text: "One input".into(),
+            ..Default::default()
+        };
+        log.observe(&user, true);
+        log.prepare(80);
+        log.rows.clear();
+        log.observe(
+            &Item {
+                id: "partial".into(),
+                kind: "assistant".into(),
+                text: "unfinished".into(),
+                status: "running".into(),
+                ..Default::default()
+            },
+            true,
+        );
+        log.retain(&["input:one".into(), "final".into()].into_iter().collect());
+        log.observe(&user, true);
+        log.observe(
+            &Item {
+                id: "final".into(),
+                kind: "assistant".into(),
+                text: "Finished once".into(),
+                ..Default::default()
+            },
+            true,
+        );
+        log.prepare(80);
+        let text = log
+            .rows
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(text.contains("Finished once"));
+        assert!(!text.contains("One input") && !text.contains("unfinished"));
+        assert!(log.pending.is_empty());
+    }
+
     #[test]
     fn replay_backlog_does_not_hide_new_streaming_text() {
         let mut log = Journal::default();

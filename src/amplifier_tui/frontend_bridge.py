@@ -695,7 +695,7 @@ async def serve(factory, output=None, trace=None, runtime_output=None):
                         }
                     )
                     continue
-                if request.get("op") == "stop":
+                if request.get("op") == "stop" and not getattr(backend, "async_stop", False):
                     # Stop is synchronous intent even while a takeover awaits.
                     emit(admission.apply(request, backend.command))
                 else:

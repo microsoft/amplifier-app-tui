@@ -1,10 +1,13 @@
 [project]
 name = "amplifier-app-tui"
-version = "0.3.0rc6"
-description = "A modular terminal host for Amplifier"
+version = "0.4.0rc1"
+description = "An optional terminal client for Amplifier Unified"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
+dependencies = ["aiohttp>=3.12,<4"]
+
+[project.optional-dependencies]
+standalone = [
   "amplifier-core==1.6.1",
   "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@2c0063a187181173dfe2438ce031079e8723f894",
   "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@b5072330a28e7e898e5ffecd8efeb5e898351873",
@@ -53,3 +56,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true

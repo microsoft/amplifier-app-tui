@@ -54,7 +54,7 @@ def test_cli_compatibility_entrypoint_preserves_argv_and_default_tui(monkeypatch
     args = ["run", "literal $(no-shell) ; && `no-execution`", "--output-format", "json"]
     assert cli_command(args) == [sys.executable, "-m", "amplifier_app_cli", *args]
     invoked = []
-    monkeypatch.setattr(sys, "argv", ["amplifier-tui", "cli", *args])
+    monkeypatch.setattr(sys, "argv", ["amplifier-tui", "--standalone", "cli", *args])
     monkeypatch.setattr(
         launcher.os, "execv", lambda executable, argv: invoked.append((executable, argv))
     )

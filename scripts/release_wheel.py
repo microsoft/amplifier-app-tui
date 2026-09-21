@@ -142,13 +142,13 @@ def verify_prior_wheel(path):
             verify_payload(archive.read(name))
 
 
-def terminal_smoke(command, stage, env, *, upgrade=False):
+def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True):
     """Installed fixture runtime, real PTY, no sibling sources or model credentials."""
     from benchmark_candidates import wait_edit
     from terminal_probe import Probe
 
     state = stage / "terminal-state"
-    launch = [str(command), "--state-dir", str(state)]
+    launch = [str(command), *(["--standalone"] if standalone else []), "--state-dir", str(state)]
     identity = None
     retained = None
     if upgrade:
@@ -313,6 +313,7 @@ def scripting_smoke(command, stage, env, python, uv, failure_log=None):
         prompt = f"Synthetic installed {output} {'stdin' if stdin else 'argument'} marker"
         argv = [
             str(command),
+            "--standalone",
             "run",
             "--bundle",
             (fixture / "bundle.yaml").as_uri(),
@@ -432,6 +433,14 @@ def main():
         )
         env.pop("PYTHONPATH", None)
         assert shutil.which("cargo", path=env["PATH"]) is None
+        connected = stage / "connected"
+        checked([uv, "venv", str(connected)], env=env)
+        connected_python = str(connected / "bin/python")
+        checked([uv, "pip", "install", "--python", connected_python, "--no-sources", str(wheel)], env=env)
+        checked([connected_python, "-c", "import importlib.util; import amplifier_tui.connected; "
+                 "assert all(importlib.util.find_spec(n) is None for n in "
+                 "('amplifier_core','amplifier_foundation','amplifier_app_cli'))"], env=env, cwd=stage)
+        checked([str(connected / "bin/amplifier-tui"), "--help"], env=env, cwd=stage)
         command = stage / "bin/amplifier-tui"
         upgrade_seed = None
         if previous is not None:
@@ -441,7 +450,7 @@ def main():
             prior_report = json.loads(
                 checked([str(command), "--doctor"], env=env, cwd=stage).stdout
             )
-            terminal_smoke(command, stage, env)
+            terminal_smoke(command, stage, env, standalone=False)
             upgrade_seed = {
                 "version": prior_report["version"],
                 "wheel_sha256": hashlib.sha256(previous.read_bytes()).hexdigest(),
@@ -456,7 +465,7 @@ def main():
                 "install",
                 "--no-sources",
                 *(["--reinstall"] if previous else []),
-                str(wheel),
+                str(wheel) + "[standalone]",
             ],
             env=env,
         )
@@ -540,6 +549,7 @@ finally:
             "dependency_resolution": "published metadata (--no-sources); exact direct pins retained",
             "doctor_passed": True,
             "state_untouched": True,
+            "connected_install_without_execution_dependencies": True,
             "installed_native_bytes_match": True,
             "installed_native_load_passed": True,
             "artifact_privacy_scan_passed": True,

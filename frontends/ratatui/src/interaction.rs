@@ -7,6 +7,9 @@ pub(super) enum Action {
     Menu,
     Group(&'static str),
     Conversations,
+    Deliveries,
+    RetryDelivery(String),
+    EditDelivery(String),
     ContinueHere,
     CliImport(String),
     CliImportConfirm(String),
@@ -260,7 +263,10 @@ fn action_group(action: &Action) -> &'static str {
         | Action::Questions
         | Action::Decisions
         | Action::Modes => "Current task",
-        Action::Conversations
+        Action::Deliveries
+        | Action::RetryDelivery(_)
+        | Action::EditDelivery(_)
+        | Action::Conversations
         | Action::ContinueHere
         | Action::Switch(_)
         | Action::Rename
@@ -298,6 +304,39 @@ fn action_group(action: &Action) -> &'static str {
 impl App {
     pub fn menu(&mut self, title: impl Into<String>, choices: Vec<Choice>) {
         let title = title.into();
+        let choices = if self.connected && title == "Actions · type to search" {
+            choices
+                .into_iter()
+                .filter(|c| {
+                    matches!(
+                        c.action,
+                        Action::Menu
+                            | Action::Help
+                            | Action::View(_)
+                            | Action::Conversations
+                            | Action::Switch(_)
+                            | Action::Rename
+                            | Action::ContinueHere
+                            | Action::Deliveries
+                            | Action::Stop
+                            | Action::Send
+                            | Action::Quit
+                            | Action::Decisions
+                            | Action::Interact
+                            | Action::Transcript
+                            | Action::NativeScrollback
+                            | Action::HistoryPage(_)
+                            | Action::Find
+                            | Action::Copy
+                            | Action::CodeBlocks
+                            | Action::LocalDrafts
+                            | Action::History
+                    )
+                })
+                .collect()
+        } else {
+            choices
+        };
         let detail = if title == "Actions · type to search" {
             "Choose a task group, or type to search all actions. Nothing here sends your message; Escape returns to your draft.".into()
         } else {
@@ -332,9 +371,12 @@ impl App {
                     | Action::HelpTopic(..)
                     | Action::Quit
                     | Action::LocalDrafts
+                    | Action::Deliveries
+                    | Action::EditDelivery(_)
                     | Action::LocalDraft(..)
                     | Action::CopyText(..)
                     | Action::CancelSwitch
+                    | Action::Switch(_)
                     | Action::ContinueHere
                     | Action::Stop
                     | Action::Interact
@@ -410,6 +452,7 @@ impl App {
                     choice("Provider login prompt — view transient instructions", Action::AuthPrompt),
                     choice("Code blocks — inspect / copy without executing", Action::CodeBlocks),
                     choice("Rename conversation", Action::Rename),
+                    choice("Message delivery — inspect / retry / edit rejected input", Action::Deliveries),
                     choice("Queue current draft as a follow-up", Action::QueueDraft),
                     choice("Saved local drafts — answers and corrections", Action::LocalDrafts),
                     choice("Insert text file — preview a workspace snapshot", Action::FileInput),
@@ -827,6 +870,13 @@ impl App {
                 self.ui.diagnostic_view = false;
             }
             Action::Send => return self.submit_draft(),
+            Action::Deliveries => self.send(json!({"op":"deliveries"})),
+            Action::RetryDelivery(id) => self.send(json!({"op":"retry_delivery", "id":id})),
+            Action::EditDelivery(id) => {
+                if self.draft.lines().join("\n").is_empty() {
+                    self.send(json!({"op":"edit_delivery", "id":id}));
+                } else { self.status="Keep or clear the current draft before editing rejected input".into(); }
+            }
             Action::Stop => self.send(json!({"op":"stop"})),
             Action::StopForDraft => {
                 let draft = self.draft.lines().join("\n");
@@ -950,6 +1000,10 @@ impl App {
                 self.insights.drafts.retain(|r| r["id"] != id);
                 self.insights.saved.remove(&id);
                 self.local_drafts();
+            }
+            Action::Help if self.connected => {
+                self.menu("Help · Unified client", vec![]);
+                self.ui.menu.as_mut().unwrap().detail = "Each terminal has its own selection and private draft. New and Resume browse host conversations. Send submits to Unified; Stop cancels host work and cannot undo effects. Quit detaches while work continues.\n\nUse /deliveries for uncertain input: reconnect never resends automatically. Continue here requests a cooperative ownership handoff without sending your draft.\n\nEarlier history opens read-only pages. Rich artifacts, provider settings, file uploads and other host controls are available in the web client. Remote workspace paths refer to the host.".into();
             }
             Action::Help => self.menu(
                 "Help · choose a topic · Esc keeps your draft",
@@ -1284,6 +1338,7 @@ impl App {
             "/cli-sessions" => Some(Action::Inspect("cli_sessions".into(), None)),
             "/recipes" => Some(Action::Inspect("recipe_files".into(), None)),
             "/new" => Some(Action::Switch("new".into())),
+            "/deliveries" => Some(Action::Deliveries),
             "/pending" => Some(Action::QueueList),
             "/queue" => Some(Action::QueueList),
             "/find" => Some(Action::Find),
@@ -1305,7 +1360,13 @@ impl App {
             self.draft.insert_str("");
             return self.activate(action);
         }
-        self.send(json!({"op":if self.flow.busy && self.nav.enabled { "queue" } else { "submit" }, "text":value}));
+        if self.connected && value.trim_start().starts_with('/') {
+            self.status =
+                "Unknown terminal command · draft retained; use Actions for available controls"
+                    .into();
+            return true;
+        }
+        self.send(json!({"op":if self.flow.busy && self.nav.enabled && !self.connected { "queue" } else { "submit" }, "text":value}));
         true
     }
 

@@ -1,9 +1,45 @@
 # Current acceptance evidence
 
-## Canonical sessions
+## Connected Unified client
 
-All live TUI launches use Foundation's native history API and the CLI project/session format under the selected Amplifier
-home. Ordinary launch shares CLI configuration; explicit isolated policy uses its
+Connected mode is implemented as the default installed entrypoint. The host owns
+execution and canonical session files. The following checks use private homes,
+synthetic data and an explicitly labelled provider, not personal conversations:
+
+- Actual installed macOS ARM wheel with only transport dependencies; no Core,
+  Foundation or CLI package installed in the client environment.
+- Two native Ratatui processes at 120×40 and 40×20: shared inputs/results,
+  private drafts and detachment without Stop; terminal modes restored.
+- Actual bundled web SPA plus installed native client: both directions of input
+  and response, independent drafts, no browser errors.
+- Actual Unified worker, Foundation/Core and loop-live: a detached sender leaves
+  work running; another client receives completion; reconnect restores the same
+  session; explicit Stop cancels the controlled provider.
+- HTTP/SSE checks cover unknown delivery, lost creation acknowledgement, exact
+  deduplication, target isolation, nonblocking Stop, history pages and shared names.
+- Native unit tests: 78 pass. Rust Clippy and Python Ruff pass. Direction checks
+  validate the amended DRAFT documents, not ratification.
+
+The broad retained standalone suite reports 783 passed, 343 skipped and six
+failures on this Mac. All six reproduce on unchanged main with the same test
+sources/environment: symlink spelling in computer-source resolution, old macOS
+Bash completion, provider-budget fixture, unavailable clipboard behavior, the
+terminal-guard observer test, and non-UTF-8 filenames rejected by the filesystem.
+These are not asserted passing or hidden by the connected qualification. Missing
+source checkouts and obsolete ordinary-launch expectations were addressed before
+that comparison; standalone tests now request `--standalone` explicitly where needed.
+
+This is local qualification, not a published release, paid-provider proof or
+Linux/Windows physical-terminal qualification. Queue/steer, full configuration
+editing, voice, uploads and rich canvas remain outside this first connected slice.
+The paired Unified change supplies stable streaming display identity; older
+v1 hosts show a receiving indicator until the final response. Catalog filtering
+is page-local, and host SSE fan-out is unchanged.
+
+## Optional standalone canonical sessions
+
+Standalone live TUI launches use Foundation's native history API and the CLI project/session format under the selected Amplifier
+home. An ordinary standalone launch shares CLI configuration; explicit isolated policy uses its
 own home without creating a different live-session format. TUI drafts, admission receipts
 and controls remain namespaced sidecars; historical presentation is derived in memory.
 No imported TUI journal/checkpoint is required. Deterministic fixture journals are private

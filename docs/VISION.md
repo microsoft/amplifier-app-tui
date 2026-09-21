@@ -37,6 +37,7 @@ Installation delivers an identifiable native client without a development worksp
 The [composition contract](../contracts/composition.v1.md) names the replaceable seams; [session](../contracts/session.v1.md), [presentation](../contracts/presentation.v1.md),
 [continuity](../contracts/continuity.v1.md), [ecosystem](../contracts/ecosystem.v1.md) and [performance](../contracts/performance.v1.md) own the promises at those seams.
 This project uses the Converge method; it is not the Converge service or steward's desk.
+Unified is the ordinary host; this optional terminal client keeps independent views and drafts without mounting modules or acquiring writer ownership. Standalone execution remains an explicit install/launch choice; its stronger controls are never implied by a remote host without those capabilities.
 ## Principles
 ### 1. The person's words are valuable
 A half-written correction or answer is retained work, never permission to submit after recovery.
@@ -93,7 +94,6 @@ People review a stated question after the developer has exercised the ordinary c
 Typing stays immediate while work streams, history grows and decisions arrive.
 The interface feels at least as fast as the CLI under comparable work.
 Rendering and transport do not monopolize input or cancellation; process and language choices earn their place through observed results.
-
 ## What this deliberately resists
 - A kernel fork containing interface policy.
 - A second implementation of every ecosystem tool, or a screen that implies success from assistant confidence.

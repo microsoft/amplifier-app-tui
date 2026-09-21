@@ -331,7 +331,7 @@ impl Chrome {
         }
         if app.ready {
             choices.push((
-                if app.flow.busy && app.nav.enabled {
+                if app.flow.busy && app.nav.enabled && !app.connected {
                     "[ Queue ]"
                 } else {
                     "[ Send ]"
@@ -340,7 +340,9 @@ impl Chrome {
                 Action::Send,
             ));
             if app.flow.busy {
-                choices.push(("[Change task]".into(), Action::CorrectActive));
+                if !app.connected {
+                    choices.push(("[Change task]".into(), Action::CorrectActive));
+                }
                 choices.push((
                     if app.flow.cancellation == "graceful" {
                         if width < 60 {
@@ -446,7 +448,7 @@ impl Chrome {
         } else if app.ready {
             format!(
                 "Enter {} · Tab complete/actions",
-                if app.flow.busy && app.nav.enabled {
+                if app.flow.busy && app.nav.enabled && !app.connected {
                     "queue"
                 } else {
                     "send"
@@ -461,7 +463,7 @@ impl Chrome {
             Some((
                 x,
                 y,
-                if app.flow.busy && app.nav.enabled {
+                if app.flow.busy && app.nav.enabled && !app.connected {
                     "Enter queue"
                 } else {
                     "Enter send"

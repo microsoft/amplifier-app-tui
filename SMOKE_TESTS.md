@@ -1,5 +1,19 @@
 # Verification guide
 
+Connected-client gate: install Unified into the isolated test environment, build
+Ratatui, then run `TUI_TEST_CANDIDATES=1 uv run --no-sync pytest -q
+tests/test_unified_client.py tests/test_unified_terminal.py`. These use real
+HTTP/SSE and the actual native entrypoint at 120×40 and 40×20, with a labelled
+fixture runtime. Set `TUI_CONNECTED_EXECUTABLE` to an installed wheel's launcher
+to repeat outside the source entrypoint. Credentials and captures stay private.
+Set `TUI_TEST_REAL_WORKER=1` to run `tests/test_unified_worker.py` with the real
+Unified worker dependencies and a credential-free fixture provider. For the actual
+web/terminal check, run `scripts/unified_browser_probe.mjs` with
+`AMPLIFIER_TEST_PYTHON`, `TUI_CONNECTED_EXECUTABLE`, and `PLAYWRIGHT_MODULE` pointing
+to the isolated environment, installed client and Unified's Playwright index.mjs.
+The service and browser use random loopback ports; no production settings change.
+The remaining gates below qualify the explicit standalone extra and harnesses.
+
 Cooperative handoff gate: run `uv run --no-sync pytest -q tests/test_shared_handoff.py`.
 Use real Foundation sockets/locks and mounted fixture modules for busy read-only
 startup, explicit takeover, incoming active-tool drain, failed save/cleanup, changed
