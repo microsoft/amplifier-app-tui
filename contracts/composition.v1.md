@@ -38,7 +38,7 @@ Acceptance evidence lives in [the acceptance notes](../notes/ACCEPTANCE.md).
    Broken: A second conflicting definition makes a client's obligations ambiguous.
    Affected: the boundary's clients and the person relying on them.
 
-5. **Bound the responsibility.** This project has at most 600 contract lines and 50 production source files, regardless of language.
+5. **Bound the responsibility.** This project has at most 600 contract lines and 55 production source files, regardless of language. The [connected-client boundary proposal](../notes/CONNECTED-CLIENT.md) accounts explicitly for five new client modules and proposes extracting the optional standalone host before further independent growth.
    Broken: Exceeding either or gaining a second domain with its own vocabulary and kit requires a split proposal.
    Affected: the boundary's clients and the person relying on them.
 

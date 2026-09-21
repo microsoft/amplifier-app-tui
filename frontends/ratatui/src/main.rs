@@ -185,6 +185,7 @@ struct App {
     output: Receiver<Value>,
     disconnected: bool,
     ready: bool,
+    connected: bool,
     ownership: String,
     startup_failure: String,
     startup_recovery: Option<String>,
@@ -352,6 +353,7 @@ impl App {
             output,
             disconnected: false,
             ready: false,
+            connected: false,
             startup_failure: String::new(),
             startup_recovery: None,
             rows: vec![],
@@ -401,6 +403,7 @@ impl App {
         }
         match v["type"].as_str().unwrap_or("") {
             "snapshot" => {
+                self.connected = v["connected"] == true;
                 self.ownership.clear();
                 if v["reset"] == true {
                     self.startup_failure.clear();
@@ -513,6 +516,82 @@ impl App {
                     .take(1000)
                     .collect();
                 self.ui.history.reverse();
+            }
+            "remote_items" if v["session_id"] == self.nav.session => {
+                // Authoritative projection replacement; native committed history stays intact.
+                // Changed rows reuse their identity, so snapshots never append another copy.
+                let selected = self.items.get(self.selected).map(|i| i.id.clone());
+                let rows = v["items"].as_array().cloned().unwrap_or_default();
+                let ids: HashSet<String> = rows.iter().map(|r| string(r, "id")).collect();
+                self.native.retain(&ids);
+                self.items.clear();
+                self.index.clear();
+                self.tool_indices.clear();
+                self.layouts.clear();
+                for row in rows {
+                    if let Ok(item) = serde_json::from_value::<Item>(row) {
+                        self.upsert(item);
+                    }
+                }
+                self.selected = selected
+                    .and_then(|id| self.index.get(&id).copied())
+                    .unwrap_or(0);
+                self.title = safe(&string(&v, "title"));
+            }
+            "input_pending" if v["session_id"] == self.nav.session => {
+                let id = string(&v, "request_id");
+                if let Some(text) = self.pending.get(&id)
+                    && self.draft.lines().join("\n") == *text
+                {
+                    self.draft = editor();
+                    self.draft_pending = true;
+                    self.draft_changed = Instant::now();
+                }
+            }
+            "delivery_draft" if v["session_id"] == self.nav.session => {
+                let text = string(&v, "text");
+                if self.draft.lines().join("\n").is_empty() {
+                    self.draft.insert_str(text);
+                    self.draft_pending = true;
+                    self.draft_changed = Instant::now();
+                } else {
+                    self.insights
+                        .drafts
+                        .push(json!({"id":"delivery-recovery","text":text,"kind":"delivery"}));
+                    self.status =
+                        "Current draft kept; rejected input remains in saved drafts".into();
+                }
+            }
+            "deliveries" if v["session_id"] == self.nav.session => {
+                let mut choices = vec![];
+                for row in v["entries"].as_array().unwrap_or(&vec![]) {
+                    let id = string(row, "id");
+                    let status = string(row, "status");
+                    let text = row["args"]["text"].as_str().unwrap_or("");
+                    if matches!(status.as_str(), "unknown" | "failed") {
+                        choices.push(interaction::Choice {
+                            label: format!(
+                                "Retry exact request · {status} · {}",
+                                safe(text).chars().take(50).collect::<String>()
+                            ),
+                            action: Action::RetryDelivery(id.clone()),
+                            detail: safe(&row.to_string()),
+                        });
+                    }
+                    if status == "failed" && row["action"] == "conversation.send" {
+                        choices.push(interaction::Choice {
+                            label: "Edit rejected input in empty composer".into(),
+                            action: Action::EditDelivery(id),
+                            detail: safe(text),
+                        });
+                    }
+                    choices.push(interaction::Choice {
+                        label: format!("Copy retained input · {status}"),
+                        action: Action::CopyText(text.into()),
+                        detail: safe(&row.to_string()),
+                    });
+                }
+                self.menu("Message delivery · retries keep original identity", choices);
             }
             "history_page" => self.history_page_result(v),
             "input_history" if v["session_id"] == self.nav.session => {
@@ -990,7 +1069,15 @@ impl App {
             && !matches!(self.ownership.as_str(), "blocked" | "yielded")
             && !matches!(
                 request["op"].as_str(),
-                Some("draft" | "editor_draft" | "cancel_switch" | "stop" | "continue_here")
+                Some(
+                    "draft"
+                        | "editor_draft"
+                        | "cancel_switch"
+                        | "stop"
+                        | "continue_here"
+                        | "deliveries"
+                        | "edit_delivery"
+                )
             )
         {
             self.not_ready();
@@ -1512,8 +1599,7 @@ fn draw(f: &mut Frame, app: &mut App) {
         let visible = app.transcript_rows();
         app.selection.visible = visible.iter().map(|(_, line)| line.to_string()).collect();
         let used = visible.len();
-        let mut y = app.body.y;
-        for (index, line) in visible {
+        for (y, (index, line)) in (app.body.y..).zip(visible) {
             text(
                 f,
                 Rect::new(app.body.x, y, app.body.width, 1),
@@ -1523,7 +1609,6 @@ fn draw(f: &mut Frame, app: &mut App) {
             if app.items[index].kind == "tool" || app.items[index].kind == "question" {
                 app.rows.push((y, index));
             }
-            y += 1;
         }
         if app.view == 1 && used == 0 {
             text(f, app.body, "No tool evidence yet", palette().muted);

@@ -190,7 +190,7 @@ def check_repository(root: Path, archive: Path | None = None):
     lines = sum(len(path.read_text().splitlines()) for path in all_contract_files)
     require(lines <= 600, "Contract body exceeds method's 600-line ceiling")
     files = source_files(root)
-    require(len(files) <= 50, "Production source body exceeds composition P5's 50-file ceiling")
+    require(len(files) <= 55, "Production source body exceeds composition P5's 55-file ceiling")
     check_links(root)
     items = check_plan((root / "notes/PLAN.md").read_text(), contracts)
     receipt = json.loads((root / "notes/method-source.json").read_text())

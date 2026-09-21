@@ -99,7 +99,7 @@ def test_check_refuses_saved_conversation_operations(local_install, tmp_path, ca
 def test_piped_native_launch_explains_without_spawning(
     local_install, tmp_path, monkeypatch, capsys, operation
 ):
-    monkeypatch.setattr(sys, "argv", ["amplifier-tui", operation])
+    monkeypatch.setattr(sys, "argv", ["amplifier-tui", "--standalone", operation])
     monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
     with pytest.raises(SystemExit) as exited:
         launcher.main()
