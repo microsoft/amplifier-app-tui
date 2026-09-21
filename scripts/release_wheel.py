@@ -1,4 +1,6 @@
-"""Build an identified candidate wheel and exercise installation with no Cargo on PATH.
+"""Build a candidate wheel; connected installation and launches need no Cargo.
+
+The explicit standalone extra may build current Core source with Rust tools.
 
 Run separately on each supported OS/architecture. This is a packaging gate, not
 terminal, live-provider or arbitrary bundle compatibility evidence. Only wheel and
@@ -16,6 +18,7 @@ import socket
 import stat
 import subprocess
 import tempfile
+from email.parser import BytesParser
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -142,7 +145,44 @@ def verify_prior_wheel(path):
             verify_payload(archive.read(name))
 
 
-def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True, failure_log=None):
+def prior_has_standalone_extra(path):
+    """Connected releases need the explicit extra for the legacy runtime upgrade gate."""
+    with ZipFile(path) as archive:
+        metadata = [name for name in archive.namelist() if name.endswith('.dist-info/METADATA')]
+        if len(metadata) != 1:
+            raise ValueError("Prior wheel must contain one distribution metadata record")
+        fields = BytesParser().parsebytes(archive.read(metadata[0]))
+    return 'standalone' in fields.get_all('Provides-Extra', [])
+
+
+def write_upgrade_fixture_policy(wheel, stage, python, env):
+    """Make the verified prior client's policy explicit before seeding a test session.
+
+    Historical default-policy changes must still fail closed. This packaging gate
+    exercises preserved configuration, not migration between different defaults.
+    The installed standalone interpreter supplies YAML; connected installs do not.
+    """
+    with ZipFile(wheel) as archive:
+        source = archive.read("amplifier_tui/fixtures/bundle.yaml").decode()
+    result = checked(
+        [python, "-c", "import json, sys, yaml; print(json.dumps(yaml.safe_load(sys.stdin.read())['session']))"],
+        input=source, env=env, cwd=stage,
+    )
+    session = json.loads(result.stdout)
+    if not isinstance(session, dict) or not all(
+        isinstance(session.get(key), dict) for key in ("orchestrator", "context")
+    ):
+        raise ValueError("Prior fixture lacks an explicit session policy")
+    policy = stage / "upgrade-fixture-policy.yaml"
+    policy.write_text(json.dumps({
+        "bundle": {"name": "release-upgrade-fixture-policy", "version": "1.0.0"},
+        "session": session,
+    }, sort_keys=True) + "\n")
+    return policy
+
+
+def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True,
+                   initial_overlays=(), failure_log=None):
     """Installed fixture runtime, real PTY, no sibling sources or model credentials."""
     from benchmark_candidates import wait_edit
     from terminal_probe import Probe
@@ -164,7 +204,9 @@ def terminal_smoke(command, stage, env, *, upgrade=False, standalone=True, failu
         resumed = upgrade or index > 0
         expected_turns = (2 if upgrade else 0) + index
         probe = Probe(
-            [*launch, *(["--resume", identity] if resumed else ["--fixture"])],
+            [*launch, *(["--resume", identity] if resumed else [
+                "--fixture", *(arg for overlay in initial_overlays for arg in ("--overlay", str(overlay)))
+            ])],
             cwd=stage,
             env=env,
             cols=120,
@@ -441,6 +483,7 @@ def main():
         )
         env.pop("PYTHONPATH", None)
         assert shutil.which("cargo", path=env["PATH"]) is None
+        standalone_env = {**env, "PATH": os.pathsep.join(os.get_exec_path())}
         connected = stage / "connected"
         checked([uv, "venv", str(connected)], env=env)
         connected_python = str(connected / "bin/python")
@@ -457,18 +500,31 @@ def main():
         if previous is not None:
             # Existing release artifact, not a guessed checkpoint fixture. Only the
             # disposable tool environment is replaced; the user's command is untouched.
-            checked([uv, "tool", "install", "--no-sources", str(previous)], env=env)
+            prior_standalone = prior_has_standalone_extra(previous)
+            prior_requirement = str(previous) + ("[standalone]" if prior_standalone else "")
+            checked([uv, "tool", "install", "--no-sources", prior_requirement],
+                    env=standalone_env, failure_log=args.private_failure_log)
             prior_report = json.loads(
                 checked([str(command), "--doctor"], env=env, cwd=stage).stdout
             )
-            terminal_smoke(command, stage, env, standalone=False, failure_log=args.private_failure_log)
+            policy = write_upgrade_fixture_policy(previous, stage, prior_report["python"], env)
+            terminal_smoke(command, stage, env, standalone=prior_standalone,
+                           initial_overlays=[policy], failure_log=args.private_failure_log)
             upgrade_seed = {
                 "version": prior_report["version"],
                 "wheel_sha256": hashlib.sha256(previous.read_bytes()).hexdigest(),
+                "fixture_policy_sha256": hashlib.sha256(policy.read_bytes()).hexdigest(),
+                "fixture_session_policy": json.loads(policy.read_text())["session"],
+                "fixture_policy_scope": (
+                    "Verified prior session policy explicitly applied before seeding the prior installed client; "
+                    "same configuration retained through upgrade. Not migration of changed historical defaults."
+                ),
+                "fixture_seed": "New disposable fixture; no user session or retained uncertain request is replayed",
             }
-        # The installed CLI's development source table follows Foundation main.
-        # Resolve canonical-main declarations from published requirements,
-        # rather than importing that dependency's development checkout policy.
+        # Connected installation above must work without a compiler. The explicit
+        # standalone extra follows Core source and may need its Rust build tools.
+        # Keep runtime/terminal probes compiler-free after that installation.
+        # Resolve our canonical-main requirements, not the CLI development table.
         checked(
             [
                 uv,
@@ -479,7 +535,7 @@ def main():
                 *(["--reinstall"] if previous else []),
                 str(wheel) + "[standalone]",
             ],
-            env=env,
+            env=standalone_env, failure_log=args.private_failure_log,
         )
         doctor = checked(
             [str(command), "--doctor"],
@@ -568,7 +624,10 @@ finally:
             "wheel": wheel.name,
             "wheel_sha256": hashlib.sha256(wheel.read_bytes()).hexdigest(),
             "native_sha256": hashlib.sha256(binary).hexdigest(),
-            "cargo_available_during_install": False,
+            "cargo_available_during_connected_install": False,
+            "cargo_available_during_standalone_install": shutil.which(
+                "cargo", path=standalone_env["PATH"]
+            ) is not None,
             "dependency_resolution": "published metadata (--no-sources); Amplifier sources resolved from main",
             "doctor_passed": True,
             "state_untouched": True,

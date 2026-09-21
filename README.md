@@ -109,6 +109,12 @@ run HTTP/SSE integration tests. See [verification guide](SMOKE_TESTS.md),
 Textual and OpenTUI remain comparison harnesses; Ratatui is the product renderer.
 No fixture is evidence of paid-provider or physical-device qualification.
 
+Ordinary development bootstrap resolves current remote main for the test modules.
+It verifies existing checkouts and refuses differences or local edits rather than
+changing them; review and update those separately. `sources.lock.json` preserves
+historical evidence, used only with the explicit `--historical` replay option.
+Do not use that historical source map as current-source qualification evidence.
+
 ## Current Amplifier sources
 
 The explicit standalone extra follows `main` for Core, Foundation and CLI, as do

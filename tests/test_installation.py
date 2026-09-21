@@ -344,3 +344,118 @@ asyncio.run(serve(lambda emit: RuntimeBridge(SessionHost(), open_host, emit, Tru
         if process.returncode is None:
             process.kill()
         await process.wait()
+
+
+@pytest.mark.parametrize("extra,expected", [(None, False), ("standalone", True), ("other", False)])
+def test_prior_connected_release_explicitly_qualifies_standalone_upgrade(tmp_path, monkeypatch, extra, expected):
+    from zipfile import ZipFile
+
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    from release_wheel import prior_has_standalone_extra
+    wheel = tmp_path / "prior.whl"
+    with ZipFile(wheel, "w") as archive:
+        content = "Metadata-Version: 2.3\nName: amplifier-app-tui\nVersion: 0.4.0rc1\n"
+        if extra:
+            content += "Provides-Extra: " + extra + "\n"
+        archive.writestr("amplifier_app_tui-0.4.0rc1.dist-info/METADATA", content)
+    assert prior_has_standalone_extra(wheel) is expected
+
+
+def test_upgrade_fixture_retains_only_explicit_prior_session_policy(tmp_path, monkeypatch):
+    import os
+    import sys
+    from zipfile import ZipFile
+
+    import yaml
+
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    from release_wheel import write_upgrade_fixture_policy
+
+    session = {
+        "orchestrator": {"module": "loop-streaming", "source": "git+https://example.test/loop@recorded-generation",
+                         "config": {"max_iterations": 8}},
+        "context": {"module": "context-simple", "source": "git+https://example.test/context@recorded-generation"},
+    }
+    wheel = tmp_path / "prior.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr("amplifier_tui/fixtures/bundle.yaml", yaml.safe_dump({
+            "session": session,
+            "providers": [{"module": "prior-provider", "source": "./provider"}],
+            "tools": [{"module": "prior-tool", "source": "./tool"}],
+        }))
+    before = wheel.read_bytes()
+    policy = write_upgrade_fixture_policy(wheel, tmp_path, sys.executable, os.environ.copy())
+    authored = yaml.safe_load(policy.read_text())
+    assert authored["session"] == session
+    assert set(authored) == {"bundle", "session"}  # Keep the old installed client's actual modules.
+    assert wheel.read_bytes() == before
+
+
+def test_upgrade_fixture_refuses_incomplete_prior_policy(tmp_path, monkeypatch):
+    import os
+    import sys
+    from zipfile import ZipFile
+
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    from release_wheel import write_upgrade_fixture_policy
+
+    wheel = tmp_path / "prior.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr("amplifier_tui/fixtures/bundle.yaml", 'session: {context: {module: context-simple}}')
+    with pytest.raises(ValueError, match="explicit session policy"):
+        write_upgrade_fixture_policy(wheel, tmp_path, sys.executable, os.environ.copy())
+    assert not (tmp_path / "upgrade-fixture-policy.yaml").exists()
+
+
+def test_development_bootstrap_uses_current_main_and_preserves_existing_work(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    import sys
+
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / "scripts"))
+    import bootstrap_sources
+
+    def git(cwd, *args):
+        return subprocess.check_output(["git", *args], cwd=cwd, text=True).strip()
+
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    git(remote, "init", "-b", "main")
+    git(remote, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test",
+        "commit", "--allow-empty", "-m", "Historical state")
+    historical = git(remote, "rev-parse", "HEAD")
+    git(remote, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test",
+        "commit", "--allow-empty", "-m", "Current state")
+    current = git(remote, "rev-parse", "HEAD")
+    spec = {"url": str(remote), "commit": historical}
+    assert bootstrap_sources.expected_commit(spec) == current
+    assert bootstrap_sources.expected_commit(spec, historical=True) == historical
+
+    project = tmp_path / "project"
+    project.mkdir()
+    lock = project / "sources.lock.json"
+    lock.write_text(json.dumps({"repositories": {"fixture-source": spec}}))
+    preserved_lock = lock.read_bytes()
+    monkeypatch.setattr(bootstrap_sources, "__file__", str(project / "scripts/bootstrap_sources.py"))
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    git(workspace, "init")
+    git(workspace, "clone", str(remote), "fixture-source")
+    monkeypatch.setattr(sys, "argv", ["bootstrap_sources.py", "--workspace", str(workspace), "--all"])
+    bootstrap_sources.main()
+    mapping = workspace / "tui-sources.json"
+    preserved_map = mapping.read_bytes()
+    target = workspace / "fixture-source"
+
+    # A newly advanced remote is detected on the next ordinary invocation; no
+    # checkout, dirty file, map or historical evidence is silently rewritten.
+    local = target / "retained.txt"
+    local.write_text("uncommitted work")
+    git(remote, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.test",
+        "commit", "--allow-empty", "-m", "New remote state")
+    with pytest.raises(SystemExit):
+        bootstrap_sources.main()
+    assert git(target, "rev-parse", "HEAD") == current
+    assert local.read_text() == "uncommitted work"
+    assert mapping.read_bytes() == preserved_map
+    assert lock.read_bytes() == preserved_lock

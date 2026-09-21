@@ -361,3 +361,66 @@ No personal client install, saved history, production service, update generation
 or prior uncertain user request was changed. Linux/native release qualification,
 publication and host rollout remain with the release owner. Third-party tool and
 SDK constraints are outside the Amplifier source-policy change.
+
+## Release qualification build-tool scopes
+
+The release harness now installs the ordinary connected wheel with Cargo absent,
+then permits build tools only while installing the explicit standalone extra from
+current Amplifier sources. Subsequent native launches still run without Cargo.
+Receipts report compiler availability separately for those installation scopes.
+Prior wheels that declare a standalone extra use it for the existing private
+fixture upgrade gate and launch that host explicitly; historical standalone-only
+wheels retain their ordinary entrypoint.
+
+- **23 installation tests pass**; Ruff passes. Ordinary development bootstrap
+  resolves remote main and verifies existing clean checkouts without changing them.
+  Historical commits remain preserved and require explicit `--historical` replay.
+  A real local Git fixture verifies remote advancement is detected and leaves local
+  work, the existing source map and historical evidence intact.
+- Actual ARM64 Mac qualification with a fresh owned uv cache built Core from
+  source and passed connected dependency isolation, native byte/load checks,
+  standalone tool turn, no-submit resume, second turn, retained draft and restored
+  terminal modes. Receipt records Core `e2cf2a6f`, Foundation `75fe2420`, CLI
+  `dbf633f7`, protocol 1, connected-install Cargo false and standalone-install Cargo
+  true. This remains an isolated fixture check, not a physical-client rollout.
+- Published rc1 wheel and receipt were downloaded and matched against their GitHub
+  asset digests. The subsequent same-environment upgrade gate was interrupted by
+  host ENOSPC: the prior rc1 displayed a startup failure before creating fixture
+  state. Nothing was submitted and no upgrade success receipt was produced.
+  Private failure capture is retained outside tracked files; this failed attempt
+  was never reclassified as upgrade success.
+- The capacity-recovered retry installed the candidate but correctly refused
+  changed-policy resume: published rc1's private fixture default names pinned
+  loop/context sources, while the new default names main. The exact mount-plan
+  fingerprint differs. Its two historical fixture turns and draft remained;
+  the candidate sent nothing and produced no success receipt. The guard remains.
+  This is a private fixture journal boundary: connected clients retain service
+  history, and the shared native store reloads canonical history independently of
+  the private fixture fingerprint. It is not evidence of lost production history
+  or of automatic migration between different default policies.
+- The positive packaging gate now makes the verified prior fixture's session
+  configuration explicit before seeding, then retains it across installation.
+  This avoids changing the old client's execution plan or relaxing the fingerprint
+  guard. New-session qualification remains a separate check of current main.
+  The failed run's owned temporary environment was automatically removed on exit;
+  its private capture remains. A new disposable fixture is required because that
+  capture cannot reconstruct the lost temporary canonical checkpoint. No personal
+  journal or user request is reused, changed or replayed.
+- Actual published-rc1 same-policy upgrade **passes** on clean `d140a7f`: original
+  history remains an exact prefix, resumed startup adds no turn/tool event, both
+  new tool turns complete, the retained draft survives and terminal modes restore.
+  Its receipt identifies the prior wheel, exact retained fixture session sources,
+  policy hash, and the explicit unchanged-policy scope. Package dependencies still
+  resolve main: Core `4f53e0f`, Foundation `c6b33a3`, CLI `409eb088`; protocol is 1.
+- A separate actual installed candidate **new-session** run also passes on clean
+  `d140a7f` with those same newly resolved dependencies and current-main fixture
+  defaults. Tool turn, no-submit resume, second turn, draft/help retention, terminal
+  restoration and connected dependency isolation pass. It uses existing caches;
+  the earlier owned fresh-cache proof remains separately identified above.
+- Only this task's completed native target and fresh uv build/download cache were
+  reclaimed afterward. Receipts, candidate wheels, source and personal state are
+  preserved. No further heavy build was started during the coordinated disk pause.
+
+No version, tag, published artifact or production installation changes accompany
+this harness repair. The release owner must build a newly versioned candidate from
+a clean reviewed commit on each supported platform before publication.

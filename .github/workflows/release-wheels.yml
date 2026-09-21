@@ -39,7 +39,7 @@ jobs:
           wheel="amplifier_app_tui-0.3.0rc5-py3-none-${platform}.whl"
           gh release download v0.3.0rc5 --pattern "$wheel*" --dir .state/prior-release
           echo "wheel=.state/prior-release/$wheel" >> "$GITHUB_OUTPUT"
-      - name: Build and install without Cargo on PATH
+      - name: Qualify connected install and standalone source build
         id: wheel
         run: uv run --no-project --with pyte==0.8.2 python scripts/release_wheel.py --terminal --scripting --ci-clipboard --upgrade-from '${{ steps.prior.outputs.wheel }}'
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
