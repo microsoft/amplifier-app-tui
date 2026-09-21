@@ -473,7 +473,8 @@ def main():
             # disposable tool environment is replaced; the user's command is untouched.
             prior_standalone = prior_has_standalone_extra(previous)
             prior_requirement = str(previous) + ("[standalone]" if prior_standalone else "")
-            checked([uv, "tool", "install", "--no-sources", prior_requirement], env=standalone_env)
+            checked([uv, "tool", "install", "--no-sources", prior_requirement],
+                    env=standalone_env, failure_log=args.private_failure_log)
             prior_report = json.loads(
                 checked([str(command), "--doctor"], env=env, cwd=stage).stdout
             )
@@ -496,7 +497,7 @@ def main():
                 *(["--reinstall"] if previous else []),
                 str(wheel) + "[standalone]",
             ],
-            env=standalone_env,
+            env=standalone_env, failure_log=args.private_failure_log,
         )
         doctor = checked(
             [str(command), "--doctor"],
