@@ -476,7 +476,7 @@ def main():
         )
         report = json.loads(doctor.stdout)
         assert report["native_available"]
-        assert "diagnostics do not read shared settings/history" in report["shared_cli_state"]
+        assert "diagnostics do not read shared settings/history" in report["shared_cli_state"].casefold()
         assert not (stage / "state").exists()
         installed_binary = Path(report["native_binary"]).read_bytes()
         assert installed_binary == binary

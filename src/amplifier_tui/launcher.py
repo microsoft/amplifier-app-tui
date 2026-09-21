@@ -280,7 +280,7 @@ def arguments(argv=None, workspace=None, require_terminal=False):
                     "native_binary": str(binary),
                     "native_available": binary.is_file() and os.access(binary, os.X_OK),
                     "state_directory": str(args.state_dir.resolve()),
-                    "shared_cli_state": "Live sessions use canonical CLI project history. Ordinary launch shares CLI settings; isolated policy uses an explicitly separate home. Close one client before opening the other. Diagnostics do not read shared settings/history.",
+                    "shared_cli_state": "Connected clients share sessions through Unified. Standalone sessions use canonical CLI project history and shared settings unless an isolated home is chosen; only one standalone host may own a session. Diagnostics do not read shared settings/history.",
                     "source_policy": "explicit workspace overrides"
                     if workspace
                     else "remote bundle sources",
