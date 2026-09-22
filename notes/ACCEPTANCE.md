@@ -424,3 +424,28 @@ wheels retain their ordinary entrypoint.
 No version, tag, published artifact or production installation changes accompany
 this harness repair. The release owner must build a newly versioned candidate from
 a clean reviewed commit on each supported platform before publication.
+
+
+## Connected history timeline
+
+The connected client now places retained tools, workers and artifacts between
+canonical messages, using recorded message anchors or observation start times.
+Canonical message order and item identities remain unchanged. Observations with
+no recoverable position appear in an explicitly labelled historical group.
+The current display and older pages share this projection, bounded to 100 items.
+
+- 33 connected projection, HTTP/SSE and native PTY checks pass. Actual Ratatui
+  return at 120x40 and 40x20 displays request/tool/answer order exactly once,
+  without executing or stopping any work. Pagination spans a 225-item synthetic
+  timeline with bounded, nonoverlapping pages. Ruff and direction checks pass.
+- Both native candidates build. OpenTUI is a build check only; the connected
+  ordering display acceptance uses Ratatui.
+- Read-only inspection of an existing retained conversation places all 95 tool
+  observations among its 14 canonical messages, leaves the final answer last,
+  preserves the source snapshot and sends no execution commands. No transcript,
+  identity or private capture is included here.
+- The complete suite was attempted with the available development dependencies:
+  786 passed, 340 skipped, 22 failed and 9 errored. Those results include host
+  source/dependency mismatches and are not a full-suite pass. The focused
+  connected suite uses the current Unified host source and passes independently.
+  No standalone runtime or cross-platform release qualification is claimed.

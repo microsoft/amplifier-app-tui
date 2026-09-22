@@ -68,7 +68,7 @@ class UnifiedBridge:
         self.publish()
 
     def items(self):
-        return project({**self.session, 'messages': self.session.get('messages', [])[-100:]}, self.store.data['outbox'])
+        return project(self.session, self.store.data['outbox'])[-100:]
 
     def publish(self):
         self.send('remote_items', items=self.items(), title=self.session.get('title', 'Amplifier'))
@@ -229,7 +229,7 @@ class UnifiedBridge:
                 return False, 'Invalid history offset'
             try:
                 async with asyncio.timeout(15):
-                    while len(self.session.get('messages', [])) < offset + 100 and self.session.get('sharedHistoryOffset', 0):
+                    while len(project(self.session, {}, live=False)) < offset + 100 and self.session.get('sharedHistoryOffset', 0):
                         before = self.session['sharedHistoryOffset']
                         await self.transport.command(target, 'session.history', {'before': before, 'limit': 100}, str(uuid.uuid4()))
                         while self.selected == target and self.session.get('sharedHistoryOffset') == before:
@@ -239,16 +239,16 @@ class UnifiedBridge:
                             await asyncio.sleep(.05)
                 if target != self.selected:
                     return False, 'Selection changed; earlier history was not opened'
-                messages = self.session.get('messages', [])
-                end = max(0, len(messages) - offset)
+                history = project(self.session, {}, live=False)
+                end = max(0, len(history) - offset)
                 start = max(0, end - 100)
                 remaining = self.session.get('sharedHistoryOffset', 0)
-                rows = project({'messages': messages[start:end]}, {})
+                rows = history[start:end]
                 self.send('history_page', request_id=request['request_id'], items=rows, offset=offset,
                           next_offset=offset + 100 if start or remaining else None,
                           previous_offset=max(0, offset - 100) if offset else None,
                           start=remaining + start + 1 if rows else 0, end=remaining + end,
-                          total=remaining + len(messages), scope='Host history; read only')
+                          total=remaining + len(history), scope='Host timeline; read only; earlier activity depends on host retention')
                 return True, 'History loaded'
             except (OSError, ValueError, Rejected, TimeoutError) as exc:
                 self.send('history_page', request_id=request['request_id'], error=str(exc) or 'History is still unavailable; retry explicitly')
