@@ -14,6 +14,52 @@ from terminal_probe import Probe  # noqa: E402
 pytestmark = pytest.mark.skipif(os.environ.get('TUI_TEST_CANDIDATES') != '1', reason='Build native client')
 
 
+@pytest.mark.parametrize('size', [(120, 40), (40, 20)])
+@pytest.mark.parametrize('selection', ['picker', 'prefix', 'full'])
+async def test_unified_launcher_resumes_native_cli_history(server, tmp_path, size, selection):
+    import uuid
+
+    from test_connected_resume import native_chat
+
+    app, url = server
+    workspace = tmp_path / 'project'
+    native = str(uuid.uuid4())
+    host, directory = await native_chat(app['service'], workspace, native, 'Resume fixture')
+    await native_chat(app['service'], tmp_path / 'other', str(uuid.uuid4()), 'EXCLUDED other directory')
+    before = {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()}
+    token = tmp_path / 'token'
+    token.write_text(app['control_token'])
+    token.chmod(0o600)
+    command = [sys.executable, '-m', 'amplifier_web.cli', 'tui', '--server', url,
+               '--token-file', str(token), '--state-dir', str(tmp_path / 'client'),
+               '--client', 'resume-probe', '--resume']
+    if selection != 'picker':
+        command += [native[:8] if selection == 'prefix' else native]
+    probe = Probe(command, *size, cwd=workspace, guard_terminal_modes=True,
+                  env={'AMPLIFIER_TERMINAL_HOME': str(tmp_path / 'managed')})
+    try:
+        if selection == 'picker':
+            await displayed([probe], lambda: 'Resume fixture' in probe.text)
+            assert 'EXCLUDED' not in probe.text
+            assert not app['service'].runtime.sent
+            # Escape dismisses the startup picker; the same in-app picker can reopen it.
+            probe.send(b'\x1b')
+            await displayed([probe], lambda: 'Saved conversations' not in probe.text)
+            probe.send(b'/resume\r')
+            await displayed([probe], lambda: 'Resume fixture' in probe.text)
+            probe.send(b'Resume fixture\r')
+        await displayed([probe], lambda: 'NATIVE saved answer' in probe.text)
+        assert 'Startup failed' not in probe.text
+        import json
+        state = json.loads((tmp_path / 'client/connections/resume-probe.json').read_text())
+        assert state['session'] == host
+        assert not app['service'].runtime.sent
+        (tmp_path / f'resume-{selection}-{size[0]}-screen.txt').write_text(probe.text)
+    finally:
+        await asyncio.to_thread(probe.close)
+    assert {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()} == before
+
+
 async def displayed(probes, predicate, timeout=10):
     async with asyncio.timeout(timeout):
         while True:
@@ -36,7 +82,7 @@ async def test_installed_entrypoint_two_views_send_stream_draft_and_detach(serve
     token_file.chmod(0o600)
     executable = os.environ.get('TUI_CONNECTED_EXECUTABLE')
     command = [executable] if executable else [sys.executable, '-m', 'amplifier_tui.launcher']
-    common = [*command, '--server', url, '--token-file', str(token_file), '--session', sid]
+    common = [*command, '--server', url, '--token-file', str(token_file), '--workspace', str(tmp_path), '--session', sid]
     a = Probe([*common, '--state-dir', str(tmp_path / 'a'), '--client', 'a'], *size, guard_terminal_modes=True,
               env={'PYTHONPATH': ''} if executable else None)
     b = Probe([*common, '--state-dir', str(tmp_path / 'b'), '--client', 'b'], *size, guard_terminal_modes=True,
@@ -84,7 +130,7 @@ async def test_failed_worker_is_explained_in_the_native_conversation(server, tmp
     executable = os.environ.get('TUI_CONNECTED_EXECUTABLE')
     launcher = [executable] if executable else [sys.executable, '-m', 'amplifier_tui.launcher']
     command = [*launcher, '--server', url,
-               '--token-file', str(token), '--session', sid, '--state-dir', str(tmp_path / 'client')]
+               '--token-file', str(token), '--workspace', str(tmp_path), '--session', sid, '--state-dir', str(tmp_path / 'client')]
     probe = Probe(command, *size, guard_terminal_modes=True,
               env={'PYTHONPATH': ''} if executable else None)
     try:
@@ -132,7 +178,7 @@ async def test_native_resume_interleaves_retained_tools_without_execution(server
     executable = os.environ.get('TUI_CONNECTED_EXECUTABLE')
     launcher = [executable] if executable else [sys.executable, '-m', 'amplifier_tui.launcher']
     probe = Probe([*launcher, '--server', url, '--token-file', str(token),
-                   '--session', session['id'], '--state-dir', str(tmp_path / 'client')],
+                   '--workspace', str(tmp_path), '--session', session['id'], '--state-dir', str(tmp_path / 'client')],
                   *size, guard_terminal_modes=True, env={'PYTHONPATH': ''} if executable else None)
     try:
         await displayed([probe], lambda: 'ORDER answer two' in probe.text and 'UNIFIED' in probe.text)

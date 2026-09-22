@@ -11,9 +11,10 @@ from .unified_transport import Rejected
 class UnifiedBridge:
     async_stop = True
 
-    def __init__(self, emit, transport, state, *, session=None, workspace=None):
+    def __init__(self, emit, transport, state, *, session=None, workspace=None, resume_picker=False):
         self.emit, self.transport, self.store = emit, transport, state
-        self.selected = session or state.data.get('session')
+        self.selected = None if resume_picker else session or state.data.get('session')
+        self.resume_picker = resume_picker
         self.workspace = workspace
         self.session = {}
         self.actions = set()
@@ -51,6 +52,7 @@ class UnifiedBridge:
 
     def initial(self, preserve_draft=False):
         self.send('snapshot', reset=not preserve_draft, connected=True, ready=True, navigation=True,
+                  resume_picker=self.resume_picker,
                   durable=bool(self.selected), mode='UNIFIED', title=self.session.get('title') or 'Amplifier',
                   context=self.transport.url + ' · ' + (self.session.get('workspace') or self.workspace or 'Host workspace'),
                   draft=self.store.data['drafts'].get(self.selected or '', ''), items=self.items(),
@@ -58,6 +60,7 @@ class UnifiedBridge:
                           'Exit detaches; work continues on Unified.',
                           'Recover this view with --client ' + self.store.identity,
                           'Unsupported standalone controls are not sent to a model.'])
+        self.resume_picker = False
         self.send('system', lines=['Host: ' + self.transport.url,
                   'Client: ' + self.store.identity,
                   'Stop uses Unified cancellation; graceful/force stages are not negotiated.',
@@ -139,6 +142,7 @@ class UnifiedBridge:
                           status=f'Connection unavailable: {exc}; no work resent')
 
     async def select(self, identity, *, preserve_draft=False):
+        identity = await self.transport.resolve_session(identity, workspace=self.workspace)
         snapshot = await self.transport.snapshot(identity)
         if self.pump:
             self.pump.cancel()
@@ -192,7 +196,8 @@ class UnifiedBridge:
             query = request.get('query', '').casefold()
             rows = [{'id': row['id'], 'title': row.get('title', 'Untitled'), 'cwd': row.get('workspace', ''),
                      'status': row.get('status', '')} for row in page['items']
-                    if not query or query in (row.get('title', '') + row['id']).casefold()]
+                    if not query or query in ' '.join(str(row.get(key) or '') for key in
+                        ('title', 'id', 'nativeIdentity', 'runtimeSessionId')).casefold()]
             self.send('conversations', request_id=request['request_id'], sessions=rows,
                       offset=request.get('offset', 0), next_offset=page.get('nextOffset'),
                       truncated=page.get('nextOffset') is not None, query=request.get('query', ''),

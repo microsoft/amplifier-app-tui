@@ -152,8 +152,10 @@ impl App {
                 action: Action::Switch("new".into()),
                 detail: String::new(),
             }];
-            choices.push(Choice { label: "Search saved conversation content…".into(), action: Action::FindSaved, detail: "Search saved messages in this launch directory only; does not call a model or open a conversation.".into() });
-            choices.push(Choice { label: "CLI sessions — import a historical reference…".into(), action: Action::Inspect("cli_sessions".into(), None), detail: "Browse the configured CLI home's sessions in this directory. Separate from TUI resume; original sources remain unchanged.".into() });
+            if !self.connected {
+                choices.push(Choice { label: "Search saved conversation content…".into(), action: Action::FindSaved, detail: "Search saved messages in this launch directory only; does not call a model or open a conversation.".into() });
+                choices.push(Choice { label: "CLI sessions — import a historical reference…".into(), action: Action::Inspect("cli_sessions".into(), None), detail: "Browse the configured CLI home's sessions in this directory. Separate from TUI resume; original sources remain unchanged.".into() });
+            }
             let search = string(value, "query");
             let offset = value["offset"].as_u64().unwrap_or(0) as usize;
             if offset > 0 {

@@ -111,6 +111,35 @@ class Transport:
     async def snapshot(self, identity):
         return await self.request('GET', '/api/sessions/' + quote(identity, safe=''))
 
+    async def resolve_session(self, identity, *, workspace=None):
+        """Resolve public IDs through the same scoped catalog used by Resume."""
+        exact, prefixes = set(), set()
+        offset = 0
+        seen = set()
+        while offset not in seen:
+            seen.add(offset)
+            page = await self.sessions(offset=offset, workspace=workspace)
+            for row in page['items']:
+                # Do not trust an older host to enforce the requested scope.
+                if workspace is not None and row.get('workspace') != workspace:
+                    continue
+                if identity == 'latest' or identity == row['id']:
+                    return row['id']
+                aliases = [row.get(key) for key in ('id', 'nativeIdentity', 'runtimeSessionId')]
+                if identity in aliases:
+                    exact.add(row['id'])
+                if any(isinstance(alias, str) and alias.startswith(identity) for alias in aliases):
+                    prefixes.add(row['id'])
+            offset = page.get('nextOffset')
+            if offset is None:
+                matches = exact or prefixes
+                if len(matches) == 1:
+                    return matches.pop()
+                if matches:
+                    raise ValueError('Session ID is ambiguous in this directory; use a longer ID or --resume to choose')
+                raise ValueError('No matching conversation in this directory; use --resume to browse or check --workspace')
+        raise ValueError('Conversation catalog paging did not advance; no conversation opened')
+
     async def command(self, identity, action, args, command_id):
         path = ('/api/sessions/' + quote(identity, safe='') + '/commands'
                 if identity else '/api/actions')

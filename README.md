@@ -48,11 +48,20 @@ indicator until the final answer rather than guessing response identity.
 
 ```sh
 amplifier-tui --list-sessions
+amplifier-tui --resume
+amplifier-tui --resume CLI_SESSION_ID_OR_PREFIX
 amplifier-tui --session HOST_CONVERSATION_ID
 amplifier-tui --session latest --workspace /path/on/the/host
 amplifier-tui --new
 amplifier-tui --server https://host.example:8443 --token-file /private/host-token --ca-file /private/host-ca.crt
 ```
+
+`--resume` without an ID opens the Resume picker immediately. Full native CLI
+IDs, host IDs and unique prefixes resolve within the same directory as the picker;
+an ambiguous or missing ID opens no conversation. The default scope is the resolved
+launch directory. For a remote server, use `--workspace /path/on/the/host` when its
+project path differs from this terminal's directory. Opening saved history never
+sends a message or replays a turn.
 
 `AMPLIFIER_UNIFIED_URL` supplies a default server. Loopback connections discover
 `config/auth/control-token` under `AMPLIFIER_WEB_HOME`, `AMPLIFIER_WEB_DATA_DIR` or
