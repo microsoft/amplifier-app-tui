@@ -435,3 +435,32 @@ async def test_confirmed_ack_survives_an_unusable_display_snapshot(server, tmp_p
         assert row['status'] == 'accepted' and 'error' not in row
     finally:
         await bridge.close()
+
+
+async def test_history_pages_share_the_interleaved_live_timeline(server, tmp_path):
+    app, url = server
+    await app['service'].dispatch('session.create', {})
+    session = app['service']._session()
+    session['messages'] = []
+    session['execution'] = {'turns': [], 'nodes': []}
+    for index in range(75):
+        session['messages'].extend([
+            {'id': f'u{index}', 'role': 'user', 'text': f'Request {index}', 'createdAt': index * 10},
+            {'id': f'a{index}', 'role': 'assistant', 'text': f'Answer {index}', 'createdAt': index * 10 + 9},
+        ])
+        session['execution']['nodes'].append({'id': f't{index}', 'turnId': f'turn{index}', 'kind': 'tool',
+            'label': f'Tool {index}', 'phase': 'done', 'startedAt': index * 10 + 5})
+    expected = project(session, {}, live=False)
+    bridge, events = await attach(tmp_path, app, url, session['id'])
+    try:
+        assert bridge.items() == expected[-100:]
+        pages = []
+        for offset in [0, 100, 200]:
+            assert (await bridge.dispatch(request(bridge, 'history_page', offset=offset)))[0]
+            page = next(row for row in reversed(events) if row['type'] == 'history_page')
+            assert len(page['items']) <= 100
+            pages.insert(0, page['items'])
+        assert [row for page in pages for row in page] == expected
+        assert not app['service'].runtime.sent
+    finally:
+        await bridge.close()

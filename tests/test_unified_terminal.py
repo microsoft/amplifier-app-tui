@@ -108,3 +108,44 @@ async def test_failed_worker_is_explained_in_the_native_conversation(server, tmp
     finally:
         await asyncio.to_thread(probe.close)
     assert len(attempts) == 1 and service.runtime.stopped == []
+
+
+@pytest.mark.parametrize('size', [(120, 40), (40, 20)])
+async def test_native_resume_interleaves_retained_tools_without_execution(server, tmp_path, size):
+    app, url = server
+    service = app['service']
+    await service.dispatch('session.create', {'title': 'History order fixture'})
+    session = service._session()
+    session['messages'] = [
+        {'id': 'u1', 'role': 'user', 'text': 'ORDER request one', 'createdAt': 10},
+        {'id': 'a1', 'role': 'assistant', 'text': 'ORDER answer one', 'createdAt': 20},
+        {'id': 'u2', 'role': 'user', 'text': 'ORDER request two', 'createdAt': 30},
+        {'id': 'a2', 'role': 'assistant', 'text': 'ORDER answer two', 'createdAt': 40},
+    ]
+    session['execution'] = {'turns': [], 'nodes': [
+        {'id': 't2', 'turnId': 'turn2', 'kind': 'tool', 'label': 'ORDER tool two', 'phase': 'done', 'startedAt': 35},
+        {'id': 't1', 'turnId': 'turn1', 'kind': 'tool', 'label': 'ORDER tool one', 'phase': 'done', 'startedAt': 15},
+    ]}
+    token = tmp_path / 'token'
+    token.write_text(app['control_token'])
+    token.chmod(0o600)
+    executable = os.environ.get('TUI_CONNECTED_EXECUTABLE')
+    launcher = [executable] if executable else [sys.executable, '-m', 'amplifier_tui.launcher']
+    probe = Probe([*launcher, '--server', url, '--token-file', str(token),
+                   '--session', session['id'], '--state-dir', str(tmp_path / 'client')],
+                  *size, guard_terminal_modes=True, env={'PYTHONPATH': ''} if executable else None)
+    try:
+        await displayed([probe], lambda: 'ORDER answer two' in probe.text and 'UNIFIED' in probe.text)
+        markers = ['ORDER request one', 'ORDER tool one', 'ORDER answer one',
+                   'ORDER request two', 'ORDER tool two', 'ORDER answer two']
+        # Retained native rows may be above a narrow viewport; PTY bytes retain
+        # their emission order independently of the observer's current screen.
+        raw = bytes(probe.raw)
+        positions = [raw.index(marker.encode()) for marker in markers]
+        assert positions == sorted(positions)
+        assert all(raw.count(marker.encode()) == 1 for marker in markers)
+        assert not service.runtime.sent
+        (tmp_path / 'ordered-history-screen.txt').write_text(probe.text)
+    finally:
+        await asyncio.to_thread(probe.close)
+    assert not service.runtime.sent and not service.runtime.stopped
