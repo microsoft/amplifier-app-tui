@@ -23,9 +23,12 @@ def parser():
     result.add_argument('--state-dir', type=Path, default=Path(os.environ.get('AMPLIFIER_TUI_STATE_DIR',
                         str(Path(os.environ.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'amplifier-tui'))))
     selection = result.add_mutually_exclusive_group()
-    selection.add_argument('--session', '--resume', dest='session', help='Host conversation ID, or latest')
+    selection.add_argument('--session', help='Native CLI or host conversation ID, unique prefix, or latest')
+    selection.add_argument('--resume', nargs='?', const='', metavar='ID',
+                           help='Open the directory resume picker, or resume an ID, unique prefix, or latest')
     selection.add_argument('--new', action='store_true', help='Start an empty composer without creating work yet')
-    result.add_argument('--workspace', help='Workspace path on the server; not this terminal filesystem')
+    result.add_argument('--workspace', default=str(Path.cwd().resolve()),
+                        help='Workspace path on the server (defaults to the launch directory)')
     result.add_argument('--list-sessions', action='store_true', help='List host conversations without running work')
     result.add_argument('--bridge', action='store_true', help=argparse.SUPPRESS)
     result.add_argument('--version', action='version', version='amplifier-tui · Unified connected client')
@@ -55,25 +58,19 @@ async def run(args):
         if args.new:
             store.data['session'] = None
             store.save()
-        if args.list_sessions or args.session == 'latest':
+        if args.list_sessions:
             await transport.open()
             offset = 0
             while True:
                 page = await transport.sessions(offset=offset, workspace=args.workspace)
-                if args.session == 'latest':
-                    if not page['items']:
-                        raise ValueError('No conversation exists in this host scope')
-                    args.session = page['items'][0]['id']
-                    break
                 for row in page['items']:
                     print(f"{row['id']}  {row.get('title', 'Untitled')}  {row.get('workspace', '')}")
                 offset = page.get('nextOffset')
                 if offset is None:
                     return
-            await transport.close()
         from .frontend_bridge import serve
-        await serve(lambda emit: UnifiedBridge(emit, transport, store, session=args.session,
-                                               workspace=args.workspace))
+        await serve(lambda emit: UnifiedBridge(emit, transport, store, session=args.session or args.resume,
+                                               workspace=args.workspace, resume_picker=args.resume == ''))
     finally:
         await transport.close()
         store.close()

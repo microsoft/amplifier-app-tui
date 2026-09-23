@@ -516,6 +516,9 @@ impl App {
                     .take(1000)
                     .collect();
                 self.ui.history.reverse();
+                if v["resume_picker"] == true && self.nav.enabled {
+                    self.conversation_page(0, String::new());
+                }
             }
             "remote_items" if v["session_id"] == self.nav.session => {
                 // Authoritative projection replacement; native committed history stays intact.

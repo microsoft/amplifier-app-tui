@@ -45,6 +45,36 @@ The paired Unified change supplies stable streaming display identity; older
 v1 hosts show a receiving indicator until the final response. Catalog filtering
 is page-local, and host SSE fan-out is unchanged.
 
+## Connected command-line resume
+
+Bare `--resume` opens the existing directory-scoped picker at startup. Full native
+CLI IDs, host IDs and unique prefixes resolve through the host catalog before a
+snapshot is requested. Selection, latest and in-app switching use the same scope;
+ambiguity or no match preserves the current selection and drafts. Connected menus
+omit standalone-only content-search and historical-import actions.
+
+Qualification uses real Unified HTTP/SSE, Foundation native-history loading and
+the native Ratatui renderer with synthetic saved conversations:
+
+- 35 connected client/resume checks pass against Unified main `82fc0d2f` plus
+  the paired launcher change. Coverage includes shared public/native IDs and
+  distinct host IDs when a native ID appears in multiple directories, as well as
+  IDs/prefixes, later-page ambiguity, repeated aliases, missing/other-directory matches,
+  recovered drafts and opening without sending or rewriting saved history.
+- 12 native terminal checks pass at 120×40 and 40×20. Six exercise the actual
+  `amplifier-unified tui` entrypoint for bare resume, prefix and full native ID;
+  Escape and in-app Resume reuse the same picker.
+- 43 paired Unified launcher/setup checks pass for managed and optional installs,
+  default and explicit workspace paths, and preserving argument intent.
+- 78 Rust tests, Python Ruff, Rust formatting and direction structure checks pass.
+- Broad Python run: 814 passed, 354 skipped, nine failed. All nine reproduce on
+  unchanged main in the same environment. Six are the previously documented Mac
+  failures; three native lifecycle cases lack the hooks-logging source checkout.
+  They remain failures, not a claimed full-suite pass.
+
+These checks do not qualify an installed Linux release or upgrade the user's
+running service. Saved personal conversations are not execution fixtures.
+
 ## Connected failure feedback
 
 The connected client displays the host's conversation error and stops advertising
