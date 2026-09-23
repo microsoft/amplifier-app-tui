@@ -44,13 +44,19 @@ async def native_chat(service, workspace, identity, title='Native resume fixture
 
 
 @pytest.mark.parametrize('selector', ['native', 'native-prefix', 'host', 'host-prefix', 'latest'])
-async def test_native_id_and_prefix_resume_same_history(server, tmp_path, selector):
+@pytest.mark.parametrize('duplicate_native', [False, True])
+async def test_native_id_and_prefix_resume_same_history(server, tmp_path, selector, duplicate_native):
     app, url = server
     service = app['service']
     native = str(uuid.uuid4())
     workspace = tmp_path / 'project'
+    if duplicate_native:
+        # Current hosts expose unique native IDs directly. Reused native IDs in
+        # different directories retain distinct host IDs and still need lookup.
+        await native_chat(service, tmp_path / 'other-project', native, 'Other directory')
     host, directory = await native_chat(service, workspace, native)
-    assert host != native
+    if duplicate_native:
+        assert host != native
     before = {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()}
     value = {'native': native, 'native-prefix': native[:8], 'host': host,
              'host-prefix': host[:8], 'latest': 'latest'}[selector]
@@ -64,7 +70,7 @@ async def test_native_id_and_prefix_resume_same_history(server, tmp_path, select
         assert [item['text'] for item in bridge.items() if item['kind'] in {'user', 'assistant'}] == [
             'NATIVE saved question', 'NATIVE saved answer']
         assert service.runtime.sent == []
-        assert len(service.state['sessions']) == 1
+        assert len(service.state['sessions']) == 1 + duplicate_native
     finally:
         await bridge.close()
     assert {p.name: p.read_bytes() for p in directory.iterdir() if p.is_file()} == before

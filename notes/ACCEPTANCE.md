@@ -56,16 +56,18 @@ omit standalone-only content-search and historical-import actions.
 Qualification uses real Unified HTTP/SSE, Foundation native-history loading and
 the native Ratatui renderer with synthetic saved conversations:
 
-- 30 connected client/resume checks pass, including native and host IDs/prefixes,
-  later-page ambiguity, repeated aliases, missing/other-directory matches,
+- 35 connected client/resume checks pass against Unified main `82fc0d2f` plus
+  the paired launcher change. Coverage includes shared public/native IDs and
+  distinct host IDs when a native ID appears in multiple directories, as well as
+  IDs/prefixes, later-page ambiguity, repeated aliases, missing/other-directory matches,
   recovered drafts and opening without sending or rewriting saved history.
 - 12 native terminal checks pass at 120×40 and 40×20. Six exercise the actual
   `amplifier-unified tui` entrypoint for bare resume, prefix and full native ID;
   Escape and in-app Resume reuse the same picker.
-- 45 paired Unified launcher/setup checks pass for managed and optional installs,
+- 43 paired Unified launcher/setup checks pass for managed and optional installs,
   default and explicit workspace paths, and preserving argument intent.
 - 78 Rust tests, Python Ruff, Rust formatting and direction structure checks pass.
-- Broad Python run: 809 passed, 354 skipped, nine failed. All nine reproduce on
+- Broad Python run: 814 passed, 354 skipped, nine failed. All nine reproduce on
   unchanged main in the same environment. Six are the previously documented Mac
   failures; three native lifecycle cases lack the hooks-logging source checkout.
   They remain failures, not a claimed full-suite pass.
