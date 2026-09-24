@@ -12,7 +12,7 @@ standalone = [
   "amplifier-foundation @ git+https://github.com/microsoft/amplifier-foundation@main",
   "amplifier-app-cli @ git+https://github.com/microsoft/amplifier-app-cli@main",
   "textual==8.2.8",
-  "pillow==12.1.1",
+  "pillow==12.3.0",
 ]
 
 [project.scripts]
@@ -40,7 +40,7 @@ include = ["src", "frontends/ratatui/src", "frontends/ratatui/Cargo.toml", "fron
 
 [dependency-groups]
 dev = [
-    "pillow==12.1.1",
+    "pillow==12.3.0",
     "pyte==0.8.2",
     "pytest>=8",
     "pytest-asyncio>=1",
