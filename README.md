@@ -1,142 +1,72 @@
 # Amplifier TUI
 
-The optional native terminal client for **Amplifier Unified**. Keep a terminal,
-web tabs and other terminals open on the same conversation: they follow the same
-host-owned work, while each view keeps its own selection and private draft.
-Ratatui preserves terminal selection and scrollback; output remains after exit.
+Use Amplifier Unified from your terminal. Keep a terminal and web tabs open on
+the same conversation, follow the same work, and keep a separate draft in each
+view. Closing the terminal leaves work running on the host.
 
-The [0.4.0rc1 prerelease](https://github.com/microsoft/amplifier-app-tui/releases/tag/v0.4.0rc1)
-contains connected mode; 0.3 release wheels contain the standalone product. See [acceptance evidence](notes/ACCEPTANCE.md) for exactly
-what has been tested. Contracts remain DRAFT, not a full cross-client parity claim.
+## Get started
 
-The canonical repository is **microsoft/amplifier-app-tui**. Published branches,
-tags and release assets retain their original contents. Earlier issue and pull
-request discussion remains in the [original repository](https://github.com/bkrabach/amplifier-app-tui).
+You need a running [Amplifier Unified](https://github.com/microsoft/amplifier-unified)
+host with the connected-client interface (Unified 0.19.5 or later).
 
-## Install
-
-Use Python 3.11+, uv and access to this repository. Source installation also needs
-Git, Rust/Cargo and a C linker. No compiler is needed when launching an installed
-platform wheel. Native builds support macOS and Linux; Windows uses WSL2. Authenticate through your usual Git credential helper, never a
-credential in the repository URL.
+From source, install with Python 3.11+, uv, Git, Rust/Cargo and a C linker:
 
 ```sh
 uv tool install --no-sources git+https://github.com/microsoft/amplifier-app-tui
 amplifier-tui --server http://127.0.0.1:8941
 ```
 
-With the corresponding Unified optional-install change, install its `tui` extra
-and launch `amplifier-unified tui`. That launcher uses the local service's configured
-port, token file and app-owned CA. It connects to an existing service; it does not
-start a second host. Reinstall without the extra to omit the terminal client.
+Native builds support macOS and Linux; Windows uses WSL2. A compatible prebuilt
+wheel from [Releases](https://github.com/microsoft/amplifier-app-tui/releases)
+does not need a compiler. Choose a connected-client release; older 0.3 wheels
+are the standalone application.
 
-A simpler Terminal app installation experience is being designed in Unified's
-[distribution proposal](https://github.com/microsoft/amplifier-unified/blob/main/docs/clients/terminal-installation.md).
-Desktop installers, web installation controls and device pairing are proposed,
-not features of the current release.
-
-The client itself requires only its HTTP transport dependencies. Foundation, Core,
-CLI policy and provider SDKs stay on the Unified host. The existing local execution
-host is available explicitly through the `standalone` extra and `--standalone`;
-see [standalone instructions](docs/STANDALONE.md).
-
-## Connect and resume
-
-Unified 0.19.5+ provides the v1 connection contract. Stable partial-response display
-requires the paired streaming-identity change; an earlier host shows a receiving
-indicator until the final answer rather than guessing response identity.
+For a local host, the client finds its control token in the normal Unified home.
+For a remote host, use verified HTTPS and private token/certificate files:
 
 ```sh
-amplifier-tui --list-sessions
-amplifier-tui --resume
-amplifier-tui --resume CLI_SESSION_ID_OR_PREFIX
-amplifier-tui --session HOST_CONVERSATION_ID
-amplifier-tui --session latest --workspace /path/on/the/host
-amplifier-tui --new
-amplifier-tui --server https://host.example:8443 --token-file /private/host-token --ca-file /private/host-ca.crt
+amplifier-tui --server https://host.example:8443 \
+  --token-file /private/host-token --ca-file /private/host-ca.crt
 ```
 
-`--resume` without an ID opens the Resume picker immediately. Full native CLI
-IDs, host IDs and unique prefixes resolve within the same directory as the picker;
-an ambiguous or missing ID opens no conversation. The default scope is the resolved
-launch directory. For a remote server, use `--workspace /path/on/the/host` when its
-project path differs from this terminal's directory. Opening saved history never
-sends a message or replays a turn.
+## Use the terminal
 
-`AMPLIFIER_UNIFIED_URL` supplies a default server. Loopback connections discover
-`config/auth/control-token` under `AMPLIFIER_WEB_HOME`, `AMPLIFIER_WEB_DATA_DIR` or
-`~/.amplifier-unified`. Otherwise provide a private token file or
-`AMPLIFIER_UNIFIED_TOKEN`. Remote hosts require verified HTTPS; no insecure switch
-is provided. Tokens are never saved in client state or passed as argument values.
-The host control token grants host control, not a per-conversation permission scope.
+- **Enter** sends; **Alt+Enter** adds a newline. Pasting does not send.
+- Run `amplifier-tui --resume` to choose a saved conversation, or use
+  `--session HOST_CONVERSATION_ID` to open one directly.
+- Run `amplifier-tui --new` for a new conversation. For a remote host, use
+  `--workspace /path/on/the/host` when its project path differs from your local path.
+- **Stop** requests cancellation; it does not undo work already performed.
+- **Ctrl-Q** detaches. Reconnecting does not resend an uncertain request;
+  `/deliveries` lets you inspect it.
 
-Each launch creates an independent client ID, displayed in System. Use
-`--client ID` to recover that terminal's selection, drafts and uncertain requests.
-Only one local process may use that ID at once. Private client state defaults to
-`$XDG_DATA_HOME/amplifier-tui` (or `~/.local/share/amplifier-tui`); override with
-`--state-dir`. This stores local intent, never canonical session history.
+This client focuses on conversation and work status. Attachments, rich artifacts,
+voice, configuration editing and full Canvas interaction use the web client.
 
-## Work in the terminal
+## Learn more
 
-- Enter sends; Alt+Enter adds a newline. Paste never sends. The composer clears
-  once the local request is retained and a provisional message appears.
-- Actions or `/resume` opens the host conversation picker. New opens an empty
-  composer; the host creates a conversation on the first Send. Workspace paths
-  refer to the host, even when the terminal is on another device.
-- `/rename`, permission decisions and Stop use the host's shared actions. Stop
-  requests cancellation; it does not undo effects. Graceful/force stages are not
-  negotiated by this connected version.
-- Continue here requests cooperative takeover if a standalone CLI owns the
-  execution lock. It does not send the draft. Other attached clients observe it.
-- Earlier history displays read-only pages of up to 100 messages. Conversation
-  search filters titles/IDs in the current catalogue page and discloses that limit.
-- `/deliveries` exposes uncertain requests for deliberate exact retry. Reconnect
-  never submits again. A definitively rejected message can be copied back for
-  editing; an unknown request retains its original identity and content.
-- Ctrl-Q or Quit detaches. Host work continues, including with no viewers.
+- [Connection, recovery and client behavior](notes/CONNECTED-CLIENT.md)
+- [Standalone use](docs/STANDALONE.md), without a Unified host
+- [Contributor checks](SMOKE_TESTS.md) and [working instructions](AGENTS.md)
 
-Tool and delegated-work status is projected from host evidence; unknown outcomes
-stay unknown. Rich artifacts, configuration editing, attachments, queue/steer,
-voice and full canvas interaction remain web-client capabilities in this first
-connected version. Unavailable standalone commands are refused explicitly.
+## Contributing
 
-## Develop and verify
+Most contributions require you to agree to a
+Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
+the rights to use your contribution. For details, visit [Contributor License Agreements](https://cla.opensource.microsoft.com).
 
-```sh
-uv sync --inexact --no-sources --extra standalone
-uv run --no-sync python scripts/bootstrap_sources.py --workspace /path/to/source-workspace
-cargo build --locked --release --manifest-path frontends/ratatui/Cargo.toml
-AMPLIFIER_TUI_SOURCE_ROOT=/path/to/source-workspace uv run --no-sync pytest -q
-uv run --no-sync ruff check .
-uv run --no-sync python scripts/check_direction.py
-```
+When you submit a pull request, a CLA bot will automatically determine whether you need to provide
+a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions
+provided by the bot. You will only need to do this once across all repos using our CLA.
 
-The standalone extra is needed by the retained host tests, not by connected users.
-Install a sibling Unified checkout into the isolated development environment to
-run HTTP/SSE integration tests. See [verification guide](SMOKE_TESTS.md),
-[client boundary](notes/CONNECTED-CLIENT.md) and [engine boundary](notes/ENGINE-BOUNDARY.md).
-Textual and OpenTUI remain comparison harnesses; Ratatui is the product renderer.
-No fixture is evidence of paid-provider or physical-device qualification.
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
+For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
+contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
-Ordinary development bootstrap resolves current remote main for the test modules.
-It verifies existing checkouts and refuses differences or local edits rather than
-changing them; review and update those separately. `sources.lock.json` preserves
-historical evidence, used only with the explicit `--historical` replay option.
-Do not use that historical source map as current-source qualification evidence.
+## Trademarks
 
-## Current Amplifier sources
-
-The explicit standalone extra follows `main` for Core, Foundation and CLI, as do
-default Amplifier bundle/module source references. A new qualification resolves
-those branches afresh. To refresh a source development environment, run:
-
-```sh
-uv sync --inexact --no-sources --extra standalone --upgrade-package amplifier-core --upgrade-package amplifier-foundation --upgrade-package amplifier-app-cli
-```
-
-The lockfile and release receipt retain resolved commits for reproducibility and
-evidence, not a promise to keep subsequent installs at those commits. Release
-qualification exercises the installed CLI resolver, native shared-session return
-and ownership. Receipts record the installed connected protocol version so
-Unified can select the newest compatible prebuilt release. Connected clients
-still install without any execution runtime; the service owns that runtime.
+This project may contain trademarks or logos for projects, products, or services. Authorized use of Microsoft
+trademarks or logos is subject to and must follow
+[Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/legal/intellectualproperty/trademarks/usage/general).
+Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
+Any use of third-party trademarks or logos are subject to those third-party's policies.
