@@ -1,0 +1,99 @@
+{
+  "citations": [
+    {
+      "git_blob": "a0f443f1c4360a00789deafe83693dadafaa4244",
+      "path": "README.md",
+      "ref": "70995cb9b8b2d886a3cb857a29f0c0853006b732",
+      "sha256": "1b67d3453cb4b1ef4515437e710804ae375d4ea6e8cc82e3c1b3affab17b6506",
+      "url": "https://github.com/microsoft/amplifier-app-tui/blob/70995cb9b8b2d886a3cb857a29f0c0853006b732/README.md"
+    },
+    {
+      "git_blob": "f96666280db47f1f2cf1092df8df8f2e152ad750",
+      "path": "notes/CONNECTED-CLIENT.md",
+      "ref": "70995cb9b8b2d886a3cb857a29f0c0853006b732",
+      "sha256": "12a642e3461945d8f0461f755314934895105b57cfd8cc6a4599c60643dbedb7",
+      "url": "https://github.com/microsoft/amplifier-app-tui/blob/70995cb9b8b2d886a3cb857a29f0c0853006b732/notes/CONNECTED-CLIENT.md"
+    }
+  ],
+  "consumer_cta": {
+    "basis": "Existing approved README route; target release assets/availability not freshly audited in this plan.",
+    "label": "Connect from your terminal",
+    "url": "https://github.com/microsoft/amplifier-app-tui#get-started"
+  },
+  "display_name": "Amplifier TUI",
+  "edges": [
+    {
+      "from": "self",
+      "relation": "contains",
+      "to": "ui"
+    },
+    {
+      "from": "self",
+      "relation": "contains",
+      "to": "drafts"
+    },
+    {
+      "from": "self",
+      "relation": "uses",
+      "to": "host"
+    },
+    {
+      "from": "web",
+      "relation": "uses",
+      "to": "host"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "self",
+      "kind": "self",
+      "label": "Amplifier TUI",
+      "repository": "microsoft/amplifier-app-tui"
+    },
+    {
+      "id": "ui",
+      "kind": "internal",
+      "label": "Terminal conversation UI"
+    },
+    {
+      "id": "drafts",
+      "kind": "internal",
+      "label": "Private drafts & delivery records"
+    },
+    {
+      "id": "host",
+      "kind": "external",
+      "label": "Amplifier Unified",
+      "repository": "microsoft/amplifier-unified"
+    },
+    {
+      "id": "web",
+      "kind": "external",
+      "label": "Web client on same conversation",
+      "link": false,
+      "repository": "microsoft/amplifier-client-web"
+    }
+  ],
+  "notes": [
+    "This current connected-client route is distinct from amplifier-unified-client-tui.",
+    "Historical standalone wheels and source-only standalone behavior must not be confused with current connected-client releases.",
+    "Closing client does not cancel host work."
+  ],
+  "purpose": "Follow the same Amplifier work from a terminal while browser clients stay connected.",
+  "ref": "70995cb9b8b2d886a3cb857a29f0c0853006b732",
+  "repository": "microsoft/amplifier-app-tui",
+  "roles": [
+    "Experience"
+  ],
+  "scope": "current-app terminal experience",
+  "start_cta": {
+    "basis": "Existing approved README route; target release assets/availability not freshly audited in this plan.",
+    "label": "Connect from your terminal",
+    "url": "https://github.com/microsoft/amplifier-app-tui#get-started"
+  },
+  "summary": "The connected terminal client for the current Amplifier Unified application.",
+  "supports_roles": [
+    "Conversation"
+  ],
+  "visibility": "public"
+}
