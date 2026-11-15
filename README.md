@@ -49,6 +49,27 @@ voice, configuration editing and full Canvas interaction use the web client.
 - [Standalone use](docs/STANDALONE.md), without a Unified host
 - [Contributor checks](SMOKE_TESTS.md) and [working instructions](AGENTS.md)
 
+
+<!-- ecosystem-map:start -->
+## Where this fits
+
+The connected terminal client for the current Amplifier Unified application.
+
+Roles: Experience. Supports: Conversation.
+
+![Ecosystem roles and component relationships](docs/ecosystem-map.svg)
+
+[Open the map](docs/ecosystem-map.svg) · [Product overview](https://microsoft.github.io/amplifier-constellation/projects/amplifier-app-tui/) · [Map guide](https://github.com/microsoft/amplifier-constellation/blob/main/docs/ecosystem-maps.md)
+
+<details>
+<summary>The five shared building blocks</summary>
+
+[![Experience, Conversation, Agent Instance, Connection and Tool](https://raw.githubusercontent.com/microsoft/amplifier-constellation/main/site/assets/art/building-blocks.png)](https://microsoft.github.io/amplifier-constellation/)
+
+</details>
+
+<!-- ecosystem-map:end -->
+
 ## Contributing
 
 Most contributions require you to agree to a
