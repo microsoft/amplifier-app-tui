@@ -1,5 +1,7 @@
 # Amplifier TUI
 
+This codebase is yours: what it's for and how it's built are your call, and you'll keep building on it.
+
 Read docs/VISION.md, contracts/, notes/CONVERGE.md, notes/PLAN.md, notes/ENGINE-BOUNDARY.md and SMOKE_TESTS.md before changing behavior.
 Keep runtime imports in host/composition and their app-policy adapters; widgets consume identified events only.
 Independent modules may import kernel contracts, but never the host package or widgets.
