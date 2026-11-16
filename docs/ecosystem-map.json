@@ -70,7 +70,6 @@
       "id": "web",
       "kind": "external",
       "label": "Web client on same conversation",
-      "link": false,
       "repository": "microsoft/amplifier-client-web"
     }
   ],
